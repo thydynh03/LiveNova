@@ -180,6 +180,42 @@ describe('api-client', () => {
       expect(mod.getAccessToken()).toBe('account-b');
     });
 
+    it('keeps the gate closed while a second, overlapping login is still open', async () => {
+      // A boolean flag let the first login to finish reopen the gate while the
+      // second was still in flight, so a refresh could rotate the cookie between
+      // the two login responses and restore the wrong account.
+      const firstLogin = deferred<Response>();
+      const secondLogin = deferred<Response>();
+      const logins = [firstLogin, secondLogin];
+      let loginIndex = 0;
+      let refreshCalls = 0;
+
+      fetchMock.mockImplementation((input) => {
+        if (String(input).includes('/api/auth/refresh')) {
+          refreshCalls += 1;
+          return Promise.resolve(jsonResponse({ accessToken: 'sneaked-in' }));
+        }
+        return logins[loginIndex++].promise;
+      });
+
+      const a = mod.login('a@example.com', 'password123');
+      const b = mod.login('b@example.com', 'password123');
+
+      firstLogin.resolve(jsonResponse({ accessToken: 'account-a' }));
+      await a;
+
+      // Second login still open — refreshing must remain impossible.
+      await expect(mod.restoreSession()).resolves.toBeNull();
+      expect(refreshCalls).toBe(0);
+
+      secondLogin.resolve(jsonResponse({ accessToken: 'account-b' }));
+      await b;
+
+      // Both settled: refreshing is allowed again.
+      await expect(mod.restoreSession()).resolves.toBe('sneaked-in');
+      expect(refreshCalls).toBe(1);
+    });
+
     it('allows refreshes again once the login settles, even on failure', async () => {
       fetchMock.mockImplementation((input) => {
         if (String(input).includes('/api/auth/refresh')) {

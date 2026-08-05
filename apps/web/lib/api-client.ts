@@ -64,8 +64,12 @@ function cancelInFlightRefresh(): void {
  * carrying the old account's cookie, which then resolves after login and
  * reinstalls that account's token and cookie over the one just established.
  * Nothing may refresh until the login has settled.
+ *
+ * A counter, not a boolean: with overlapping logins the first one to finish
+ * would clear a flag while the second was still open, reopening the gate early
+ * and letting a refresh rotate the cookie between the two login responses.
  */
-let loginInProgress = false;
+let pendingLogins = 0;
 
 /**
  * Bumped by logout (and any future session reset).
@@ -133,7 +137,7 @@ async function requestNewAccessToken(): Promise<string | null> {
   // Refusing here is safe: the caller treats a null as "could not refresh" and
   // surfaces a 401, and during a login the user is not looking at authenticated
   // data anyway.
-  if (loginInProgress) return null;
+  if (pendingLogins > 0) return null;
 
   if (refreshInFlight) return refreshInFlight;
 
@@ -260,7 +264,7 @@ export async function login(email: string, password: string): Promise<string> {
   // session is still on the wire by the time the new cookie is written.
   sessionGeneration += 1;
   cancelInFlightRefresh();
-  loginInProgress = true;
+  pendingLogins += 1;
 
   let res: Response;
   let data: { accessToken?: string; message?: string } | null;
@@ -284,8 +288,10 @@ export async function login(email: string, password: string): Promise<string> {
     }
   } finally {
     // Anything that slipped past the gate is cancelled before it can write.
-    cancelInFlightRefresh();
-    loginInProgress = false;
+    pendingLogins -= 1;
+    // Only the last login out closes the operation; cancelling here while
+    // another is still open would be harmless, but reopening the gate would not.
+    if (pendingLogins === 0) cancelInFlightRefresh();
   }
 
   accessToken = data.accessToken;
