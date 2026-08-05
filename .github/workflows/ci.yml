@@ -62,6 +62,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Generate Prisma client
+        run: pnpm --filter @tiktok-live/server prisma:generate
+
       - name: Lint server
         run: pnpm --filter @tiktok-live/server lint
 

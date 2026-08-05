@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
+import { Prisma } from '@prisma/client';
 
 @Injectable()
 export class RuleService {
@@ -10,8 +11,8 @@ export class RuleService {
       data: {
         userId,
         name: (data.name as string) || 'New Rule',
-        conditions: (data.conditions as Record<string, unknown>) || {},
-        actions: (data.actions as Record<string, unknown>) || {},
+        conditions: (data.conditions as Prisma.InputJsonValue) || {},
+        actions: (data.actions as Prisma.InputJsonValue) || {},
         priority: (data.priority as number) || 0,
         continueMatching: (data.continueMatching as boolean) || false,
         cooldownMs: (data.cooldownMs as number) || 0,
@@ -26,10 +27,10 @@ export class RuleService {
     });
   }
 
-  async updateRule(id: string, userId: string, data: Record<string, unknown>) {
+  async updateRule(id: string, _userId: string, data: Record<string, unknown>) {
     return this.prisma.rule.update({
       where: { id },
-      data,
+      data: data as Prisma.RuleUpdateInput,
     });
   }
 

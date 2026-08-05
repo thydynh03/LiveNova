@@ -16,7 +16,6 @@
     "noImplicitAny": true,
     "strictBindCallApply": true,
     "forceConsistentCasingInFileNames": true,
-    "noFallbackResolves": true,
     "strict": true
   }
 }

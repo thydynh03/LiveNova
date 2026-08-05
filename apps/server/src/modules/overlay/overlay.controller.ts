@@ -1,7 +1,7 @@
 import { Controller, Get, Post, Param, Body, Req, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { OverlayService } from './overlay.service';
-import { OverlayType } from '@prisma/client';
+import { OverlayType, Prisma } from '@prisma/client';
 import { Request } from 'express';
 
 interface AuthenticatedRequest extends Request {
@@ -19,7 +19,7 @@ export class OverlayController {
   }
 
   @Post()
-  async createOverlay(@Req() req: AuthenticatedRequest, @Body() body: { type: OverlayType; config: Record<string, unknown> }) {
+  async createOverlay(@Req() req: AuthenticatedRequest, @Body() body: { type: OverlayType; config: Prisma.InputJsonObject }) {
     return this.overlayService.createOverlay(req.user.userId, body.type, body.config);
   }
 
