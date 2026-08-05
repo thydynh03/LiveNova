@@ -1,0 +1,173 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum ProviderType {
+  GOOGLE
+  FACEBOOK
+  LOCAL
+}
+
+enum LedgerReason {
+  PURCHASE
+  TTS_SYNTHESIS
+  DAILY_QUOTA
+  REFUND
+}
+
+enum TransactionStatus {
+  PENDING
+  SUCCESS
+  FAILED
+}
+
+enum OverlayType {
+  ALERTS
+  CHAT
+  GOAL
+}
+
+enum LiveEventType {
+  GIFT
+  CHAT
+  LIKE
+  JOIN
+  SHARE
+}
+
+model User {
+  id           String    @id @default(uuid())
+  email        String    @unique
+  displayName  String?
+  avatar       String?
+  role         Role      @default(USER)
+  locale       String    @default("en")
+  timezone     String    @default("UTC")
+  passwordHash String?
+  deletedAt    DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  identities    Identity[]
+  creditBalance CreditBalance?
+  creditLedger  CreditLedger[]
+  transactions  Transaction[]
+  rules         Rule[]
+  overlays      Overlay[]
+  liveSessions  LiveSession[]
+}
+
+model Identity {
+  id               String       @id @default(uuid())
+  userId           String
+  provider         ProviderType
+  providerUserId   String
+  accessTokenEnc   Bytes?
+  refreshTokenEnc  Bytes?
+  user             User         @relation(fields: [userId], references: [id])
+  
+  @@unique([provider, providerUserId])
+}
+
+model CreditBalance {
+  id        String   @id @default(uuid())
+  userId    String   @unique
+  balance   Int      @default(0)
+  version   BigInt   @default(0)
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id])
+}
+
+model CreditLedger {
+  id          String       @id @default(uuid())
+  userId      String
+  delta       Int
+  reason      LedgerReason
+  description String?
+  balanceAfter Int
+  createdAt   DateTime     @default(now())
+  user        User         @relation(fields: [userId], references: [id])
+}
+
+model Transaction {
+  id             String            @id @default(uuid())
+  userId         String
+  idempotencyKey String            @unique
+  amountMinor    BigInt
+  creditAmount   Int
+  status         TransactionStatus @default(PENDING)
+  provider       String
+  createdAt      DateTime          @default(now())
+  user           User              @relation(fields: [userId], references: [id])
+}
+
+model Rule {
+  id               String   @id @default(uuid())
+  userId           String
+  name             String
+  enabled          Boolean  @default(true)
+  priority         Int      @default(0)
+  conditions       Json
+  actions          Json
+  continueMatching Boolean  @default(false)
+  cooldownMs       Int      @default(0)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  user             User     @relation(fields: [userId], references: [id])
+}
+
+model Overlay {
+  id          String      @id @default(uuid())
+  userId      String
+  type        OverlayType
+  publicToken String      @unique @default(uuid())
+  config      Json
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  user        User        @relation(fields: [userId], references: [id])
+}
+
+model LiveSession {
+  id            String      @id @default(uuid())
+  userId        String
+  channelId     String
+  startedAt     DateTime    @default(now())
+  endedAt       DateTime?
+  totalViewers  Int         @default(0)
+  totalCoins    Int         @default(0)
+  totalComments Int         @default(0)
+  user          User        @relation(fields: [userId], references: [id])
+  events        LiveEvent[]
+}
+
+model LiveEvent {
+  id                String        @id @default(uuid())
+  sessionId         String
+  type              LiveEventType
+  senderUsername    String
+  senderDisplayName String
+  content           String?
+  giftName          String?
+  giftCoinValue     Int?
+  occurredAt        DateTime      @default(now())
+  indexed           Boolean       @default(false)
+  session           LiveSession   @relation(fields: [sessionId], references: [id])
+}
+
+model TtsCache {
+  cacheKey   String   @id
+  audioUrl   String
+  hitCount   Int      @default(0)
+  createdAt  DateTime @default(now())
+  lastHitAt  DateTime @default(now())
+}
