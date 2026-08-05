@@ -88,8 +88,14 @@ services:
       - server
     environment:
       NODE_ENV: development
+      # Browser-facing: resolved on the host, so localhost is correct here.
       NEXT_PUBLIC_API_URL: http://localhost:4001
       NEXT_PUBLIC_WS_URL: ws://localhost:4001
+      # Server-facing: the BFF auth routes run *inside* this container, where
+      # localhost is the web container itself, not the API. Must use the
+      # compose service name.
+      SERVER_API_URL: http://server:4001
+      NEXT_PUBLIC_SITE_URL: http://localhost:3000
     ports:
       - '3000:3000'
     volumes:

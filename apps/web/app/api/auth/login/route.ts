@@ -1,7 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { REFRESH_COOKIE, refreshCookieOptions, apiBaseUrl } from '../../../../lib/auth-cookie';
+import {
+  REFRESH_COOKIE,
+  refreshCookieOptions,
+  maxAgeFromExpiry,
+  apiBaseUrl,
+  isSameOrigin,
+} from '../../../../lib/auth-cookie';
 
-const THIRTY_DAYS_SECONDS = 30 * 24 * 60 * 60;
+interface AuthPayload {
+  accessToken?: string;
+  refreshToken?: string;
+  expiresAt?: string;
+  message?: string;
+}
+
+/** `res.json()` yields `null` for a literal `null` body; normalise it away. */
+async function readJson(res: Response): Promise<AuthPayload> {
+  const parsed = (await res.json().catch(() => null)) as AuthPayload | null;
+  return parsed ?? {};
+}
 
 /**
  * POST /api/auth/login
@@ -11,6 +28,10 @@ const THIRTY_DAYS_SECONDS = 30 * 24 * 60 * 60;
  * access token reaches client JavaScript.
  */
 export async function POST(request: NextRequest) {
+  if (!isSameOrigin(request)) {
+    return NextResponse.json({ message: 'Yêu cầu không hợp lệ' }, { status: 403 });
+  }
+
   let body: unknown;
   try {
     body = await request.json();
@@ -33,12 +54,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const data = (await upstream.json().catch(() => ({}))) as {
-    accessToken?: string;
-    refreshToken?: string;
-    expiresAt?: string;
-    message?: string;
-  };
+  const data = await readJson(upstream);
 
   if (!upstream.ok) {
     // Pass the upstream status through, but never the upstream body verbatim —
@@ -61,7 +77,7 @@ export async function POST(request: NextRequest) {
   response.cookies.set(
     REFRESH_COOKIE,
     data.refreshToken,
-    refreshCookieOptions(THIRTY_DAYS_SECONDS),
+    refreshCookieOptions(maxAgeFromExpiry(data.expiresAt)),
   );
 
   return response;

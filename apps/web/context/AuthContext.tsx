@@ -32,6 +32,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const mounted = useRef(true);
 
+  /**
+   * Bumped by any deliberate auth action (sign-in, sign-out).
+   *
+   * The mount-time session restore is asynchronous. If the user signs in while
+   * it is still running, the restore resolving afterwards would otherwise mark
+   * them anonymous and overwrite the brand-new token with the old session's.
+   */
+  const authGeneration = useRef(0);
+
   useEffect(() => {
     mounted.current = true;
     return () => {
@@ -39,28 +48,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  // The access token is memory-only, so every page load starts anonymous and
-  // silently re-mints one from the httpOnly refresh cookie.
   useEffect(() => {
-    let cancelled = false;
+    const generation = authGeneration.current;
 
     restoreSession()
       .then((token) => {
-        if (cancelled) return;
+        if (!mounted.current || generation !== authGeneration.current) return;
         setStatus(token ? 'authenticated' : 'anonymous');
       })
       .catch(() => {
-        if (!cancelled) setStatus('anonymous');
+        if (!mounted.current || generation !== authGeneration.current) return;
+        setStatus('anonymous');
       });
-
-    return () => {
-      cancelled = true;
-    };
   }, []);
 
   // A 401 that survives a refresh means the session is gone for good.
   useEffect(() => {
     setUnauthenticatedHandler(() => {
+      authGeneration.current += 1;
       setAccessToken(null);
       if (mounted.current) setStatus('anonymous');
     });
@@ -68,13 +73,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const signIn = useCallback(async (email: string, password: string) => {
+    authGeneration.current += 1;
     await apiLogin(email, password);
-    setStatus('authenticated');
+    if (mounted.current) setStatus('authenticated');
   }, []);
 
   const signOut = useCallback(async () => {
+    authGeneration.current += 1;
     await apiLogout();
-    setStatus('anonymous');
+    if (mounted.current) setStatus('anonymous');
     router.push('/login');
   }, [router]);
 

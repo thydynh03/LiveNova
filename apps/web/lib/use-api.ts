@@ -35,13 +35,20 @@ export function useApi<T>(path: string | null): UseApiResult<T> {
   const reload = useCallback(() => setNonce((n) => n + 1), []);
 
   useEffect(() => {
+    // Invalidate any in-flight request first, in every branch. Bumping the id
+    // only on the fetch path meant a slow response from the previous path could
+    // still match the current id and overwrite data that had just been cleared —
+    // and an unmount left it valid entirely, so the response would setState on a
+    // dead component.
+    const id = ++requestId.current;
+
     if (!path) {
       setData(null);
+      setError(null);
       setLoading(false);
       return;
     }
 
-    const id = ++requestId.current;
     setLoading(true);
     setError(null);
 
@@ -61,6 +68,11 @@ export function useApi<T>(path: string | null): UseApiResult<T> {
       .finally(() => {
         if (id === requestId.current) setLoading(false);
       });
+
+    return () => {
+      // Unmount or a change of path: nothing still running may write state.
+      requestId.current += 1;
+    };
   }, [path, nonce]);
 
   return { data, loading, error, reload };

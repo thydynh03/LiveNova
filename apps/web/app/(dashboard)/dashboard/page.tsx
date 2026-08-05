@@ -122,9 +122,14 @@ export default function DashboardPage() {
 
       {!rules.loading && !rules.error && (rules.data?.length ?? 0) === 0 && (
         <Card>
+          {/*
+            The CTA says "xem" rather than "tạo": there is no rule-creation UI
+            yet (Dev A, F01). Sending the user to a page that cannot do what the
+            button promised is worse than not offering the button.
+          */}
           <EmptyState
             title="Chưa có luật nào"
-            description="Tạo luật đầu tiên để quà tặng kích hoạt video, ảnh hoặc giọng đọc trên sóng."
+            description="Luật là thứ biến quà tặng thành video, ảnh hoặc giọng đọc trên sóng. Giao diện tạo luật đang được phát triển."
             action={
               <Link
                 href="/rules"
@@ -140,7 +145,7 @@ export default function DashboardPage() {
                   fontWeight: 600,
                 }}
               >
-                Tạo luật
+                Xem trang luật
               </Link>
             }
           />

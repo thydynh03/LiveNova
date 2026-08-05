@@ -72,7 +72,7 @@ function LoginForm() {
           Quản lý luật quà tặng, overlay và giọng đọc cho buổi livestream.
         </p>
 
-        <form onSubmit={handleSubmit} noValidate>
+        <form onSubmit={handleSubmit}>
           <label htmlFor="email" style={{ display: 'block', marginBottom: '0.35rem', fontWeight: 500 }}>
             Email
           </label>

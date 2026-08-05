@@ -14,6 +14,9 @@ import 'server-only';
  */
 export const REFRESH_COOKIE = 'ln_rt';
 
+/** Fallback lifetime when the API does not report one. */
+export const DEFAULT_REFRESH_MAX_AGE = 30 * 24 * 60 * 60;
+
 export function refreshCookieOptions(maxAgeSeconds: number) {
   return {
     httpOnly: true,
@@ -24,11 +27,69 @@ export function refreshCookieOptions(maxAgeSeconds: number) {
   };
 }
 
-/** Base URL of the NestJS API as seen from the Next server (not the browser). */
+/**
+ * Cookie lifetime derived from the API's own expiry, so the browser and the
+ * server stop trusting the session at the same moment. A hard-coded 30 days
+ * would outlive a shorter server-side TTL and leave the user holding a cookie
+ * that no longer works.
+ */
+export function maxAgeFromExpiry(expiresAt: string | undefined): number {
+  if (!expiresAt) return DEFAULT_REFRESH_MAX_AGE;
+
+  const expiry = Date.parse(expiresAt);
+  if (Number.isNaN(expiry)) return DEFAULT_REFRESH_MAX_AGE;
+
+  const seconds = Math.floor((expiry - Date.now()) / 1000);
+  // Reject nonsense (already expired, or absurdly far out) rather than trusting
+  // it: this value comes off the wire.
+  if (seconds <= 0) return 0;
+  return Math.min(seconds, DEFAULT_REFRESH_MAX_AGE * 12);
+}
+
+/**
+ * Base URL of the NestJS API as seen from the Next.js server.
+ *
+ * This must NOT fall back to NEXT_PUBLIC_API_URL. That variable holds the URL
+ * the *browser* uses; inside a container `localhost:4001` is the web container
+ * itself, not the API. Docker Compose sets SERVER_API_URL to the service name.
+ */
 export function apiBaseUrl(): string {
-  return (
-    process.env.SERVER_API_URL ??
-    process.env.NEXT_PUBLIC_API_URL ??
-    'http://localhost:4001'
-  );
+  const explicit = process.env.SERVER_API_URL;
+  if (explicit) return explicit;
+
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error(
+      '[auth] SERVER_API_URL is required in production — it is the internal ' +
+        'address of the API, which is not the same as NEXT_PUBLIC_API_URL.',
+    );
+  }
+
+  return 'http://localhost:4001';
+}
+
+/**
+ * Login CSRF guard.
+ *
+ * Without this, a cross-site form post can drive /api/auth/login with
+ * attacker-controlled credentials and plant a refresh cookie, so the victim
+ * silently ends up in the attacker's account. SameSite=Lax does not help: it
+ * permits top-level cross-site POSTs from a form submission.
+ */
+export function isSameOrigin(request: Request): boolean {
+  const origin = request.headers.get('origin');
+
+  // A same-origin fetch always sends Origin. A missing one means the request did
+  // not come from our page.
+  if (!origin) return false;
+
+  const allowed = new Set<string>();
+  const host = request.headers.get('host');
+  if (host) {
+    allowed.add(`https://${host}`);
+    if (process.env.NODE_ENV !== 'production') allowed.add(`http://${host}`);
+  }
+  const configured = process.env.NEXT_PUBLIC_SITE_URL;
+  if (configured) allowed.add(configured.replace(/\/$/, ''));
+
+  return allowed.has(origin.replace(/\/$/, ''));
 }

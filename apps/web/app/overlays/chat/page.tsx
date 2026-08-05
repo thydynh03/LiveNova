@@ -25,6 +25,18 @@ function ChatOverlay() {
     document.documentElement.style.backgroundColor = 'transparent';
   }, []);
 
+  /**
+   * NOTE — this renderer is complete, but it will stay empty until the server
+   * dispatches chatbox actions.
+   *
+   * Raw comments travel on the authenticated `/events` namespace as
+   * `live_event`. An OBS Browser Source has no session and cannot subscribe
+   * there, so the only channel it can use is `/overlay`, which carries
+   * rule-produced actions. Showing every comment therefore needs a CHATBOX
+   * action handler plus a matching rule — that is feature F04, and it is not in
+   * this change. Wiring the transport now means F04 is renderer-complete on day
+   * one, but do not expect messages to appear before then.
+   */
   const handleAction = useCallback((action: OverlayAction) => {
     const { event } = action;
     // A chatbox only renders things a viewer said; gifts and follows belong to
@@ -45,6 +57,20 @@ function ChatOverlay() {
   }, []);
 
   const { status, rejectionCode } = useOverlaySocket(token, { onAction: handleAction });
+
+  // Explicit mapping, so a state with nothing useful to say (idle, connected)
+  // renders no banner at all rather than an empty box.
+  const statusMessage = !token
+    ? 'Thiếu ?token= trong URL overlay'
+    : status === 'connecting'
+      ? 'Đang kết nối…'
+      : status === 'reconnecting'
+        ? 'Mất kết nối — đang thử lại…'
+        : status === 'rejected'
+          ? `Token không hợp lệ (${rejectionCode ?? 'unknown'})`
+          : status === 'error'
+            ? 'Lỗi kết nối'
+            : null;
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -75,11 +101,12 @@ function ChatOverlay() {
       `}</style>
 
       {/*
-        Status is only drawn while something is wrong. A healthy overlay must
-        render nothing but messages — any decoration would be burned into the
-        broadcast.
+        Status is only drawn while something is wrong, and only when there is
+        actually a message to show. Rendering the box for every non-connected
+        state flashed an empty dark rectangle on first paint (status starts as
+        'idle') — which OBS would burn straight into the broadcast.
       */}
-      {status !== 'connected' && (
+      {statusMessage && (
         <div
           style={{
             marginBottom: '0.75rem',
@@ -92,10 +119,7 @@ function ChatOverlay() {
             width: 'fit-content',
           }}
         >
-          {!token && 'Thiếu ?token= trong URL overlay'}
-          {token && status === 'connecting' && 'Đang kết nối…'}
-          {token && status === 'reconnecting' && 'Mất kết nối — đang thử lại…'}
-          {token && status === 'rejected' && `Token không hợp lệ (${rejectionCode ?? 'unknown'})`}
+          {statusMessage}
         </div>
       )}
 

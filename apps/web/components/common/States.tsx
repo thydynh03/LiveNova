@@ -21,25 +21,56 @@ const box: React.CSSProperties = {
   color: 'hsl(var(--muted-foreground))',
 };
 
-export function LoadingState({ label = 'Đang tải…' }: { label?: string }) {
+export function LoadingState({
+  label = 'Đang tải…',
+  /** Set false to hide the text while keeping it available to screen readers. */
+  showLabel = true,
+}: {
+  label?: string;
+  showLabel?: boolean;
+}) {
+  // Compact call sites used to pass label="" to hide the text, which also
+  // stripped the accessible name and left the status silent to screen readers.
+  const accessibleLabel = label.trim() === '' ? 'Đang tải…' : label;
+
   return (
-    <div style={box} role="status" aria-live="polite">
-      <div
-        aria-hidden="true"
-        style={{
-          width: '28px',
-          height: '28px',
-          borderRadius: '50%',
-          border: '3px solid hsl(var(--border))',
-          borderTopColor: 'hsl(var(--primary))',
-          animation: 'ln-spin 0.8s linear infinite',
-        }}
-      />
-      <span>{label}</span>
-      <style>{`@keyframes ln-spin { to { transform: rotate(360deg); } }
+    <div style={box} role="status" aria-live="polite" aria-busy="true">
+      {/*
+        The animation lives in a class, not an inline style: an inline
+        `animation` wins over any stylesheet rule, so a prefers-reduced-motion
+        media query could never switch it off.
+      */}
+      <span className="ln-spinner" aria-hidden="true" />
+
+      {showLabel && label.trim() !== '' ? (
+        <span>{label}</span>
+      ) : (
+        <span className="ln-visually-hidden">{accessibleLabel}</span>
+      )}
+
+      <style>{`
+        .ln-spinner {
+          width: 28px;
+          height: 28px;
+          border-radius: 50%;
+          border: 3px solid hsl(var(--border));
+          border-top-color: hsl(var(--primary));
+          animation: ln-spin 0.8s linear infinite;
+        }
+        @keyframes ln-spin { to { transform: rotate(360deg); } }
+        .ln-visually-hidden {
+          position: absolute;
+          width: 1px; height: 1px;
+          padding: 0; margin: -1px;
+          overflow: hidden;
+          clip: rect(0 0 0 0);
+          white-space: nowrap;
+          border: 0;
+        }
         @media (prefers-reduced-motion: reduce) {
-          [role="status"] > div { animation-duration: 3s; }
-        }`}</style>
+          .ln-spinner { animation: none; opacity: 0.6; }
+        }
+      `}</style>
     </div>
   );
 }
