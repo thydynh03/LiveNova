@@ -1,0 +1,291 @@
+/**
+ * Regression tests for the auth races cubic found.
+ *
+ * Each of these failed before the fix in 943fc30; they exist so the same class
+ * of bug cannot come back silently.
+ */
+
+const originalFetch = global.fetch;
+
+type FetchMock = jest.Mock<Promise<Response>, [RequestInfo | URL, RequestInit?]>;
+
+function jsonResponse(body: unknown, status = 200): Response {
+  return {
+    ok: status >= 200 && status < 300,
+    status,
+    json: async () => body,
+  } as Response;
+}
+
+/** Resolves only when released, so a request can be held mid-flight. */
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((r) => {
+    resolve = r;
+  });
+  return { promise, resolve };
+}
+
+describe('api-client', () => {
+  let fetchMock: FetchMock;
+  let mod: typeof import('./api-client');
+
+  beforeEach(async () => {
+    jest.resetModules();
+    fetchMock = jest.fn() as FetchMock;
+    global.fetch = fetchMock as unknown as typeof fetch;
+    // A fresh module instance per test: the access token and the session
+    // generation live in module scope, so a shared instance would leak state
+    // between cases and make the race tests meaningless.
+    mod = await import('./api-client');
+  });
+
+  afterAll(() => {
+    global.fetch = originalFetch;
+  });
+
+  describe('refresh failure handling', () => {
+    it('ends the session when the refresh token is rejected', async () => {
+      const onUnauth = jest.fn();
+      mod.setUnauthenticatedHandler(onUnauth);
+      fetchMock.mockResolvedValue(jsonResponse({ message: 'expired' }, 401));
+
+      await mod.restoreSession();
+
+      expect(onUnauth).toHaveBeenCalledTimes(1);
+      expect(mod.getAccessToken()).toBeNull();
+    });
+
+    it('does NOT end the session when the API is merely unavailable', async () => {
+      // A 503 used to sign every logged-in user out during a brief outage.
+      const onUnauth = jest.fn();
+      mod.setUnauthenticatedHandler(onUnauth);
+      fetchMock.mockResolvedValue(jsonResponse({ message: 'down' }, 503));
+
+      await mod.restoreSession();
+
+      expect(onUnauth).not.toHaveBeenCalled();
+    });
+
+    it('does NOT end the session when the network throws', async () => {
+      const onUnauth = jest.fn();
+      mod.setUnauthenticatedHandler(onUnauth);
+      fetchMock.mockRejectedValue(new TypeError('Failed to fetch'));
+
+      await mod.restoreSession();
+
+      expect(onUnauth).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('concurrency', () => {
+    it('collapses simultaneous refreshes into one upstream call', async () => {
+      // Two refreshes would replay the same token and trip the API's reuse
+      // detection, revoking the whole session family.
+      const gate = deferred<Response>();
+      fetchMock.mockReturnValue(gate.promise);
+
+      const a = mod.restoreSession();
+      const b = mod.restoreSession();
+
+      gate.resolve(jsonResponse({ accessToken: 'fresh' }));
+      await Promise.all([a, b]);
+
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+
+    it('aborts the in-flight refresh on logout', async () => {
+      // Forgetting the promise is not enough: /api/auth/refresh rewrites the
+      // httpOnly cookie server-side, so a late response would still apply its
+      // Set-Cookie. Only an abort stops that.
+      const gate = deferred<Response>();
+      let refreshSignal: AbortSignal | undefined;
+
+      fetchMock.mockImplementation((input, init) => {
+        if (String(input).includes('/api/auth/refresh')) {
+          refreshSignal = init?.signal ?? undefined;
+          return gate.promise;
+        }
+        return Promise.resolve(jsonResponse({ success: true }));
+      });
+
+      const refreshing = mod.restoreSession();
+      expect(refreshSignal?.aborted).toBe(false);
+
+      await mod.logout();
+
+      expect(refreshSignal?.aborted).toBe(true);
+
+      gate.resolve(jsonResponse({ accessToken: 'stale' }));
+      await refreshing;
+      expect(mod.getAccessToken()).toBeNull();
+    });
+
+    it('aborts the previous refresh BEFORE sending the login request', async () => {
+      // Ordering is the whole fix. Aborting after login returned left a window
+      // in which the old refresh could land between the new cookie being set
+      // and the abort firing — pairing account B's access token with account
+      // A's refresh cookie, so the next refresh minted a token for A.
+      const gate = deferred<Response>();
+      let refreshSignal: AbortSignal | undefined;
+      let abortedWhenLoginSent: boolean | undefined;
+
+      fetchMock.mockImplementation((input, init) => {
+        if (String(input).includes('/api/auth/refresh')) {
+          refreshSignal = init?.signal ?? undefined;
+          return gate.promise;
+        }
+        // Captured at the moment the login request is issued.
+        abortedWhenLoginSent = refreshSignal?.aborted;
+        return Promise.resolve(jsonResponse({ accessToken: 'account-b' }));
+      });
+
+      const refreshing = mod.restoreSession();
+      await mod.login('b@example.com', 'password123');
+
+      expect(abortedWhenLoginSent).toBe(true);
+      expect(refreshSignal?.aborted).toBe(true);
+
+      // Account A's refresh resolving late must not displace account B.
+      gate.resolve(jsonResponse({ accessToken: 'account-a' }));
+      await refreshing;
+      expect(mod.getAccessToken()).toBe('account-b');
+    });
+
+    it('refuses to start a new refresh while a login is in flight', async () => {
+      // Cancelling the refresh that existed at login start is not enough: a
+      // call that 401s *during* login would open a fresh one carrying the old
+      // account's cookie, which then lands after login and reinstalls that
+      // account.
+      const loginGate = deferred<Response>();
+      let refreshCalls = 0;
+
+      fetchMock.mockImplementation((input) => {
+        if (String(input).includes('/api/auth/refresh')) {
+          refreshCalls += 1;
+          return Promise.resolve(jsonResponse({ accessToken: 'account-a' }));
+        }
+        return loginGate.promise;
+      });
+
+      const loggingIn = mod.login('b@example.com', 'password123');
+
+      // Something tries to refresh while the login is still open.
+      await expect(mod.restoreSession()).resolves.toBeNull();
+      expect(refreshCalls).toBe(0);
+
+      loginGate.resolve(jsonResponse({ accessToken: 'account-b' }));
+      await loggingIn;
+
+      expect(mod.getAccessToken()).toBe('account-b');
+    });
+
+    it('keeps the gate closed while a second, overlapping login is still open', async () => {
+      // A boolean flag let the first login to finish reopen the gate while the
+      // second was still in flight, so a refresh could rotate the cookie between
+      // the two login responses and restore the wrong account.
+      const firstLogin = deferred<Response>();
+      const secondLogin = deferred<Response>();
+      const logins = [firstLogin, secondLogin];
+      let loginIndex = 0;
+      let refreshCalls = 0;
+
+      fetchMock.mockImplementation((input) => {
+        if (String(input).includes('/api/auth/refresh')) {
+          refreshCalls += 1;
+          return Promise.resolve(jsonResponse({ accessToken: 'sneaked-in' }));
+        }
+        return logins[loginIndex++].promise;
+      });
+
+      const a = mod.login('a@example.com', 'password123');
+      const b = mod.login('b@example.com', 'password123');
+
+      firstLogin.resolve(jsonResponse({ accessToken: 'account-a' }));
+      await a;
+
+      // Second login still open — refreshing must remain impossible.
+      await expect(mod.restoreSession()).resolves.toBeNull();
+      expect(refreshCalls).toBe(0);
+
+      secondLogin.resolve(jsonResponse({ accessToken: 'account-b' }));
+      await b;
+
+      // Both settled: refreshing is allowed again.
+      await expect(mod.restoreSession()).resolves.toBe('sneaked-in');
+      expect(refreshCalls).toBe(1);
+    });
+
+    it('allows refreshes again once the login settles, even on failure', async () => {
+      fetchMock.mockImplementation((input) => {
+        if (String(input).includes('/api/auth/refresh')) {
+          return Promise.resolve(jsonResponse({ accessToken: 'restored' }));
+        }
+        return Promise.resolve(jsonResponse({ message: 'Sai mật khẩu' }, 401));
+      });
+
+      await expect(mod.login('a@b.c', 'wrong-password')).rejects.toThrow();
+
+      // The gate must not stay closed after a rejected login.
+      await expect(mod.restoreSession()).resolves.toBe('restored');
+    });
+
+    it('a refresh resolving after logout does not resurrect the session', async () => {
+      const gate = deferred<Response>();
+      fetchMock.mockImplementation((input) => {
+        if (String(input).includes('/api/auth/refresh')) return gate.promise;
+        return Promise.resolve(jsonResponse({ success: true }));
+      });
+
+      const refreshing = mod.restoreSession();
+      await mod.logout();
+
+      gate.resolve(jsonResponse({ accessToken: 'stale-but-valid' }));
+      await refreshing;
+
+      // The token was valid; it is simply no longer wanted.
+      expect(mod.getAccessToken()).toBeNull();
+    });
+  });
+
+  describe('login', () => {
+    it('stores the access token and bumps the session generation', async () => {
+      const before = mod.currentSessionGeneration();
+      fetchMock.mockResolvedValue(jsonResponse({ accessToken: 'tok' }));
+
+      await mod.login('a@b.c', 'password123');
+
+      expect(mod.getAccessToken()).toBe('tok');
+      expect(mod.currentSessionGeneration()).toBeGreaterThan(before);
+    });
+
+    it('surfaces the upstream message on failure', async () => {
+      fetchMock.mockResolvedValue(jsonResponse({ message: 'Sai mật khẩu' }, 401));
+
+      await expect(mod.login('a@b.c', 'nope')).rejects.toThrow('Sai mật khẩu');
+      expect(mod.getAccessToken()).toBeNull();
+    });
+
+    it('reports a network failure distinctly', async () => {
+      fetchMock.mockRejectedValue(new TypeError('Failed to fetch'));
+
+      await expect(mod.login('a@b.c', 'password123')).rejects.toBeInstanceOf(
+        mod.NetworkError,
+      );
+    });
+
+    it('tolerates a literal null JSON body', async () => {
+      // `res.json()` yields null for a `null` body, which used to throw while
+      // reading .accessToken and surface as an unhandled 500.
+      fetchMock.mockResolvedValue({
+        ok: false,
+        status: 502,
+        json: async () => null,
+      } as Response);
+
+      await expect(mod.login('a@b.c', 'password123')).rejects.toBeInstanceOf(
+        mod.ApiError,
+      );
+    });
+  });
+});

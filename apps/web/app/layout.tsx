@@ -1,25 +1,20 @@
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import { ThemeProvider } from '../context/ThemeContext';
+import { AuthProvider } from '../context/AuthContext';
 import './globals.css';
 
 const inter = Inter({ subsets: ['latin', 'vietnamese'], variable: '--font-inter' });
 
 export const metadata: Metadata = {
-  title: 'TikTok LIVE Auto - Premium Automation Platform',
-  description: 'Automate your TikTok LIVE streams with TTS, interactive overlays, and advanced rules.',
+  title: 'LiveNova — Tự động hoá livestream TikTok',
+  description:
+    'Đọc bình luận bằng giọng nói, hiệu ứng quà tặng và overlay tương tác cho streamer TikTok LIVE.',
   openGraph: {
-    title: 'TikTok LIVE Auto',
-    description: 'Automate your TikTok LIVE streams with TTS, interactive overlays, and advanced rules.',
-    url: 'https://tiktokliveauto.com',
-    siteName: 'TikTok LIVE Auto',
-    images: [
-      {
-        url: 'https://tiktokliveauto.com/og.jpg',
-        width: 1200,
-        height: 630,
-      }
-    ],
+    title: 'LiveNova',
+    description:
+      'Đọc bình luận bằng giọng nói, hiệu ứng quà tặng và overlay tương tác cho streamer TikTok LIVE.',
+    siteName: 'LiveNova',
     locale: 'vi_VN',
     type: 'website',
   },
@@ -34,7 +29,7 @@ export default function RootLayout({
     <html lang="vi" suppressHydrationWarning>
       <body className={inter.className}>
         <ThemeProvider>
-          {children}
+          <AuthProvider>{children}</AuthProvider>
         </ThemeProvider>
       </body>
     </html>

@@ -5,10 +5,22 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { ThemeToggle } from './ThemeToggle';
 import { getNavItems } from '../../config/nav';
+import { useAuth } from '../../context/AuthContext';
 
 export function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
   const pathname = usePathname();
+  const { status, signOut } = useAuth();
+
+  async function handleSignOut() {
+    setSigningOut(true);
+    try {
+      await signOut();
+    } finally {
+      setSigningOut(false);
+    }
+  }
 
   // Links come from the registry — adding a feature never edits this file.
   const items = getNavItems();
@@ -61,22 +73,31 @@ export function Navbar() {
 
           <ThemeToggle />
 
-          <div
-            style={{
-              width: '40px',
-              height: '40px',
-              borderRadius: '50%',
-              background: 'hsl(var(--primary))',
-              color: 'hsl(var(--primary-foreground))',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontWeight: 'bold',
-              cursor: 'pointer',
-            }}
-          >
-            U
-          </div>
+          {/*
+            This used to be a decorative <div> with a "U" in it, so the only way
+            out of an authenticated session was clearing cookies by hand — the
+            logout route was unreachable from the product.
+          */}
+          {status === 'authenticated' && (
+            <button
+              type="button"
+              onClick={handleSignOut}
+              disabled={signingOut}
+              style={{
+                minHeight: '44px',
+                padding: '0.5rem 1rem',
+                borderRadius: 'var(--radius)',
+                border: '1px solid hsl(var(--border))',
+                background: 'hsl(var(--card))',
+                color: 'hsl(var(--foreground))',
+                fontWeight: 500,
+                cursor: signingOut ? 'not-allowed' : 'pointer',
+                opacity: signingOut ? 0.6 : 1,
+              }}
+            >
+              {signingOut ? 'Đang thoát…' : 'Đăng xuất'}
+            </button>
+          )}
 
           <button
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}

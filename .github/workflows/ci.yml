@@ -121,6 +121,9 @@ jobs:
       - name: Type-check web
         run: pnpm --filter @livenova/web exec tsc --noEmit
 
+      - name: Test web
+        run: pnpm --filter @livenova/web test
+
       - name: Build web (SSG/SSR)
         run: pnpm --filter @livenova/web build
         env:

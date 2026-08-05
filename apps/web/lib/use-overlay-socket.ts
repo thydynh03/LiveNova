@@ -4,13 +4,17 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { OVERLAY_SOCKET, OverlayAction, OverlayType } from '@livenova/shared';
 
+/**
+ * `error` was in this union but nothing ever set it, so every consumer carried a
+ * dead branch. Transport failures surface as `reconnecting` (recoverable) and a
+ * refused token as `rejected` (terminal) — those two cover every real outcome.
+ */
 export type OverlayConnectionStatus =
   | 'idle'
   | 'connecting'
   | 'connected'
   | 'reconnecting'
-  | 'rejected'
-  | 'error';
+  | 'rejected';
 
 export interface OverlayReadyInfo {
   overlayId: string;
