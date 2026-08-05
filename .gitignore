@@ -6,4 +6,19 @@ build/
 .DS_Store
 .env
 .env.local
-target/
+
+# Wails desktop app — `build/` above is ignored everywhere, but the desktop
+# app's build/ holds packaging *sources* (icons, manifest, NSIS script), not
+# artifacts. Re-include it, then drop only what the build actually produces.
+!apps/desktop-app/build/
+apps/desktop-app/build/bin/
+apps/desktop-app/build/windows/installer/tmp/
+# Wails writes this to detect frontend dependency changes between builds.
+apps/desktop-app/frontend/package.json.md5
+
+# TypeScript / Next.js build artifacts
+*.tsbuildinfo
+next-env.d.ts
+
+# Test output
+coverage/

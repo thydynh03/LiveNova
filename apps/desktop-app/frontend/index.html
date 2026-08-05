@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!--
+      Ported from the Tauri config's `app.security.csp`. H-03 — the WebView can
+      call SimulateKeyPress, so an XSS here reaches the keyboard; the CSP is
+      what stops injected script from being the thing that calls it.
+      `ipc:`/`http://ipc.localhost` were Tauri's transport and are dropped;
+      Wails serves the runtime from the same origin, so 'self' covers it.
+    -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self' ws://127.0.0.1:4000 http://localhost:4001; object-src 'none'; base-uri 'self'; frame-ancestors 'none'"
+    />
+    <title>LiveNova Desktop</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

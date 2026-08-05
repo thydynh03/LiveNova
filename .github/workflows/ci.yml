@@ -35,16 +35,19 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Build shared package
-        run: pnpm --filter @tiktok-live/shared build
+        run: pnpm --filter @livenova/shared build
 
       - name: Lint shared package
-        run: pnpm --filter @tiktok-live/shared lint
+        run: pnpm --filter @livenova/shared lint
+
+      - name: Test shared package
+        run: pnpm --filter @livenova/shared test
 
   # ─────────────────────────────────────────
-  # NestJS Backend — Build, Lint, Type-check
+  # NestJS Backend — Build, Lint, Type-check, Test
   # ─────────────────────────────────────────
   server:
-    name: NestJS Server — Build & Lint
+    name: NestJS Server — Build, Lint & Test
     runs-on: ubuntu-latest
     needs: shared
     steps:
@@ -63,19 +66,29 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Build shared package
-        run: pnpm --filter @tiktok-live/shared build
+        run: pnpm --filter @livenova/shared build
 
       - name: Generate Prisma client
-        run: pnpm --filter @tiktok-live/server prisma:generate
+        run: pnpm --filter @livenova/server prisma:generate
 
       - name: Lint server
-        run: pnpm --filter @tiktok-live/server lint
+        run: pnpm --filter @livenova/server lint
 
       - name: Type-check server
-        run: pnpm --filter @tiktok-live/server exec tsc --noEmit
+        run: pnpm --filter @livenova/server exec tsc --noEmit
 
       - name: Build server
-        run: pnpm --filter @tiktok-live/server build
+        run: pnpm --filter @livenova/server build
+
+      # NFR-23 — the credit and TTS metering paths carry the money; a red test
+      # here must block the merge.
+      - name: Test server
+        run: pnpm --filter @livenova/server test
+        env:
+          NODE_ENV: test
+          JWT_SECRET: ci-jwt-secret-value-that-is-long-enough-32
+          JWT_REFRESH_SECRET: ci-refresh-secret-value-that-differs-32
+          CORS_ORIGIN: http://localhost:3000
 
   # ─────────────────────────────────────────
   # Next.js Web — Build, Lint, Type-check
@@ -100,16 +113,16 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Build shared package
-        run: pnpm --filter @tiktok-live/shared build
+        run: pnpm --filter @livenova/shared build
 
       - name: Lint web
-        run: pnpm --filter @tiktok-live/web lint
+        run: pnpm --filter @livenova/web lint
 
       - name: Type-check web
-        run: pnpm --filter @tiktok-live/web exec tsc --noEmit
+        run: pnpm --filter @livenova/web exec tsc --noEmit
 
       - name: Build web (SSG/SSR)
-        run: pnpm --filter @tiktok-live/web build
+        run: pnpm --filter @livenova/web build
         env:
           # Disable telemetry in CI
           NEXT_TELEMETRY_DISABLED: 1
@@ -118,66 +131,105 @@ jobs:
           NEXT_PUBLIC_WS_URL: ws://localhost:4001
 
   # ─────────────────────────────────────────
-  # Rust Desktop App — cargo check & clippy
+  # Go Desktop App (Wails) — vet, test & build
   # Runs on Windows (shipping platform) — mirrors Agent Center pattern
   # of running native targets on the shipping OS
   # ─────────────────────────────────────────
   desktop-windows:
-    name: Rust Desktop — cargo check (Windows)
+    name: Go Desktop — vet, test & build (Windows)
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Rust stable
-        uses: dtolnay/rust-toolchain@stable
+      - uses: actions/setup-go@v5
         with:
-          components: clippy, rustfmt
+          go-version: '1.25'
+          cache-dependency-path: apps/desktop-app/go.sum
 
-      - name: Cache Rust build artifacts
-        uses: Swatinem/rust-cache@v2
+      - uses: pnpm/action-setup@v4
         with:
-          workspaces: apps/desktop-app/src-tauri
+          version: 9
 
-      - name: cargo fmt check
-        working-directory: apps/desktop-app/src-tauri
-        run: cargo fmt -- --check
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: pnpm
 
-      - name: cargo check
-        working-directory: apps/desktop-app/src-tauri
-        run: cargo check
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
 
-      - name: cargo clippy (deny warnings)
-        working-directory: apps/desktop-app/src-tauri
-        run: cargo clippy -- -D warnings
+      - name: gofmt check
+        working-directory: apps/desktop-app
+        shell: bash
+        run: |
+          unformatted=$(gofmt -l .)
+          if [ -n "$unformatted" ]; then
+            echo "These files are not gofmt'd:"
+            echo "$unformatted"
+            exit 1
+          fi
+
+      # main.go embeds frontend/dist, so the web assets must exist before any
+      # Go command touches the root package.
+      - name: Build frontend
+        run: pnpm --filter @livenova/desktop-app build
+
+      - name: go vet
+        working-directory: apps/desktop-app
+        run: go vet ./...
+
+      # H-03 / C-08 / M-11 — the keystroke limits, the Local Bridge handshake
+      # and the SSRF guard are what keep the WebView from driving the OS. A red
+      # test here must block the merge.
+      # No -race here: it needs cgo, and the Windows runner's toolchain is not
+      # guaranteed to have a C compiler. The Linux job below runs the detector
+      # over the same packages.
+      - name: go test
+        working-directory: apps/desktop-app
+        run: go test ./...
+
+      - name: Install Wails CLI
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@v2.13.0
+
+      # Regenerates frontend/wailsjs as a side effect, which is the point of
+      # not passing -skipbindings here.
+      - name: Build desktop app
+        working-directory: apps/desktop-app
+        run: wails build
+
+      # The bindings are committed so the frontend type-checks without a Go
+      # toolchain. That only holds if they match the Go signatures.
+      - name: Check committed Wails bindings are up to date
+        shell: bash
+        run: |
+          if ! git diff --exit-code -- apps/desktop-app/frontend/wailsjs; then
+            echo "frontend/wailsjs is stale — run 'wails generate module' and commit the result."
+            exit 1
+          fi
+
+      - name: Type-check frontend
+        run: pnpm --filter @livenova/desktop-app typecheck
 
   # ─────────────────────────────────────────
-  # Rust Desktop — cargo test (Linux, faster)
-  # Same approach as Agent Center race detector job on Linux
+  # Go Desktop — test the platform-independent packages on Linux (faster).
+  # The root package embeds assets and links the WebView, so it is Windows-only
+  # here; internal/ is where the security-critical logic lives anyway.
   # ─────────────────────────────────────────
   desktop-linux:
-    name: Rust Desktop — cargo test (Linux)
+    name: Go Desktop — test internal packages (Linux)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install system dependencies for Tauri
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            libwebkit2gtk-4.1-dev \
-            libxdo-dev \
-            libssl-dev \
-            libayatana-appindicator3-dev \
-            librsvg2-dev
-
-      - name: Install Rust stable
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Cache Rust build artifacts
-        uses: Swatinem/rust-cache@v2
+      - uses: actions/setup-go@v5
         with:
-          workspaces: apps/desktop-app/src-tauri
+          go-version: '1.25'
+          cache-dependency-path: apps/desktop-app/go.sum
 
-      - name: cargo test
-        working-directory: apps/desktop-app/src-tauri
-        run: cargo test
+      - name: go vet
+        working-directory: apps/desktop-app
+        run: go vet ./internal/...
+
+      - name: go test (race detector)
+        working-directory: apps/desktop-app
+        run: go test -race ./internal/...

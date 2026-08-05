@@ -3,12 +3,14 @@
   "private": true,
   "workspaces": [
     "packages/*",
-    "apps/*"
+    "apps/*",
+    "apps/desktop-app/frontend"
   ],
   "scripts": {
     "lint": "eslint .",
     "build": "pnpm -r run build",
-    "dev": "pnpm -r run dev"
+    "dev": "pnpm -r run dev",
+    "test": "pnpm -r run test"
   },
   "devDependencies": {
     "eslint": "^8.50.0",

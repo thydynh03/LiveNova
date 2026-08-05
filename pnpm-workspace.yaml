@@ -1,3 +1,6 @@
 packages:
   - 'packages/*'
   - 'apps/*'
+  # The desktop app is a Wails project: its Go module sits at apps/desktop-app
+  # and the web assets live one level down, outside the 'apps/*' glob.
+  - 'apps/desktop-app/frontend'

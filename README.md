@@ -4,7 +4,7 @@
 
 **Enterprise TikTok LIVE Automation, Real-time Interaction & TTS Platform**
 
-*A high-performance monorepo platform featuring a Next.js 14 Web Dashboard, NestJS v10 Cloud Engine, and a lightweight Rust (Tauri v2 + Tokio) Desktop Local Bridge for OBS overlays and game/system input automation.*
+*A high-performance monorepo platform featuring a Next.js 14 Web Dashboard, NestJS v10 Cloud Engine, and a lightweight Go (Wails v2) Desktop Local Bridge for OBS overlays and game/system input automation.*
 
 [![CI](https://github.com/thydynh03/LiveNova/actions/workflows/ci.yml/badge.svg)](https://github.com/thydynh03/LiveNova/actions/workflows/ci.yml)
 [![CodeQL](https://github.com/thydynh03/LiveNova/actions/workflows/codeql.yml/badge.svg)](https://github.com/thydynh03/LiveNova/actions/workflows/codeql.yml)
@@ -12,7 +12,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Next.js](https://img.shields.io/badge/Next.js-14.2-black?logo=next.js&logoColor=white)](https://nextjs.org/)
 [![NestJS](https://img.shields.io/badge/NestJS-10.4-E0234E?logo=nestjs&logoColor=white)](https://nestjs.com/)
-[![Rust](https://img.shields.io/badge/Rust-Tauri_v2-000000?logo=rust&logoColor=white)](https://tauri.app/)
+[![Go](https://img.shields.io/badge/Go-Wails_v2-00ADD8?logo=go&logoColor=white)](https://wails.io/)
 [![Supabase](https://img.shields.io/badge/Supabase-Postgres-3ECF8E?logo=supabase&logoColor=white)](https://supabase.com/)
 
 **Tiếng Việt** · [English](#english-summary)
@@ -43,8 +43,8 @@ Sản phẩm giải quyết triệt để các bài toán khó nhất của Stre
 * Giới hạn tần suất thực thi (`cooldownMs`) để tránh spam giọng đọc hay làm đơ màn hình live.
 * Tính năng **Dry-Run (Chạy thử luật)** giúp kiểm thử kịch bản trước khi lên sóng.
 
-### 🎨 2. OBS Overlays & Local Bridge (Rust Powered)
-* **Local Bridge WS:** WebSocket Server nội bộ `ws://127.0.0.1:4000` viết bằng Rust + Tokio, đảm bảo độ trễ dưới 1ms và không tiêu tốn quá 40MB RAM.
+### 🎨 2. OBS Overlays & Local Bridge (Go Powered)
+* **Local Bridge WS:** WebSocket Server nội bộ `ws://127.0.0.1:4000` viết bằng Go (goroutine + net/http), đảm bảo độ trễ dưới 1ms và không tiêu tốn quá 40MB RAM.
 * **Tự động khôi phục:** Nếu mất kết nối Local Bridge, các khung Overlay trên OBS tự động chuyển vùng fallback về Cloud Server mà không bị ngắt ngang livestream.
 
 ### 🌗 3. Dark & Light Theme System
@@ -65,7 +65,7 @@ Dự án được xây dựng theo mô hình **Monorepo** chuẩn Enterprise v�
                                          │ REST / WSS
                                          ▼
 ┌──────────────────────┐    ┌─────────────────────────────────┐
-│ Rust / Tauri v2 Core │ ◄──┤   NestJS v10 Cloud API Server   │
+│  Go / Wails v2 Core  │ ◄──┤   NestJS v10 Cloud API Server   │
 │ (Local WS Bridge,    │    │ (Auth, Credit Ledger, TTS Cache,│
 │  Win32 Input, RCON)  │    │  Socket.IO Events, Rule Engine) │
 └──────────────────────┘    └────────────────┬────────────────┘
@@ -80,7 +80,7 @@ Dự án được xây dựng theo mô hình **Monorepo** chuẩn Enterprise v�
 |---|---|---|
 | **Web App** | Next.js 14 (App Router) + React 18 | Dashboard điều khiển, Landing Page SSG, OBS Overlays (Dark/Light Theme) |
 | **Cloud API** | NestJS v10 + TypeScript | RESTful API, Socket.IO Gateway, JwtAuthGuard, Rate Limiter |
-| **Desktop Core** | Rust (Edition 2021) + Tauri v2 | Local Bridge WebSocket `127.0.0.1:4000`, OBS WS v5, RCON, Win32 `SendInput` |
+| **Desktop Core** | Go 1.25 + Wails v2 | Local Bridge WebSocket `127.0.0.1:4000`, OBS WS v5, RCON, Win32 `SendInput` |
 | **Database** | Supabase Cloud Postgres + Prisma ORM | 10 Models, kết nối qua Transaction Pooler (`pgbouncer`) + Session Direct URL |
 | **Cache & Bus** | Redis 7 + EventEmitter2 | Lưu cache audio SHA256, Pub/Sub tín hiệu realtime |
 
@@ -91,7 +91,7 @@ Dự án được xây dựng theo mô hình **Monorepo** chuẩn Enterprise v�
 ### Yêu Cầu Tiền Đề (Prerequisites)
 * Node.js v20+ hoặc **Node.js v22 LTS** (Khuyên dùng)
 * `pnpm` v9+ (`npm install -g pnpm`)
-* Rust Toolchain (nếu muốn build ứng dụng Desktop Tauri)
+* Go 1.25+ và Wails CLI v2 (nếu muốn build ứng dụng Desktop) — `go install github.com/wailsapp/wails/v2/cmd/wails@v2.13.0`
 * Docker & Docker Compose (cho môi trường Postgres/Redis local)
 
 ---
@@ -145,9 +145,9 @@ docker compose up -d
 # Chạy song song cả Web App (port 3000) và NestJS Server (port 4001)
 pnpm dev
 
-# (Tùy chọn) Chạy Desktop App Tauri
+# (Tùy chọn) Chạy Desktop App
 cd apps/desktop-app
-pnpm tauri dev
+wails dev
 ```
 
 * 🌐 **Web Dashboard:** [http://localhost:3000](http://localhost:3000)
@@ -169,8 +169,9 @@ LiveNova/
 │   ├── server/                 # NestJS v10 Cloud API
 │   │   ├── prisma/             # Prisma Schema (10 Models)
 │   │   └── src/modules/        # Auth, User, Credit, TTS, Rule, Overlay, Tiktok
-│   └── desktop-app/            # Rust / Tauri v2 Desktop Client
-│       └── src-tauri/src/      # Local Bridge, OBS Controller, RCON, Key Sim
+│   └── desktop-app/            # Go / Wails v2 Desktop Client
+│       ├── internal/           # Local Bridge, OBS Controller, RCON, Key Sim, Netguard
+│       └── frontend/           # React 18 + Vite WebView UI
 ├── packages/
 │   └── shared/                 # Shared Types, DTOs, Rule Engine, Constants
 ├── docker-compose.yml          # Postgres + Redis Container Setup
@@ -197,7 +198,7 @@ LiveNova được thiết kế tuân thủ 100% các tiêu chuẩn bảo mật n
 
 - **Web App:** Next.js 14 App Router, React 18, Dark/Light Mode, OBS Overlays (Chat, PK Bar, Goal Bar).
 - **Backend Server:** NestJS v10, Prisma ORM, Supabase Postgres, Redis, Google TTS Engine with SHA256 Audio Cache, Socket.IO Gateway.
-- **Desktop Client:** Rust (Tauri v2 + Tokio) Local WebSocket Bridge (`127.0.0.1:4000`), OBS WebSocket v5, Source RCON client, Win32 Key Simulator (`SendInput`) with Emergency Stop.
+- **Desktop Client:** Go (Wails v2) Local WebSocket Bridge (`127.0.0.1:4000`), OBS WebSocket v5, Source RCON client, Win32 Key Simulator (`SendInput`) with Emergency Stop.
 
 ---
 
