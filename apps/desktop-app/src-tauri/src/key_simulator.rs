@@ -23,7 +23,7 @@ pub fn press_key(key_code: u16, hold_ms: u64) -> Result<(), KeyError> {
     tracing::info!("Pressing key {} for {}ms", key_code, hold_ms);
 
     let mut inputs = [INPUT {
-        type_: INPUT_KEYBOARD,
+        r#type: INPUT_KEYBOARD,
         Anonymous: windows_sys::Win32::UI::Input::KeyboardAndMouse::INPUT_0 {
             ki: KEYBDINPUT {
                 wVk: key_code,
