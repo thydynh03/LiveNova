@@ -60,18 +60,9 @@ export default function LandingPage() {
   );
 }
 
-function FeatureCard({ title, desc }: { title: string, desc: string }) {
+function FeatureCard({ title, desc }: { title: string; desc: string }) {
   return (
-    <div className="card glass" style={{
-      transition: 'transform 0.3s ease, box-shadow 0.3s ease',
-      cursor: 'default',
-    }} onMouseEnter={(e) => {
-      e.currentTarget.style.transform = 'translateY(-5px)';
-      e.currentTarget.style.boxShadow = '0 10px 25px -5px rgb(0 0 0 / 0.2)';
-    }} onMouseLeave={(e) => {
-      e.currentTarget.style.transform = 'translateY(0)';
-      e.currentTarget.style.boxShadow = '0 4px 6px -1px rgb(0 0 0 / 0.1)';
-    }}>
+    <div className="card glass feature-card" style={{ cursor: 'default' }}>
       <h3 style={{ fontSize: '1.25rem', marginBottom: '0.5rem', fontWeight: 600 }}>{title}</h3>
       <p style={{ color: 'hsl(var(--muted-foreground))', lineHeight: 1.5 }}>{desc}</p>
     </div>

@@ -1,4 +1,8 @@
 {
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "tiktok-live-desktop",
+  "version": "0.1.0",
+  "identifier": "com.tiktoklive.desktop",
   "build": {
     "beforeDevCommand": "npm run dev",
     "beforeBuildCommand": "npm run build",
@@ -6,8 +10,6 @@
     "frontendDist": "../dist"
   },
   "app": {
-    "identifier": "com.tiktoklive.desktop",
-    "version": "0.1.0",
     "security": {
       "csp": null
     },
@@ -19,11 +21,7 @@
         "resizable": true,
         "decorations": true
       }
-    ],
-    "trayIcon": {
-      "iconPath": "icons/icon.png",
-      "tooltip": "TikTok LIVE Desktop"
-    }
+    ]
   },
   "bundle": {
     "active": true,
