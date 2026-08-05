@@ -1,0 +1,12 @@
+# gofmt rejects CRLF, and the Windows CI runner checks out with
+# core.autocrlf=true by default — which rewrote every .go file to CRLF and made
+# the gofmt gate fail on files that are LF in the repository. Pin the Go
+# sources to LF on checkout regardless of platform.
+*.go        text eol=lf
+go.mod      text eol=lf
+go.sum      text eol=lf
+
+# Same reasoning for the shell used by CI steps and for YAML workflows.
+*.sh        text eol=lf
+*.yml       text eol=lf
+*.yaml      text eol=lf
