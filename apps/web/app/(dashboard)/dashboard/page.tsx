@@ -4,23 +4,8 @@ import React from 'react';
 import Link from 'next/link';
 import { useApi } from '../../../lib/use-api';
 import { LoadingState, ErrorState, EmptyState } from '../../../components/common/States';
+import type { CreditBalance, Rule, Overlay } from '../../../lib/types';
 
-interface CreditBalance {
-  balance: number;
-  dailyFreeUsed: number;
-  resetsAt: string | null;
-}
-
-interface Rule {
-  id: string;
-  name: string;
-  enabled: boolean;
-}
-
-interface Overlay {
-  id: string;
-  type: string;
-}
 
 function Card({ children }: { children: React.ReactNode }) {
   return (

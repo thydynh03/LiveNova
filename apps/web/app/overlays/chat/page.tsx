@@ -68,9 +68,7 @@ function ChatOverlay() {
         ? 'Mất kết nối — đang thử lại…'
         : status === 'rejected'
           ? `Token không hợp lệ (${rejectionCode ?? 'unknown'})`
-          : status === 'error'
-            ? 'Lỗi kết nối'
-            : null;
+          : null;
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });

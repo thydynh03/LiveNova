@@ -73,8 +73,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const signIn = useCallback(async (email: string, password: string) => {
-    authGeneration.current += 1;
+    // The generation is bumped only after a *successful* login. Bumping first
+    // meant a rejected password invalidated the in-flight mount-time restore,
+    // whose result was then discarded — leaving status stuck on 'loading'
+    // forever, with no way to reach the login form again.
     await apiLogin(email, password);
+    authGeneration.current += 1;
     if (mounted.current) setStatus('authenticated');
   }, []);
 

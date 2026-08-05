@@ -4,14 +4,7 @@ import React, { useState } from 'react';
 import { useApi } from '../../../lib/use-api';
 import { api } from '../../../lib/api-client';
 import { LoadingState, ErrorState, EmptyState } from '../../../components/common/States';
-
-interface Rule {
-  id: string;
-  name: string;
-  enabled: boolean;
-  priority: number;
-  actions: { type: string }[] | null;
-}
+import type { Rule } from '../../../lib/types';
 
 export default function RulesPage() {
   // Real rules from the API. This page used to render three invented rules
@@ -88,7 +81,10 @@ export default function RulesPage() {
 
             <button
               onClick={() => toggle(rule)}
-              disabled={togglingId === rule.id}
+              // Every row is locked while any toggle is in flight. Only
+              // disabling the clicked row let a second click fire a PATCH built
+              // from a value the first request was already changing.
+              disabled={togglingId !== null}
               aria-pressed={rule.enabled}
               style={{
                 minHeight: '44px',

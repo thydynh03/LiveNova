@@ -98,30 +98,36 @@ async function requestNewAccessToken(): Promise<string | null> {
 
   const generation = sessionGeneration;
 
-  refreshInFlight = (async () => {
-    try {
-      const outcome = await performRefresh();
+  const attempt = (async (): Promise<string | null> => {
+    const outcome = await performRefresh();
 
-      // A logout (or another reset) happened while this was in flight — its
-      // result is stale and must not resurrect the session.
-      if (generation !== sessionGeneration) return null;
+    // A logout or login happened while this was in flight — its result is
+    // stale and must not resurrect (or overwrite) the current session.
+    if (generation !== sessionGeneration) return null;
 
-      if (outcome.kind === 'ok') {
-        accessToken = outcome.token;
-        return accessToken;
-      }
-
-      if (outcome.kind === 'expired') {
-        accessToken = null;
-        onUnauthenticated?.();
-      }
-      return null;
-    } finally {
-      refreshInFlight = null;
+    if (outcome.kind === 'ok') {
+      accessToken = outcome.token;
+      return accessToken;
     }
+
+    if (outcome.kind === 'expired') {
+      accessToken = null;
+      onUnauthenticated?.();
+    }
+    return null;
   })();
 
-  return refreshInFlight;
+  refreshInFlight = attempt;
+
+  // Release the pointer only if it still refers to *this* attempt. Clearing it
+  // unconditionally would let a settling old promise wipe the pointer for a
+  // newer refresh, allowing two to run at once — the exact replay this
+  // single-flight guard exists to prevent.
+  void attempt.finally(() => {
+    if (refreshInFlight === attempt) refreshInFlight = null;
+  });
+
+  return attempt;
 }
 
 interface RequestOptions extends Omit<RequestInit, 'body'> {
@@ -207,8 +213,12 @@ export async function login(email: string, password: string): Promise<string> {
     throw new ApiError(data?.message ?? 'Đăng nhập thất bại', res.status);
   }
 
-  // A fresh sign-in supersedes anything already in flight.
+  // A fresh sign-in supersedes anything already in flight. Dropping the pointer
+  // matters as much as bumping the generation: a later 401 retry handed the old
+  // promise would receive null (stale generation) and throw a spurious
+  // "session expired" at a user who just signed in successfully.
   sessionGeneration += 1;
+  refreshInFlight = null;
   accessToken = data.accessToken;
   return data.accessToken;
 }

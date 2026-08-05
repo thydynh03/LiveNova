@@ -40,10 +40,16 @@ export function maxAgeFromExpiry(expiresAt: string | undefined): number {
   if (Number.isNaN(expiry)) return DEFAULT_REFRESH_MAX_AGE;
 
   const seconds = Math.floor((expiry - Date.now()) / 1000);
-  // Reject nonsense (already expired, or absurdly far out) rather than trusting
-  // it: this value comes off the wire.
   if (seconds <= 0) return 0;
-  return Math.min(seconds, DEFAULT_REFRESH_MAX_AGE * 12);
+
+  // Follow the API's expiry exactly. An upper clamp here would expire the cookie
+  // before the server expires the session, logging users out on reload while
+  // their session was still perfectly valid — the browser and the API must stop
+  // trusting the credential at the same instant. Sanity-cap only against a
+  // clearly bogus value (>10 years), which indicates a malformed date rather
+  // than an intentional configuration.
+  const TEN_YEARS = 10 * 365 * 24 * 60 * 60;
+  return Math.min(seconds, TEN_YEARS);
 }
 
 /**

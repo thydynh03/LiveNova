@@ -1,16 +1,10 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useApi } from '../../../lib/use-api';
 import { api } from '../../../lib/api-client';
 import { LoadingState, ErrorState, EmptyState } from '../../../components/common/States';
-
-interface Overlay {
-  id: string;
-  type: string;
-  publicToken: string;
-  enabled: boolean;
-}
+import type { Overlay } from '../../../lib/types';
 
 /**
  * Only overlay types whose renderer actually consumes the token and live data.
@@ -50,12 +44,22 @@ export default function OverlaysPage() {
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [rotatingId, setRotatingId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  /** Tokens rotated in this session, shown until the refetch catches up. */
+  const [localTokens, setLocalTokens] = useState<Record<string, string>>({});
+  const copyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (copyTimer.current) clearTimeout(copyTimer.current);
+    };
+  }, []);
 
   function overlayUrl(overlay: Overlay): string | null {
     const path = LIVE_RENDERERS[overlay.type];
     if (!path) return null;
     const origin = typeof window === 'undefined' ? '' : window.location.origin;
-    return `${origin}${path}?token=${overlay.publicToken}`;
+    const token = localTokens[overlay.id] ?? overlay.publicToken;
+    return `${origin}${path}?token=${token}`;
   }
 
   async function copy(overlay: Overlay) {
@@ -64,7 +68,10 @@ export default function OverlaysPage() {
     try {
       await navigator.clipboard.writeText(url);
       setCopiedId(overlay.id);
-      setTimeout(() => setCopiedId(null), 2000);
+      // Cancel the previous timer, or copying a second URL quickly would have
+      // the first timeout clear the second one's confirmation.
+      if (copyTimer.current) clearTimeout(copyTimer.current);
+      copyTimer.current = setTimeout(() => setCopiedId(null), 2000);
     } catch {
       setActionError('Trình duyệt chặn truy cập clipboard — hãy sao chép thủ công.');
     }
@@ -74,7 +81,17 @@ export default function OverlaysPage() {
     setActionError(null);
     setRotatingId(overlay.id);
     try {
-      await api.post(`/overlays/${overlay.id}/rotate-token`);
+      const rotated = await api.post<{ id: string; publicToken: string }>(
+        `/overlays/${overlay.id}/rotate-token`,
+      );
+
+      // Apply the new token immediately. `reload()` is async, and until it
+      // landed the row still displayed — and copied — the token that was just
+      // revoked, so pasting it into OBS produced a dead overlay.
+      if (rotated?.publicToken) {
+        setLocalTokens((prev) => ({ ...prev, [overlay.id]: rotated.publicToken }));
+      }
+      setCopiedId((current) => (current === overlay.id ? null : current));
       reload();
     } catch (err) {
       setActionError(err instanceof Error ? err.message : 'Xoay token thất bại');

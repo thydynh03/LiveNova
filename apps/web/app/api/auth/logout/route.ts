@@ -25,7 +25,15 @@ export async function POST(request: NextRequest) {
         body: JSON.stringify({ refreshToken }),
         cache: 'no-store',
       });
-      revoked = upstream.ok;
+
+      // The API answers 200 with `{ success: false }` when the token matched no
+      // live session, so HTTP status alone would report a revocation that never
+      // happened. Trust the payload, not the envelope.
+      const payload = (await upstream.json().catch(() => null)) as
+        | { success?: boolean }
+        | null;
+
+      revoked = upstream.ok && payload?.success === true;
     } catch {
       revoked = false;
     }
