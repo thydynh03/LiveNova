@@ -14,13 +14,17 @@ export default function RulesPage() {
   const [togglingId, setTogglingId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
-  // The lock is released when the refetch lands, not when the PATCH resolves.
-  // Clearing it earlier meant a fast second click read the still-stale `enabled`
-  // from `data` and sent the same value again — two clicks on an enabled rule
-  // both sent `false`, so the second one never re-enabled it.
+  // The lock is released when the refetch *finishes*, not when the PATCH
+  // resolves. Clearing it on the PATCH meant a fast second click read the
+  // still-stale `enabled` from `data` and re-sent the same value — two clicks on
+  // an enabled rule both sent `false`.
+  //
+  // Keying on `loading` rather than `data` also covers a failed refetch: `data`
+  // would never change there, leaving every button disabled for good on a screen
+  // that was already showing the error.
   useEffect(() => {
-    setTogglingId(null);
-  }, [data]);
+    if (!loading) setTogglingId(null);
+  }, [loading]);
 
   async function toggle(rule: Rule) {
     setActionError(null);

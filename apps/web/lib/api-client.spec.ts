@@ -152,6 +152,48 @@ describe('api-client', () => {
       expect(mod.getAccessToken()).toBe('account-b');
     });
 
+    it('refuses to start a new refresh while a login is in flight', async () => {
+      // Cancelling the refresh that existed at login start is not enough: a
+      // call that 401s *during* login would open a fresh one carrying the old
+      // account's cookie, which then lands after login and reinstalls that
+      // account.
+      const loginGate = deferred<Response>();
+      let refreshCalls = 0;
+
+      fetchMock.mockImplementation((input) => {
+        if (String(input).includes('/api/auth/refresh')) {
+          refreshCalls += 1;
+          return Promise.resolve(jsonResponse({ accessToken: 'account-a' }));
+        }
+        return loginGate.promise;
+      });
+
+      const loggingIn = mod.login('b@example.com', 'password123');
+
+      // Something tries to refresh while the login is still open.
+      await expect(mod.restoreSession()).resolves.toBeNull();
+      expect(refreshCalls).toBe(0);
+
+      loginGate.resolve(jsonResponse({ accessToken: 'account-b' }));
+      await loggingIn;
+
+      expect(mod.getAccessToken()).toBe('account-b');
+    });
+
+    it('allows refreshes again once the login settles, even on failure', async () => {
+      fetchMock.mockImplementation((input) => {
+        if (String(input).includes('/api/auth/refresh')) {
+          return Promise.resolve(jsonResponse({ accessToken: 'restored' }));
+        }
+        return Promise.resolve(jsonResponse({ message: 'Sai mật khẩu' }, 401));
+      });
+
+      await expect(mod.login('a@b.c', 'wrong-password')).rejects.toThrow();
+
+      // The gate must not stay closed after a rejected login.
+      await expect(mod.restoreSession()).resolves.toBe('restored');
+    });
+
     it('a refresh resolving after logout does not resurrect the session', async () => {
       const gate = deferred<Response>();
       fetchMock.mockImplementation((input) => {

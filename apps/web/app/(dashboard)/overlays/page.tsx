@@ -64,18 +64,17 @@ export default function OverlaysPage() {
 
   // Clearing the override on refetch is not enough on its own: without a reason
   // to refetch, a token rotated in another tab would stay stale on this screen
-  // indefinitely. Revalidate whenever the tab regains focus — the moment a user
-  // is most likely to come back and copy a URL.
+  // indefinitely. Revalidate when the tab becomes visible again — the moment a
+  // user is most likely to come back and copy a URL.
+  //
+  // Only `visibilitychange`: returning to a tab fires `focus` as well, and
+  // listening to both issued two identical GETs per switch.
   useEffect(() => {
     function revalidate() {
       if (document.visibilityState === 'visible') reload();
     }
-    window.addEventListener('focus', revalidate);
     document.addEventListener('visibilitychange', revalidate);
-    return () => {
-      window.removeEventListener('focus', revalidate);
-      document.removeEventListener('visibilitychange', revalidate);
-    };
+    return () => document.removeEventListener('visibilitychange', revalidate);
   }, [reload]);
 
   function overlayUrl(overlay: Overlay): string | null {
@@ -138,7 +137,13 @@ export default function OverlaysPage() {
         </p>
       )}
 
-      {loading && <LoadingState />}
+      {/*
+        The spinner is for the first load only. Showing it on every background
+        revalidation replaced the whole list with a spinner each time the user
+        switched back to the tab — jarring on a screen meant to stay open beside
+        OBS. A revalidation keeps the current list on screen.
+      */}
+      {loading && !data && <LoadingState />}
       {error && <ErrorState message={error} onRetry={reload} />}
 
       {!loading && !error && (data?.length ?? 0) === 0 && (

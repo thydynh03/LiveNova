@@ -57,6 +57,17 @@ function cancelInFlightRefresh(): void {
 }
 
 /**
+ * Blocks refreshes for the duration of a login.
+ *
+ * Cancelling the refresh that existed when login started is not sufficient: a
+ * request that 401s *while* login is in flight would start a brand-new refresh,
+ * carrying the old account's cookie, which then resolves after login and
+ * reinstalls that account's token and cookie over the one just established.
+ * Nothing may refresh until the login has settled.
+ */
+let loginInProgress = false;
+
+/**
  * Bumped by logout (and any future session reset).
  *
  * Without it, signing out while a refresh is in flight lets the resolving
@@ -119,6 +130,11 @@ async function requestNewAccessToken(): Promise<string | null> {
   // Collapse concurrent refreshes: the API rotates the refresh token on every
   // use and treats a replayed one as reuse, revoking the whole family. Firing
   // two refreshes at once would log the user out.
+  // Refusing here is safe: the caller treats a null as "could not refresh" and
+  // surfaces a 401, and during a login the user is not looking at authenticated
+  // data anyway.
+  if (loginInProgress) return null;
+
   if (refreshInFlight) return refreshInFlight;
 
   const generation = sessionGeneration;
@@ -244,26 +260,32 @@ export async function login(email: string, password: string): Promise<string> {
   // session is still on the wire by the time the new cookie is written.
   sessionGeneration += 1;
   cancelInFlightRefresh();
+  loginInProgress = true;
 
   let res: Response;
+  let data: { accessToken?: string; message?: string } | null;
+
   try {
-    res = await fetch('/api/auth/login', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      credentials: 'same-origin',
-      body: JSON.stringify({ email, password }),
-    });
-  } catch {
-    throw new NetworkError();
-  }
+    try {
+      res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({ email, password }),
+      });
+    } catch {
+      throw new NetworkError();
+    }
 
-  const data = (await res.json().catch(() => null)) as {
-    accessToken?: string;
-    message?: string;
-  } | null;
+    data = (await res.json().catch(() => null)) as typeof data;
 
-  if (!res.ok || !data?.accessToken) {
-    throw new ApiError(data?.message ?? 'Đăng nhập thất bại', res.status);
+    if (!res.ok || !data?.accessToken) {
+      throw new ApiError(data?.message ?? 'Đăng nhập thất bại', res.status);
+    }
+  } finally {
+    // Anything that slipped past the gate is cancelled before it can write.
+    cancelInFlightRefresh();
+    loginInProgress = false;
   }
 
   accessToken = data.accessToken;
