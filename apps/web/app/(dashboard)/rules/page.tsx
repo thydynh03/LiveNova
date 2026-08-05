@@ -94,7 +94,10 @@ export default function RulesPage() {
                 background: rule.enabled ? 'hsl(var(--primary) / 0.15)' : 'hsl(var(--card))',
                 color: rule.enabled ? 'hsl(var(--primary))' : 'hsl(var(--muted-foreground))',
                 fontWeight: 600,
-                cursor: togglingId === rule.id ? 'not-allowed' : 'pointer',
+                // Match the cursor to the same condition that disables the
+                // button, so a locked row does not still look clickable.
+                cursor: togglingId !== null ? 'not-allowed' : 'pointer',
+                opacity: togglingId !== null && togglingId !== rule.id ? 0.6 : 1,
               }}
             >
               {togglingId === rule.id ? '…' : rule.enabled ? 'Đang bật' : 'Đang tắt'}

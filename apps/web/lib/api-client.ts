@@ -34,6 +34,29 @@ let onUnauthenticated: (() => void) | null = null;
 let refreshInFlight: Promise<string | null> | null = null;
 
 /**
+ * Lets a session change abort a refresh that is still on the wire.
+ *
+ * Dropping the promise reference is not enough. `/api/auth/refresh` rewrites the
+ * httpOnly cookie from the route handler, so a late response would apply its
+ * `Set-Cookie` no matter what the client did with the promise. On an account
+ * switch that means the previous account's rotated token lands on top of the new
+ * one, and the next refresh quietly mints an access token for the wrong user.
+ *
+ * Aborting stops the response from being processed at all. The trade-off: the
+ * server may already have rotated, leaving this browser holding a consumed
+ * token, whose next use trips reuse detection and revokes that family. Losing
+ * the *old* session during a deliberate account switch is the acceptable side of
+ * that trade; serving the wrong account's data is not.
+ */
+let refreshAbort: AbortController | null = null;
+
+function cancelInFlightRefresh(): void {
+  refreshAbort?.abort();
+  refreshAbort = null;
+  refreshInFlight = null;
+}
+
+/**
  * Bumped by logout (and any future session reset).
  *
  * Without it, signing out while a refresh is in flight lets the resolving
@@ -65,14 +88,16 @@ type RefreshOutcome =
   | { kind: 'expired' }
   | { kind: 'unavailable' };
 
-async function performRefresh(): Promise<RefreshOutcome> {
+async function performRefresh(signal: AbortSignal): Promise<RefreshOutcome> {
   let res: Response;
   try {
     res = await fetch('/api/auth/refresh', {
       method: 'POST',
       credentials: 'same-origin',
+      signal,
     });
   } catch {
+    // Includes AbortError. An aborted refresh is never an expired session.
     return { kind: 'unavailable' };
   }
 
@@ -97,9 +122,11 @@ async function requestNewAccessToken(): Promise<string | null> {
   if (refreshInFlight) return refreshInFlight;
 
   const generation = sessionGeneration;
+  const controller = new AbortController();
+  refreshAbort = controller;
 
   const attempt = (async (): Promise<string | null> => {
-    const outcome = await performRefresh();
+    const outcome = await performRefresh(controller.signal);
 
     // A logout or login happened while this was in flight — its result is
     // stale and must not resurrect (or overwrite) the current session.
@@ -125,6 +152,7 @@ async function requestNewAccessToken(): Promise<string | null> {
   // single-flight guard exists to prevent.
   void attempt.finally(() => {
     if (refreshInFlight === attempt) refreshInFlight = null;
+    if (refreshAbort === controller) refreshAbort = null;
   });
 
   return attempt;
@@ -213,22 +241,21 @@ export async function login(email: string, password: string): Promise<string> {
     throw new ApiError(data?.message ?? 'Đăng nhập thất bại', res.status);
   }
 
-  // A fresh sign-in supersedes anything already in flight. Dropping the pointer
-  // matters as much as bumping the generation: a later 401 retry handed the old
-  // promise would receive null (stale generation) and throw a spurious
-  // "session expired" at a user who just signed in successfully.
+  // A fresh sign-in supersedes anything already in flight — and the old refresh
+  // must be aborted, not merely forgotten, so its Set-Cookie can never land on
+  // top of the cookie this login just established.
   sessionGeneration += 1;
-  refreshInFlight = null;
+  cancelInFlightRefresh();
   accessToken = data.accessToken;
   return data.accessToken;
 }
 
 export async function logout(): Promise<void> {
-  // Invalidate first: any refresh still running is now stale and will not be
-  // allowed to write its result back.
+  // Invalidate first: any refresh still running is now stale, and aborting it
+  // stops a late response from rewriting the cookie we are about to clear.
   sessionGeneration += 1;
   accessToken = null;
-  refreshInFlight = null;
+  cancelInFlightRefresh();
 
   await fetch('/api/auth/logout', { method: 'POST', credentials: 'same-origin' }).catch(
     () => undefined,

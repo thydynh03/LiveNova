@@ -94,6 +94,56 @@ describe('api-client', () => {
       expect(fetchMock).toHaveBeenCalledTimes(1);
     });
 
+    it('aborts the in-flight refresh on logout', async () => {
+      // Forgetting the promise is not enough: /api/auth/refresh rewrites the
+      // httpOnly cookie server-side, so a late response would still apply its
+      // Set-Cookie. Only an abort stops that.
+      const gate = deferred<Response>();
+      let refreshSignal: AbortSignal | undefined;
+
+      fetchMock.mockImplementation((input, init) => {
+        if (String(input).includes('/api/auth/refresh')) {
+          refreshSignal = init?.signal ?? undefined;
+          return gate.promise;
+        }
+        return Promise.resolve(jsonResponse({ success: true }));
+      });
+
+      const refreshing = mod.restoreSession();
+      expect(refreshSignal?.aborted).toBe(false);
+
+      await mod.logout();
+
+      expect(refreshSignal?.aborted).toBe(true);
+
+      gate.resolve(jsonResponse({ accessToken: 'stale' }));
+      await refreshing;
+      expect(mod.getAccessToken()).toBeNull();
+    });
+
+    it('aborts the in-flight refresh on login, so it cannot overwrite the new cookie', async () => {
+      const gate = deferred<Response>();
+      let refreshSignal: AbortSignal | undefined;
+
+      fetchMock.mockImplementation((input, init) => {
+        if (String(input).includes('/api/auth/refresh')) {
+          refreshSignal = init?.signal ?? undefined;
+          return gate.promise;
+        }
+        return Promise.resolve(jsonResponse({ accessToken: 'account-b' }));
+      });
+
+      const refreshing = mod.restoreSession();
+      await mod.login('b@example.com', 'password123');
+
+      expect(refreshSignal?.aborted).toBe(true);
+
+      // Account A's refresh resolving late must not displace account B.
+      gate.resolve(jsonResponse({ accessToken: 'account-a' }));
+      await refreshing;
+      expect(mod.getAccessToken()).toBe('account-b');
+    });
+
     it('a refresh resolving after logout does not resurrect the session', async () => {
       const gate = deferred<Response>();
       fetchMock.mockImplementation((input) => {

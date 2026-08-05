@@ -54,6 +54,14 @@ export default function OverlaysPage() {
     };
   }, []);
 
+  // Server data wins once it arrives. Keeping the local override indefinitely
+  // meant a token rotated from another tab (or by anyone else) stayed hidden
+  // behind a value this tab had cached, so the page would keep handing out a
+  // URL the server had already revoked.
+  useEffect(() => {
+    if (data) setLocalTokens({});
+  }, [data]);
+
   function overlayUrl(overlay: Overlay): string | null {
     const path = LIVE_RENDERERS[overlay.type];
     if (!path) return null;
