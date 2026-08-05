@@ -7,7 +7,7 @@ import { v4 as uuidv4 } from 'uuid';
 export class OverlayService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async createOverlay(userId: string, type: OverlayType, config: any) {
+  async createOverlay(userId: string, type: OverlayType, config: Record<string, unknown>) {
     return this.prisma.overlay.create({
       data: {
         userId,

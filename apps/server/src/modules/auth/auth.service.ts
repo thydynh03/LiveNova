@@ -11,7 +11,7 @@ export class AuthService {
     private readonly userService: UserService
   ) {}
 
-  async validateOAuthUser(provider: ProviderType, profile: { id: string; email: string; displayName?: string; avatar?: string }) {
+  async validateOAuthUser(_provider: ProviderType, profile: { id: string; email: string; displayName?: string; avatar?: string }) {
     let user = await this.userService.findByEmail(profile.email);
     if (!user) {
       user = await this.userService.create({
@@ -36,7 +36,7 @@ export class AuthService {
     try {
       const decoded = this.jwtService.verify(token);
       return this.generateTokens(decoded.sub);
-    } catch (e) {
+    } catch {
       throw new UnauthorizedException('Invalid refresh token');
     }
   }

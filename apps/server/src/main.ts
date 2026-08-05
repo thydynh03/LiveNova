@@ -4,6 +4,7 @@ import helmet from 'helmet';
 import { AppModule } from './app.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
+import { Request, Response, NextFunction } from 'express';
 
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
@@ -24,7 +25,7 @@ async function bootstrap() {
   }));
   
   // Custom headers not strictly covered by helmet defaults
-  app.use((req: any, res: any, next: any) => {
+  app.use((_req: Request, res: Response, next: NextFunction) => {
     res.setHeader('X-Frame-Options', 'DENY');
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');

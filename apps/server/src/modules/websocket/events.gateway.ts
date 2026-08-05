@@ -10,6 +10,11 @@ import {
 import { Server, Socket } from 'socket.io';
 import { Logger } from '@nestjs/common';
 
+interface AuthenticatedSocket extends Socket {
+  authenticated?: boolean;
+  authTimeout?: NodeJS.Timeout;
+}
+
 @WebSocketGateway({
   cors: {
     origin: '*', // Set to allowed origins in prod
@@ -22,7 +27,7 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   private logger = new Logger('EventsGateway');
 
-  handleConnection(client: Socket) {
+  handleConnection(client: AuthenticatedSocket) {
     this.logger.log(`Client connected: ${client.id}`);
     
     // Authenticate within 5 seconds (SEC-12)
@@ -33,42 +38,44 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
 
     const authTimeout = setTimeout(() => {
-      if (!(client as any).authenticated) {
+      if (!client.authenticated) {
         this.logger.warn(`Disconnecting unauthenticated client: ${client.id}`);
         client.disconnect();
       }
     }, 5000);
-    (client as any).authTimeout = authTimeout;
+    client.authTimeout = authTimeout;
   }
 
-  handleDisconnect(client: Socket) {
+  handleDisconnect(client: AuthenticatedSocket) {
     this.logger.log(`Client disconnected: ${client.id}`);
   }
 
   @SubscribeMessage('authenticate')
-  handleAuthenticate(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
+  handleAuthenticate(@ConnectedSocket() client: AuthenticatedSocket, @MessageBody() _payload: unknown) {
     // Validate token
-    (client as any).authenticated = true;
-    clearTimeout((client as any).authTimeout);
+    client.authenticated = true;
+    if (client.authTimeout) {
+      clearTimeout(client.authTimeout);
+    }
     return { event: 'authenticated', data: { success: true } };
   }
 
   @SubscribeMessage('subscribe_channel')
-  handleSubscribe(@ConnectedSocket() client: Socket, @MessageBody() channelId: string) {
-    if (!(client as any).authenticated) return;
+  handleSubscribe(@ConnectedSocket() client: AuthenticatedSocket, @MessageBody() channelId: string) {
+    if (!client.authenticated) return;
     client.join(`channel_${channelId}`);
     return { event: 'subscribed', data: channelId };
   }
 
   @SubscribeMessage('live_event')
-  handleLiveEvent(@ConnectedSocket() client: Socket, @MessageBody() eventData: any) {
-    if (!(client as any).authenticated) return;
+  handleLiveEvent(@ConnectedSocket() client: AuthenticatedSocket, @MessageBody() eventData: { channelId: string }) {
+    if (!client.authenticated) return;
     this.server.to(`channel_${eventData.channelId}`).emit('live_event', eventData);
   }
 
   @SubscribeMessage('overlay_data')
-  handleOverlayData(@ConnectedSocket() client: Socket, @MessageBody() data: any) {
-    if (!(client as any).authenticated) return;
+  handleOverlayData(@ConnectedSocket() client: AuthenticatedSocket, @MessageBody() data: { publicToken: string }) {
+    if (!client.authenticated) return;
     this.server.to(`overlay_${data.publicToken}`).emit('overlay_update', data);
   }
 }

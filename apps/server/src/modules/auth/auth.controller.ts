@@ -1,6 +1,7 @@
 import { Controller, Post, Body, Get, Req, Res, UnauthorizedException, BadRequestException, Query } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { UserService } from '../user/user.service';
+import { Response, Request } from 'express';
 
 @Controller('auth')
 export class AuthController {
@@ -10,8 +11,9 @@ export class AuthController {
   ) {}
 
   @Post('login')
-  async login(@Body() body: Record<string, any>) {
-    const { email, password } = body;
+  async login(@Body() body: Record<string, unknown>) {
+    const email = body.email as string;
+    const password = body.password as string;
     const user = await this.userService.findByEmail(email);
     if (!user || !user.passwordHash) throw new UnauthorizedException('Invalid credentials');
     
@@ -22,13 +24,13 @@ export class AuthController {
   }
 
   @Get('facebook/callback')
-  async facebookCallback(@Req() req: any) {
+  async facebookCallback(@Req() _req: Request) {
     // Mock OAuth callback
     return { message: 'Facebook callback' };
   }
 
   @Get('google/callback')
-  async googleCallback(@Req() req: any) {
+  async googleCallback(@Req() _req: Request) {
     // Mock OAuth callback
     return { message: 'Google callback' };
   }
@@ -45,7 +47,7 @@ export class AuthController {
   }
 
   @Get('redirect')
-  redirect(@Query('path') path: string, @Res() res: any) {
+  redirect(@Query('path') path: string, @Res() res: Response) {
     // Validate redirect param is relative path only (audit §13.3 FR-005)
     if (!path || !path.startsWith('/') || path.startsWith('//')) {
       throw new BadRequestException('Invalid redirect path');

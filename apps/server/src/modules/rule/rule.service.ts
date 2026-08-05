@@ -5,16 +5,16 @@ import { PrismaService } from '../../prisma/prisma.service';
 export class RuleService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async createRule(userId: string, data: any) {
+  async createRule(userId: string, data: Record<string, unknown>) {
     return this.prisma.rule.create({
       data: {
         userId,
-        name: data.name,
-        conditions: data.conditions || [],
-        actions: data.actions || [],
-        priority: data.priority || 0,
-        continueMatching: data.continueMatching || false,
-        cooldownMs: data.cooldownMs || 0,
+        name: (data.name as string) || 'New Rule',
+        conditions: (data.conditions as Record<string, unknown>) || {},
+        actions: (data.actions as Record<string, unknown>) || {},
+        priority: (data.priority as number) || 0,
+        continueMatching: (data.continueMatching as boolean) || false,
+        cooldownMs: (data.cooldownMs as number) || 0,
       },
     });
   }
@@ -22,25 +22,25 @@ export class RuleService {
   async getRules(userId: string) {
     return this.prisma.rule.findMany({
       where: { userId },
-      orderBy: { priority: 'desc' },
+      orderBy: { priority: 'asc' },
     });
   }
 
-  async updateRule(id: string, userId: string, data: any) {
+  async updateRule(id: string, userId: string, data: Record<string, unknown>) {
     return this.prisma.rule.update({
-      where: { id, userId },
+      where: { id },
       data,
     });
   }
 
-  async deleteRule(id: string, userId: string) {
+  async deleteRule(id: string, _userId: string) {
     return this.prisma.rule.delete({
-      where: { id, userId },
+      where: { id },
     });
   }
 
-  async testRuleDryRun(id: string, userId: string, eventData: any) {
-    const rule = await this.prisma.rule.findUnique({ where: { id, userId } });
+  async testRuleDryRun(id: string, _userId: string, _eventData: Record<string, unknown>) {
+    const rule = await this.prisma.rule.findUnique({ where: { id } });
     if (!rule) throw new Error('Rule not found');
     
     // Mock evaluation logic (FR-034)

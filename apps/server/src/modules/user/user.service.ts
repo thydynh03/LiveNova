@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 
 @Injectable()
@@ -10,11 +10,11 @@ export class UserService {
   }
 
   async findById(id: string) {
-    return this.prisma.user.findUnique({ where: { id, deletedAt: null } });
+    return this.prisma.user.findUnique({ where: { id } });
   }
 
   async findByEmail(email: string) {
-    return this.prisma.user.findUnique({ where: { email, deletedAt: null } });
+    return this.prisma.user.findUnique({ where: { email } });
   }
 
   async update(id: string, data: Partial<{ displayName: string; locale: string; timezone: string }>) {

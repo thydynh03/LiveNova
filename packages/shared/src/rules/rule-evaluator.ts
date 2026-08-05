@@ -1,5 +1,4 @@
-import { LiveEvent, Rule, RuleCondition, RuleAction, LiveEventType } from '../types';
-import { SYSTEM_LIMITS } from '../constants';
+import { LiveEvent, Rule, RuleCondition, RuleAction } from '../types';
 
 export interface EvaluationResult {
   matched: boolean;

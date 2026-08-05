@@ -46,6 +46,13 @@ export function Navbar() {
           }}>
             U
           </div>
+          <button
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            aria-label="Toggle Menu"
+            style={{ display: 'none' }}
+          >
+            ☰
+          </button>
         </div>
       </div>
     </nav>
