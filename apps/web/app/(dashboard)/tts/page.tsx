@@ -102,7 +102,7 @@ export default function TtsPage() {
             border: '1px solid var(--border)',
             display: 'flex',
             flexDirection: 'column',
-            justify: 'space-between',
+            justifyContent: 'space-between',
           }}
         >
           <div>

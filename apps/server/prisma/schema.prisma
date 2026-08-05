@@ -16,7 +16,14 @@ enum Role {
 enum ProviderType {
   GOOGLE
   FACEBOOK
+  ZALO
   LOCAL
+}
+
+enum Platform {
+  TIKTOK
+  FACEBOOK
+  YOUTUBE
 }
 
 enum LedgerReason {
@@ -24,18 +31,24 @@ enum LedgerReason {
   TTS_SYNTHESIS
   DAILY_QUOTA
   REFUND
+  ADMIN_ADJUST
 }
 
 enum TransactionStatus {
   PENDING
   SUCCESS
   FAILED
+  REFUNDED
 }
 
 enum OverlayType {
   ALERTS
   CHAT
   GOAL
+  PK_BAR
+  LEADERBOARD
+  ROOM_ENTRY
+  MEDIA
 }
 
 enum LiveEventType {
@@ -44,6 +57,7 @@ enum LiveEventType {
   LIKE
   JOIN
   SHARE
+  FOLLOW
 }
 
 model User {
@@ -52,52 +66,113 @@ model User {
   displayName  String?
   avatar       String?
   role         Role      @default(USER)
-  locale       String    @default("en")
-  timezone     String    @default("UTC")
+  // L10N-07 / B.8.1 — VN-first defaults. Drives BR-06 daily quota reset.
+  locale       String    @default("vi")
+  timezone     String    @default("Asia/Ho_Chi_Minh")
   passwordHash String?
   deletedAt    DateTime?
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
   identities    Identity[]
+  sessions      Session[]
+  channels      Channel[]
   creditBalance CreditBalance?
   creditLedger  CreditLedger[]
   transactions  Transaction[]
   rules         Rule[]
   overlays      Overlay[]
   liveSessions  LiveSession[]
+  ttsSettings   TtsSettings?
+  gameProfiles  GameProfile[]
+
+  @@index([deletedAt])
 }
 
 model Identity {
-  id               String       @id @default(uuid())
-  userId           String
-  provider         ProviderType
-  providerUserId   String
-  accessTokenEnc   Bytes?
-  refreshTokenEnc  Bytes?
-  user             User         @relation(fields: [userId], references: [id])
-  
+  id              String       @id @default(uuid())
+  userId          String
+  provider        ProviderType
+  providerUserId  String
+  emailVerified   Boolean      @default(false)
+  accessTokenEnc  Bytes?
+  refreshTokenEnc Bytes?
+  createdAt       DateTime     @default(now())
+  user            User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // H-02: OAuth lookup MUST be by (provider, providerUserId), never by email alone.
   @@unique([provider, providerUserId])
+  @@index([userId])
+}
+
+/// C-06 / FR-006..FR-008 — refresh tokens are server-side records so they can be
+/// rotated and revoked. `familyId` groups a rotation chain: reusing an already-rotated
+/// token revokes the whole family (reuse detection).
+model Session {
+  id          String    @id @default(uuid())
+  userId      String
+  refreshHash String    @unique
+  familyId    String
+  ip          String?
+  userAgent   String?
+  expiresAt   DateTime
+  revokedAt   DateTime?
+  createdAt   DateTime  @default(now())
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([familyId])
+  @@index([expiresAt])
+}
+
+/// H-07 / FR-011, FR-012 — a channel must be owned and ownership-verified before
+/// any ingest or socket subscription is permitted (fixes C-04).
+model Channel {
+  id                String        @id @default(uuid())
+  userId            String
+  platform          Platform      @default(TIKTOK)
+  platformChannelId String
+  handle            String
+  avatarUrl         String?
+  verified          Boolean       @default(false)
+  verificationCode  String?
+  isLive            Boolean       @default(false)
+  lastLiveAt        DateTime?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  user              User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  liveSessions      LiveSession[]
+
+  // BR-16 — one platform channel may be linked to exactly one account.
+  @@unique([platform, platformChannelId])
+  @@index([userId])
 }
 
 model CreditBalance {
-  id        String   @id @default(uuid())
-  userId    String   @unique
-  balance   Int      @default(0)
-  version   BigInt   @default(0)
-  updatedAt DateTime @updatedAt
-  user      User     @relation(fields: [userId], references: [id])
+  id            String    @id @default(uuid())
+  userId        String    @unique
+  /// H-08 — a DB-level CHECK (balance >= 0) is added by
+  /// prisma/sql/001_constraints.sql. Prisma cannot express CHECK natively.
+  balance       Int       @default(0)
+  dailyFreeUsed Int       @default(0)
+  resetsAt      DateTime?
+  version       BigInt    @default(0)
+  updatedAt     DateTime  @updatedAt
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model CreditLedger {
-  id          String       @id @default(uuid())
-  userId      String
-  delta       Int
-  reason      LedgerReason
-  description String?
+  id           String       @id @default(uuid())
+  userId       String
+  delta        Int
+  reason       LedgerReason
+  description  String?
   balanceAfter Int
-  createdAt   DateTime     @default(now())
-  user        User         @relation(fields: [userId], references: [id])
+  refId        String?
+  createdAt    DateTime     @default(now())
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
 }
 
 model Transaction {
@@ -108,8 +183,13 @@ model Transaction {
   creditAmount   Int
   status         TransactionStatus @default(PENDING)
   provider       String
+  providerTxnId  String?
   createdAt      DateTime          @default(now())
-  user           User              @relation(fields: [userId], references: [id])
+  updatedAt      DateTime          @updatedAt
+  user           User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerTxnId])
+  @@index([userId, createdAt])
 }
 
 model Rule {
@@ -124,18 +204,24 @@ model Rule {
   cooldownMs       Int      @default(0)
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
-  user             User     @relation(fields: [userId], references: [id])
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, enabled, priority])
 }
 
 model Overlay {
   id          String      @id @default(uuid())
   userId      String
   type        OverlayType
-  publicToken String      @unique @default(uuid())
+  /// M-08 — 256-bit random, generated in OverlayService (not uuid()).
+  publicToken String      @unique
   config      Json
+  enabled     Boolean     @default(true)
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
-  user        User        @relation(fields: [userId], references: [id])
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
 
 model LiveSession {
@@ -147,8 +233,11 @@ model LiveSession {
   totalViewers  Int         @default(0)
   totalCoins    Int         @default(0)
   totalComments Int         @default(0)
-  user          User        @relation(fields: [userId], references: [id])
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  channel       Channel     @relation(fields: [channelId], references: [id], onDelete: Cascade)
   events        LiveEvent[]
+
+  @@index([channelId, startedAt])
 }
 
 model LiveEvent {
@@ -161,14 +250,60 @@ model LiveEvent {
   giftName          String?
   giftCoinValue     Int?
   occurredAt        DateTime      @default(now())
-  indexed           Boolean       @default(false)
-  session           LiveSession   @relation(fields: [sessionId], references: [id])
+  session           LiveSession   @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId, occurredAt])
+  @@index([type, occurredAt])
 }
 
+/// H-06 — cache key is sha256 (not md5). `expiresAt` implements DR-03 (30-day TTL).
 model TtsCache {
   cacheKey   String   @id
   audioUrl   String
+  durationMs Int?
   hitCount   Int      @default(0)
   createdAt  DateTime @default(now())
   lastHitAt  DateTime @default(now())
+  expiresAt  DateTime
+
+  @@index([expiresAt])
+}
+
+model TtsSettings {
+  userId      String   @id
+  voiceId     String   @default("vi-VN-Wavenet-A")
+  rate        Float    @default(1.0)
+  pitch       Float    @default(0)
+  volume      Float    @default(1.0)
+  bannedWords String[] @default([])
+  updatedAt   DateTime @updatedAt
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+/// FR-054..FR-056 / BR-25 — safety limits live in the DB so the desktop client
+/// is not the only thing enforcing them.
+model GameProfile {
+  id                  String        @id @default(uuid())
+  userId              String
+  gameName            String
+  enabled             Boolean       @default(true)
+  maxActionsPerMinute Int           @default(20)
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+  user                User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bindings            GameBinding[]
+
+  @@index([userId])
+}
+
+model GameBinding {
+  id            String      @id @default(uuid())
+  profileId     String
+  triggerGiftId String
+  keyCode       Int
+  durationMs    Int         @default(100)
+  cooldownMs    Int         @default(3000)
+  profile       GameProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@index([profileId])
 }

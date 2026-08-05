@@ -1,6 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  transpilePackages: ['@tiktok-live/shared'],
+  transpilePackages: ['@livenova/shared'],
 };
 
 export default nextConfig;

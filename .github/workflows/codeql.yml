@@ -45,7 +45,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Build for CodeQL analysis
-        run: pnpm --filter @tiktok-live/shared build
+        run: pnpm --filter @livenova/shared build
         continue-on-error: true
 
       - name: Perform CodeQL Analysis

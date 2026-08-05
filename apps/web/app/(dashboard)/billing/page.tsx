@@ -27,7 +27,7 @@ export default function BillingPage() {
           border: '1px solid rgba(167, 139, 250, 0.3)',
           marginBottom: '2.5rem',
           display: 'flex',
-          justify: 'space-between',
+          justifyContent: 'space-between',
           alignItems: 'center',
         }}
       >
@@ -60,7 +60,7 @@ export default function BillingPage() {
               position: 'relative',
               display: 'flex',
               flexDirection: 'column',
-              justify: 'space-between',
+              justifyContent: 'space-between',
             }}
           >
             {pkg.popular && (

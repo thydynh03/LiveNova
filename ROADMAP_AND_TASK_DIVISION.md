@@ -1,129 +1,103 @@
-# 📋 LIVENOVA — MASTER FEATURE LIST & TASK DIVISION (2 DEVELOPERS)
+# 🚀 LIVENOVA — TOÀN BỘ CÁC TASK DÀNH CHO 2 DEVS (ƯU TIÊN BẮT SỰ KIỆN TIKTOK LIVE)
 
-> **Mô hình triển khai:** Team 2 Developers (Dev A & Dev B).
-> 🌟 **Ưu tiên Hàng đầu (Phase 1 MVP):** **Sự Kiện Nhận Quà TikTok (Gift Event)** ➔ Tự động kích hoạt **Video Clip / Popup Hình Ảnh / Hiệu ứng Âm Thanh / Bấm Phím Game / Đổi Scene OBS**.
+> **Chiến lược làm việc:** 
+> 🎯 **BƯỚC 1 (LÀM NGAY):** Bắt sự kiện trực tiếp từ TikTok LIVE (Comment, Gift, Like, Follow).
+> 🎁 **BƯỚC 2:** Khi nhận quà TikTok ➔ Tự động chạy Video Clip, hiện Banner Popup Ảnh, phát Âm thanh MP3 & Bấm phím Game.
+> 👥 **Phân chia 2 Devs:** Ranh giới rõ ràng, Dev A làm Core Engine & Rust Desktop; Dev B làm Web Dashboard & OBS Overlays.
 
 ---
 
-## 🧭 BẢNG TỔNG HỢP TOÀN BỘ CHỨC NĂNG (MASTER FEATURE LIST)
+## 🎯 MA TRẬN PHÂN CHIA CÔNG VIỆC TOÀN BỘ DỰ ÁN (MASTER TASK MATRIX)
 
 ```mermaid
 graph TD
-    subgraph P1 [🔥 PHASE 1: CORE MVP - ƯU TIÊN HÀNG ĐẦU]
-        F1[F1: TikTok Live Listener & Event Normalizer]
-        F2[F2: Gift Media Engine - Video/Image/Sound Queue]
-        F3[F3: OBS Media Overlay & Popup Banner]
-        F4[F4: Gift Rule Builder Dashboard UI]
-        F5[F5: Win32 Key Simulator & Emergency Stop]
-        F6[F6: OBS Studio Remote Controller]
+    subgraph P0 [🔥 BƯỚC 1: BẮT SỰ KIỆN TIKTOK LIVE - LÀM ĐẦU TIÊN]
+        T0A[Dev A: TikTok Live Webhook/WS Listener Engine]
+        T0B[Dev B: Live Event Stream Feed UI & Channel Connector]
     end
 
-    subgraph P2 [🚀 PHASE 2: STREAM INTERACTION - SAU MVP]
-        F7[F7: TTS Voice AI & Speech Queue Engine]
-        F8[F8: OBS Chatbox & Goal Progress Widget]
-        F9[F9: Streamer Analytics & Top Gifters Leaderboard]
+    subgraph P1 [🎁 BƯỚC 2: SỰ KIỆN QUÀ ➔ VIDEO/ẢNH/PHÍM - CORE MVP]
+        T1A[Dev A: Media Queue Engine & Win32 Key Simulator]
+        T1B[Dev B: OBS Video/Popup Overlay & Gift Rule Builder UI]
     end
 
-    subgraph P3 [💎 PHASE 3: MONETIZATION & ENTERPRISE - NÂNG CAO]
-        F10[F10: Payment Gateways - VNPay / MoMo / Stripe]
-        F11[F11: Credit Balance System & Ledger]
-        F12[F12: Multi-Team PK Bar Overlay 2-8 Teams]
-        F13[F13: Game RCON Server Integration]
-        F14[F14: OAuth 2.0 & Token Encryption Security]
+    subgraph P2 [🗣️ BƯỚC 3: GIỌNG ĐỌC TTS & OBS CHATBOX - INTERACTION]
+        T2A[Dev A: Speech Queue Manager & OBS Controller]
+        T2B[Dev B: TTS Voice AI Engine & OBS Chatbox Overlay]
     end
 
-    P1 --> P2 --> P3
+    subgraph P3 [💎 BƯỚC 4: THANH TOÁN & BẢO MẬT - ADVANCED]
+        T3A[Dev A: Security Encryption & Game RCON Server]
+        T3B[Dev B: VNPay/MoMo Payment Gateway & Credit System]
+    end
+
+    P0 --> P1 --> P2 --> P3
 ```
 
 ---
 
-## 👥 PHÂN CHIA CHI TIẾT DÀNH CHO 2 DEVELOPERS (ZERO-OVERLAP)
+## 👨‍💻 DEV A (Bạn — Backend, Live Engine & Desktop Automation)
+*📂 **Thư mục quản lý độc quyền:** `apps/desktop-app/`, `apps/server/src/modules/rule/`, `packages/shared/`*
+
+### 📋 DANH SÁCH TASKS CHI TIẾT THEO THỨ TỰ ƯU TIÊN:
+
+#### 🔥 BƯỚC 1: BẮT SỰ KIỆN TIKTOK LIVE (LÀM NGAY BAN ĐẦU)
+- [ ] **Task A0.1 — TikTok Live Event Listener (`apps/server/src/modules/rule/`):**
+  - Kết nối lắng nghe luồng dữ liệu TikTok LIVE (Stream Connection).
+  - Bắt 5 loại sự kiện cốt lõi:
+    1. `LiveEventType.GIFT`: Quà tặng (`giftName`, `giftCoinValue`, `senderDisplayName`, `senderAvatar`).
+    2. `LiveEventType.COMMENT`: Bình luận (`content`, `senderDisplayName`).
+    3. `LiveEventType.LIKE`: Lượt thả tim (`likeCount`).
+    4. `LiveEventType.FOLLOW`: Người theo dõi mới.
+    5. `LiveEventType.SHARE`: Lượt chia sẻ stream.
+  - Chuẩn hóa gói tin về đối tượng `LiveEvent` trong `@livenova/shared`.
+- [ ] **Task A0.2 — Local Bridge WebSocket Relay (`local_bridge.rs`):**
+  - Chuyển tiếp ngay lập tức (Relay < 20ms) toàn bộ sự kiện nhận từ Server về ứng dụng Desktop (`127.0.0.1:4000`).
+
+#### 🎁 BƯỚC 2: XỬ LÝ QUÀ ➔ KÍCH HOẠT ACTION (MVP CORE)
+- [ ] **Task A1.1 — Media Action & Queue Engine (`rule.service.ts`):**
+  - Xây dựng Engine khớp điều kiện Quà tặng (`giftName` hoặc `minCoinValue`).
+  - Hàng chờ Media Queue: Khi nhận 5-10 quà cùng lúc, tự động lưu vào danh sách chờ và xếp lịch đẩy từng sự kiện đến OBS Overlay (tránh đè video).
+- [ ] **Task A1.2 — Multi-Action Dispatcher:**
+  - Phát tín hiệu `PLAY_MEDIA` (Video/Ảnh) về OBS Overlay của Dev B.
+  - Phát âm thanh MP3 trực tiếp trên Desktop (`PLAY_SOUND`).
+  - Gọi Win32 `key_simulator.rs` kích hoạt phím bấm game (`GAME_KEY`) + Nút Emergency Stop.
+- [ ] **Task A1.3 — OBS Studio Remote (`obs_controller.rs`):**
+  - Kết nối OBS Studio qua WebSocket v5 (`ws://localhost:4455`) -> Chuyển Scene hoặc bật/tắt Source khi nhận quà giá trị cao.
+
+#### 🗣️ BƯỚC 3 & BƯỚC 4: TÍNH NĂNG MỞ RỘNG (SAU MVP)
+- [ ] **Task A2.1 — Speech Queue Engine:** Quản lý hàng chờ âm thanh đọc bình luận trên Desktop Client (nút Skip/Clear).
+- [ ] **Task A3.1 — Game RCON Client (`rcon_client.rs`):** Gửi lệnh RCON trực tiếp đến Game Server (Minecraft, Source Engine) khi streamer nhận quà khủng.
+- [ ] **Task A3.2 — Security & Rate Limiting:** Mã hóa Token bằng AES-256-GCM & Throttler chốn DDOS API.
 
 ---
 
-### 🔥 GIAI ĐOẠN 1: CORE MVP (ƯU TIÊN HÀNG ĐẦU — DỰ KIẾN 2 TUẦN)
+## 👨‍💻 DEV B (Đồng nghiệp — Web Dashboard & OBS Overlays)
+*📂 **Thư mục quản lý độc quyền:** `apps/web/app/`, `apps/server/src/modules/tts/`, `apps/server/src/modules/overlay/`, `apps/server/src/modules/credit/`*
 
-#### 👨‍💻 DEV A (Bạn — Core Engine & Desktop Automation)
-*Sở hữu thư mục: `apps/desktop-app/`, `apps/server/src/modules/rule/`, `packages/shared/`*
+### 📋 DANH SÁCH TASKS CHI TIẾT THEO THỨ TỰ ƯU TIÊN:
 
-1. **[F1] TikTok LIVE Event Listener & Filter:**
-   - Kết nối lắng nghe sự kiện trực tiếp từ TikTok LIVE.
-   - Bắt chính xác sự kiện Gift (`LiveEventType.GIFT`): Tên quà (`giftName`), số Coin (`giftCoinValue`), Tên người tặng (`senderDisplayName`), Avatar (`senderAvatar`).
-   - Chuẩn hóa dữ liệu về định dạng `LiveEvent` trong `@tiktok-live/shared`.
-2. **[F2] Media Action & Queue Engine (`rule.service.ts`):**
-   - Xây dựng Engine xử lý các loại hành động khi nhận quà:
-     - `PLAY_VIDEO`: Phát video clip (`.mp4`/`.webm`).
-     - `SHOW_IMAGE`: Hiển thị ảnh (`.gif`/`.png`) popup chúc mừng.
-     - `PLAY_SOUND`: Phát âm thanh hiệu ứng (`.mp3`/`.wav`).
-     - `GAME_KEY`: Bấm phím game tương ứng.
-   - Hàng chờ Media (Media Queue): Sắp xếp thứ tự phát từng video/ảnh mượt mà khi nhận nhiều quà liên tục, không bị đè video.
-3. **[F5] Win32 Key Simulator (`key_simulator.rs`):**
-   - Kích hoạt phím bấm game bằng `SendInput` API khi nhận quà.
-   - Quản lý thời gian giữ phím (Hold ms), thời gian hồi phím (Cooldown).
-   - Nút **Emergency Stop (Hủy khẩn cấp)** trên Desktop App để dừng phím lập tức.
-4. **[F6] OBS Studio Remote Controller (`obs_controller.rs`):**
-   - Kết nối OBS Studio qua `ws://localhost:4455` (OBS WebSocket v5).
-   - Tự động chuyển Scene / Bật Source OBS đặc biệt khi nhận quà giá trị cao.
+#### 🔥 BƯỚC 1: HIỂN THỊ LUỒNG SỰ KIỆN TIKTOK LIVE (LÀM NGAY BAN ĐẦU)
+- [ ] **Task B0.1 — Channel Connector UI (`apps/web/app/(dashboard)/dashboard/page.tsx`):**
+  - Giao diện nhập Username TikTok LIVE để bấm "Kết nối" / "Ngắt kết nối".
+  - Thẻ hiển thị Trạng thái kết nối thời gian thực (TikTok Live Status, Local Bridge Status, OBS Status).
+- [ ] **Task B0.2 — Live Event Stream Feed:**
+  - Bảng hiển thị danh sách bình luận, quà tặng và lượt like trượt thời gian thực (Live Stream Event Feed) trên Web Dashboard để test kiểm thử sự kiện.
 
----
+#### 🎁 BƯỚC 2: OBS MEDIA OVERLAY & GIFT RULE DASHBOARD (MVP CORE)
+- [ ] **Task B1.1 — OBS Media & Popup Overlay Widget (`apps/web/app/overlays/media/page.tsx`):**
+  - Màn hình OBS Browser Source (nền trong suốt `background: transparent`).
+  - Trình phát Video HTML5 hỗ trợ MP4/WEBM có hiệu ứng tách nền Chromakey.
+  - Banner Popup vinh danh: *"Cảm ơn [Tên User] đã tặng [Tên Quà]!"* kèm khung Avatar người tặng.
+  - Animation chuyển động (Fade-in, Zoom-in, Bounce) và tự động ẩn sau X giây.
+- [ ] **Task B1.2 — Gift Rule Builder UI (`apps/web/app/(dashboard)/rules/page.tsx`):**
+  - Giao diện cài đặt cho Streamer: Chọn loại quà -> Upload Video MP4 / Ảnh GIF / Âm thanh MP3 -> Thiết lập thời gian hiển thị & chọn phím bấm Game tương ứng.
+- [ ] **Task B1.3 — OBS Overlay Token Link Generator:**
+  - Quản lý link Browser Source bảo mật gắn vào OBS Studio (nút Copy link & xoay Token).
 
-#### 👨‍💻 DEV B (Đồng nghiệp — Web Dashboard & OBS Overlays)
-*Sở hữu thư mục: `apps/web/app/overlays/`, `apps/web/app/(dashboard)/rules/`, `apps/server/src/modules/overlay/`*
-
-1. **[F3] OBS Media & Popup Overlay Widget (`overlays/media/page.tsx`):**
-   - Màn hình OBS Browser Source nền trong suốt:
-     - Trình phát Video clip MP4/WEBM với hiệu ứng Chromakey.
-     - Banner Popup vinh danh: *"Cảm ơn [Tên User] đã tặng [Tên Quà]!"* kèm Avatar người tặng.
-     - Hiệu ứng chuyển động mượt mà (Fade in, Zoom in, Bounce).
-2. **[F4] Gift Rule Builder Dashboard UI (`app/(dashboard)/rules/page.tsx`):**
-   - Giao diện trực quan cho Streamer thiết lập:
-     - Chọn món quà (vd: "Hoa hồng", "Mũ TikTok", "Sư tử") hoặc ngưỡng Coin.
-     - Tải lên (Upload) / Dán URL Video clip, Hình ảnh GIF, Âm thanh hiệu ứng.
-     - Thiết lập thời gian hiển thị (ví dụ: phát video trong 5 giây).
-3. **[F6-UI] OBS Overlay Token & Link Manager:**
-   - Quản lý link Browser Source bảo mật cho OBS Studio (có nút Copy link & xoay Token bảo mật).
-
----
-
-### 🚀 GIAI ĐOẠN 2: STREAM INTERACTION & AUTOMATION (SAU MVP)
-
-#### 👨‍💻 DEV A (Backend & Speech Queue Backend)
-- **[F7-A] Speech Queue Manager (Desktop):** Quản lý luồng phát âm thanh đọc comment trên Desktop Client, hỗ trợ nút Skip & Clear Queue.
-
-#### 👨‍💻 DEV B (TTS AI & Interaction Overlays)
-- **[F7-B] TTS Voice AI (`apps/server/src/modules/tts/`):** Tích hợp gọi giọng đọc Tiếng Việt (Google / Viettel TTS), lưu Cache âm thanh (`TtsCache`), tính số credit tiêu tốn.
-- **[F8] OBS Live Chatbox Overlay (`overlays/chat/page.tsx`):** Khung hiển thị bong bóng chat trong suốt trên livestream với animation cuộn mượt.
-- **[F8-Goal] OBS Goal Widget (`overlays/goal/page.tsx`):** Thanh mục tiêu nhận quà/follower với hiệu ứng pháo hoa khi hoàn thành.
-- **[F9] Streamer Analytics Dashboard (`(dashboard)/dashboard/page.tsx`):** Biểu đồ thống kê số quà nhận được, thống kê Top Gifters đóng góp nhiều nhất.
-
----
-
-### 💎 GIAI ĐOẠN 3: MONETIZATION & ENTERPRISE (NÂNG CAO)
-
-#### 👨‍💻 DEV A (Security, Game RCON & High-Load Architecture)
-- **[F13] Game RCON Client (`rcon_client.rs`):** Gửi lệnh RCON trực tiếp đến Game Server (Minecraft, Source Engine) khi streamer nhận quà khủng.
-- **[F14] Security & Encryption:** Mã hóa token liên kết tài khoản bằng AES-256-GCM, cấu hình Rate Limiting chống DDOS API.
-
-#### 👨‍💻 DEV B (Billing, Credits & PK Bar Overlays)
-- **[F10] Payment Gateways (`modules/credit/`):** Tích hợp cổng thanh toán VNPay, MoMo, Stripe với Webhook Idempotency.
-- **[F11] Credit Balance & Ledger:** Quản lý trừ Credit tự động (Optimistic Locking `version`), lịch sử biến động số dư, tự động tặng Quota hàng ngày.
-- **[F12] Multi-Team PK Bar Overlay (`overlays/pk/page.tsx`):** Thanh so sánh điểm thi đấu PK 2 đến 8 đội thời gian thực trên OBS.
-
----
-
-## 📅 MA TRẬN TIẾN ĐỘ DỰ ÁN (MILESTONE MATRIX)
-
-```
-       TUẦN 1                    TUẦN 2                    TUẦN 3+
-┌───────────────────────┐ ┌───────────────────────┐ ┌───────────────────────┐
-│  PHASE 1: MVP FOCUS   │ │   COMPLETING MVP      │ │  PHASE 2 & PHASE 3    │
-├───────────────────────┤ ├───────────────────────┤ ├───────────────────────┤
-│ DEV A:                │ │ DEV A:                │ │ DEV A:                │
-│ • TikTok Gift Listener│ │ • Win32 Key Simulator │ │ • Game RCON Client    │
-│ • Media Queue Engine  │ │ • OBS WS v5 Control   │ │ • Security Encryption │
-│                       │ │                       │ │                       │
-│ DEV B:                │ │ DEV B:                │ │ DEV B:                │
-│ • OBS Media Overlay   │ │ • Gift Rule Builder UI│ │ • TTS Voice AI        │
-│ • Video/Popup Player  │ │ • Goal Bar Widget     │ │ • VNPay/MoMo Billing  │
-└───────────────────────┘ └───────────────────────┘ └───────────────────────┘
-```
+#### 🗣️ BƯỚC 3 & BƯỚC 4: TÍNH NĂNG MỞ RỘNG (SAU MVP)
+- [ ] **Task B2.1 — TTS Voice AI (`apps/server/src/modules/tts/`):** Gọi API giọng đọc Tiếng Việt (Google / Viettel TTS), lưu Cache âm thanh (`TtsCache`), tính số credit tiêu tốn.
+- [ ] **Task B2.2 — OBS Live Chatbox Overlay (`overlays/chat/page.tsx`):** Khung bong bóng chat trong suốt trên livestream.
+- [ ] **Task B2.3 — OBS Goal Widget (`overlays/goal/page.tsx`):** Thanh mục tiêu quà/Follower với hiệu ứng pháo hoa.
+- [ ] **Task B3.1 — Payment Gateways (`modules/credit/`):** Tích hợp cổng thanh toán VNPay, MoMo, Stripe với Webhook Idempotency.
+- [ ] **Task B3.2 — Credit Balance & Ledger:** Quản lý trừ Credit tự động (Optimistic Locking `version`), lịch sử biến động số dư, tự động tặng Quota hàng ngày.

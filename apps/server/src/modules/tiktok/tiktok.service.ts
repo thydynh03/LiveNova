@@ -5,7 +5,7 @@ import {
   OnModuleDestroy,
 } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import { LiveEvent, LiveEventType } from '@tiktok-live/shared';
+import { LiveEvent, LiveEventType } from '@livenova/shared';
 import { v4 as uuidv4 } from 'uuid';
 
 /**
@@ -65,13 +65,17 @@ export class TiktokService implements OnModuleInit, OnModuleDestroy {
    *   tiktokLive.on('share', (data) => this.handleRawEvent(channelId, data, LiveEventType.SHARE));
    *   tiktokLive.on('roomUser', (data) => this.handleRawEvent(channelId, data, LiveEventType.JOIN));
    */
-  async connect(channelId: string): Promise<void> {
+  async connect(channelId: string, platformChannelId?: string): Promise<void> {
     if (this.activeSessions.has(channelId)) {
       this.logger.warn(`Channel ${channelId} already connected`);
       return;
     }
 
-    this.logger.log(`Connecting to channel: ${channelId} (simulation mode)`);
+    this.logger.log(
+      `Connecting to channel: ${channelId}` +
+        (platformChannelId ? ` (@${platformChannelId})` : '') +
+        ' (simulation mode)',
+    );
 
     // ─── SIMULATION MODE ───────────────────────────────────────────────
     // Emits random events every 2-5 seconds for development/testing.

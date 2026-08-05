@@ -1,11 +1,55 @@
-import { Controller, Get, Post, Param, Body, Req, UseGuards } from '@nestjs/common';
-import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
-import { OverlayService } from './overlay.service';
+import {
+  Controller,
+  Get,
+  Post,
+  Patch,
+  Delete,
+  Param,
+  Body,
+  UseGuards,
+  HttpCode,
+  HttpStatus,
+  ParseUUIDPipe,
+} from '@nestjs/common';
+import { IsEnum, IsObject, IsOptional, IsString, Length } from 'class-validator';
 import { OverlayType, Prisma } from '@prisma/client';
-import { Request } from 'express';
+import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { CurrentUserId } from '../../common/decorators/current-user.decorator';
+import { OverlayService } from './overlay.service';
 
-interface AuthenticatedRequest extends Request {
-  user: { userId: string };
+class CreateOverlayDto {
+  @IsEnum(OverlayType)
+  type!: OverlayType;
+
+  @IsOptional()
+  @IsObject()
+  config?: Record<string, unknown>;
+}
+
+class UpdateOverlayConfigDto {
+  @IsObject()
+  config!: Record<string, unknown>;
+}
+
+class OverlayTokenParamDto {
+  @IsString()
+  @Length(32, 64)
+  token!: string;
+}
+
+/**
+ * Split into two controllers on purpose: the OBS browser source has no session
+ * and must never be forced through JwtAuthGuard, while everything the streamer
+ * manages must be.
+ */
+@Controller('public/overlays')
+export class PublicOverlayController {
+  constructor(private readonly overlayService: OverlayService) {}
+
+  @Get(':token')
+  async getByToken(@Param() params: OverlayTokenParamDto) {
+    return this.overlayService.getPublicByToken(params.token);
+  }
 }
 
 @UseGuards(JwtAuthGuard)
@@ -14,17 +58,43 @@ export class OverlayController {
   constructor(private readonly overlayService: OverlayService) {}
 
   @Get()
-  async getOverlays(@Req() req: AuthenticatedRequest) {
-    return this.overlayService.getOverlays(req.user.userId);
+  async getOverlays(@CurrentUserId() userId: string) {
+    return this.overlayService.getOverlays(userId);
   }
 
   @Post()
-  async createOverlay(@Req() req: AuthenticatedRequest, @Body() body: { type: OverlayType; config: Prisma.InputJsonObject }) {
-    return this.overlayService.createOverlay(req.user.userId, body.type, body.config);
+  async createOverlay(@CurrentUserId() userId: string, @Body() dto: CreateOverlayDto) {
+    return this.overlayService.createOverlay(
+      userId,
+      dto.type,
+      (dto.config ?? {}) as Prisma.InputJsonObject,
+    );
+  }
+
+  @Patch(':id/config')
+  async updateConfig(
+    @CurrentUserId() userId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateOverlayConfigDto,
+  ) {
+    return this.overlayService.updateConfig(id, userId, dto.config as Prisma.InputJsonObject);
   }
 
   @Post(':id/rotate-token')
-  async rotateToken(@Req() req: AuthenticatedRequest, @Param('id') id: string) {
-    return this.overlayService.rotateToken(id, req.user.userId);
+  @HttpCode(HttpStatus.OK)
+  async rotateToken(
+    @CurrentUserId() userId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.overlayService.rotateToken(id, userId);
+  }
+
+  @Delete(':id')
+  @HttpCode(HttpStatus.OK)
+  async deleteOverlay(
+    @CurrentUserId() userId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.overlayService.deleteOverlay(id, userId);
   }
 }

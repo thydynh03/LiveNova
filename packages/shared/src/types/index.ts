@@ -17,6 +17,8 @@ export enum CreditReason {
 }
 
 export enum RuleActionType {
+  /** MVP — gift triggers a video/image popup on the OBS overlay. */
+  MEDIA_POPUP = 'media_popup',
   TTS_READ = 'tts_read',
   EFFECT = 'effect',
   SOUND = 'sound',
@@ -26,6 +28,8 @@ export enum RuleActionType {
 }
 
 export enum OverlayType {
+  /** MVP overlay: renders MEDIA_POPUP actions. */
+  MEDIA = 'media',
   CHATBOX = 'chatbox',
   PK_BAR = 'pk_bar',
   GOAL = 'goal',
@@ -176,4 +180,95 @@ export interface LocalBridgeMessage {
   type: 'live_event' | 'tts_audio' | 'effect' | 'obs_command' | 'control';
   payload: unknown;
   sessionToken: string;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Overlay action protocol (MVP: gift → media popup)
+//
+// The server is the only producer of these messages. Overlay pages are pure
+// consumers: they authenticate with an overlay token and render whatever
+// arrives. Nothing an overlay sends can create an action.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type MediaKind = 'video' | 'image';
+
+export type MediaPosition =
+  | 'center'
+  | 'top'
+  | 'bottom'
+  | 'top-left'
+  | 'top-right'
+  | 'bottom-left'
+  | 'bottom-right';
+
+/** Payload of a RuleActionType.MEDIA_POPUP action. */
+export interface MediaPopupPayload {
+  mediaType: MediaKind;
+  /** Absolute https:// URL of the video or image asset. */
+  url: string;
+  /** How long the popup stays on screen. Clamped server-side. */
+  durationMs: number;
+  position?: MediaPosition;
+  /** 0..1, videos only. */
+  volume?: number;
+  /** Optional caption rendered above the media. */
+  caption?: string;
+}
+
+export const MEDIA_POPUP_LIMITS = {
+  MIN_DURATION_MS: 500,
+  MAX_DURATION_MS: 30_000,
+  DEFAULT_DURATION_MS: 5_000,
+  /** Overlay drops the oldest queued item beyond this depth. */
+  MAX_QUEUE_LENGTH: 20,
+} as const;
+
+/** The subset of a LiveEvent an overlay is allowed to see and render. */
+export interface OverlayEventContext {
+  type: LiveEventType;
+  senderDisplayName: string;
+  senderAvatar?: string;
+  giftName?: string;
+  giftCoinValue?: number;
+  content?: string;
+}
+
+/** Envelope pushed to overlay clients over the `/overlay` namespace. */
+export interface OverlayAction {
+  /** Unique per dispatch — overlays use it to de-duplicate on reconnect. */
+  id: string;
+  ruleId: string;
+  ruleName: string;
+  type: RuleActionType;
+  payload: Record<string, unknown>;
+  event: OverlayEventContext;
+  /** ISO-8601. */
+  createdAt: string;
+}
+
+/** Socket.IO event names, shared so client and server cannot drift. */
+export const OVERLAY_SOCKET = {
+  NAMESPACE: '/overlay',
+  /** server → client */
+  ACTION: 'overlay.action',
+  READY: 'overlay.ready',
+  ERROR: 'overlay.error',
+} as const;
+
+export const EVENTS_SOCKET = {
+  NAMESPACE: '/events',
+  AUTHENTICATE: 'authenticate',
+  SUBSCRIBE_CHANNEL: 'subscribe_channel',
+  UNSUBSCRIBE_CHANNEL: 'unsubscribe_channel',
+  LIVE_EVENT: 'live_event',
+} as const;
+
+export function clampMediaDuration(ms: number | undefined): number {
+  const value = typeof ms === 'number' && Number.isFinite(ms)
+    ? ms
+    : MEDIA_POPUP_LIMITS.DEFAULT_DURATION_MS;
+  return Math.min(
+    Math.max(value, MEDIA_POPUP_LIMITS.MIN_DURATION_MS),
+    MEDIA_POPUP_LIMITS.MAX_DURATION_MS,
+  );
 }

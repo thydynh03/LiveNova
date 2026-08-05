@@ -1,11 +1,20 @@
-import { Controller, Get, Post, Patch, Delete, Param, Body, Req, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Patch,
+  Delete,
+  Param,
+  Body,
+  UseGuards,
+  HttpCode,
+  HttpStatus,
+  ParseUUIDPipe,
+} from '@nestjs/common';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { CurrentUserId } from '../../common/decorators/current-user.decorator';
 import { RuleService } from './rule.service';
-import { Request } from 'express';
-
-interface AuthenticatedRequest extends Request {
-  user: { userId: string };
-}
+import { CreateRuleDto, UpdateRuleDto, TestRuleEventDto } from './dto/rule.dto';
 
 @UseGuards(JwtAuthGuard)
 @Controller('rules')
@@ -13,27 +22,40 @@ export class RuleController {
   constructor(private readonly ruleService: RuleService) {}
 
   @Get()
-  async getRules(@Req() req: AuthenticatedRequest) {
-    return this.ruleService.getRules(req.user.userId);
+  async getRules(@CurrentUserId() userId: string) {
+    return this.ruleService.getRules(userId);
   }
 
   @Post()
-  async createRule(@Req() req: AuthenticatedRequest, @Body() body: Record<string, unknown>) {
-    return this.ruleService.createRule(req.user.userId, body);
+  async createRule(@CurrentUserId() userId: string, @Body() dto: CreateRuleDto) {
+    return this.ruleService.createRule(userId, dto);
   }
 
   @Patch(':id')
-  async updateRule(@Req() req: AuthenticatedRequest, @Param('id') id: string, @Body() body: Record<string, unknown>) {
-    return this.ruleService.updateRule(id, req.user.userId, body);
+  async updateRule(
+    @CurrentUserId() userId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateRuleDto,
+  ) {
+    return this.ruleService.updateRule(id, userId, dto);
   }
 
   @Delete(':id')
-  async deleteRule(@Req() req: AuthenticatedRequest, @Param('id') id: string) {
-    return this.ruleService.deleteRule(id, req.user.userId);
+  @HttpCode(HttpStatus.OK)
+  async deleteRule(
+    @CurrentUserId() userId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.ruleService.deleteRule(id, userId);
   }
 
   @Post(':id/test')
-  async testRule(@Req() req: AuthenticatedRequest, @Param('id') id: string, @Body() body: { event?: Record<string, unknown> }) {
-    return this.ruleService.testRuleDryRun(id, req.user.userId, body.event || {});
+  @HttpCode(HttpStatus.OK)
+  async testRule(
+    @CurrentUserId() userId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: TestRuleEventDto,
+  ) {
+    return this.ruleService.testRuleDryRun(id, userId, dto);
   }
 }
