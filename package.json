@@ -9,8 +9,15 @@
   "scripts": {
     "lint": "eslint .",
     "build": "pnpm -r run build",
+<<<<<<< HEAD
     "dev": "pnpm -r run dev",
     "test": "pnpm -r run test"
+=======
+    "dev": "pnpm --parallel run dev",
+    "dev:web": "pnpm --filter @tiktok-live/web dev",
+    "dev:server": "pnpm --filter @tiktok-live/server dev",
+    "dev:no-desktop": "pnpm --parallel --filter !@tiktok-live/desktop-app dev"
+>>>>>>> b3e87d3 (fix(monorepo): resolve dev scripts parallel execution, tauri recursion and tokio runtime panic)
   },
   "devDependencies": {
     "eslint": "^8.50.0",
