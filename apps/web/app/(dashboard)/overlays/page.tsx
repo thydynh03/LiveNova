@@ -62,6 +62,22 @@ export default function OverlaysPage() {
     if (data) setLocalTokens({});
   }, [data]);
 
+  // Clearing the override on refetch is not enough on its own: without a reason
+  // to refetch, a token rotated in another tab would stay stale on this screen
+  // indefinitely. Revalidate whenever the tab regains focus — the moment a user
+  // is most likely to come back and copy a URL.
+  useEffect(() => {
+    function revalidate() {
+      if (document.visibilityState === 'visible') reload();
+    }
+    window.addEventListener('focus', revalidate);
+    document.addEventListener('visibilitychange', revalidate);
+    return () => {
+      window.removeEventListener('focus', revalidate);
+      document.removeEventListener('visibilitychange', revalidate);
+    };
+  }, [reload]);
+
   function overlayUrl(overlay: Overlay): string | null {
     const path = LIVE_RENDERERS[overlay.type];
     if (!path) return null;

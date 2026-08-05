@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useApi } from '../../../lib/use-api';
 import { api } from '../../../lib/api-client';
 import { LoadingState, ErrorState, EmptyState } from '../../../components/common/States';
@@ -14,6 +14,14 @@ export default function RulesPage() {
   const [togglingId, setTogglingId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
+  // The lock is released when the refetch lands, not when the PATCH resolves.
+  // Clearing it earlier meant a fast second click read the still-stale `enabled`
+  // from `data` and sent the same value again — two clicks on an enabled rule
+  // both sent `false`, so the second one never re-enabled it.
+  useEffect(() => {
+    setTogglingId(null);
+  }, [data]);
+
   async function toggle(rule: Rule) {
     setActionError(null);
     setTogglingId(rule.id);
@@ -22,7 +30,7 @@ export default function RulesPage() {
       reload();
     } catch (err) {
       setActionError(err instanceof Error ? err.message : 'Không đổi được trạng thái');
-    } finally {
+      // No refetch will arrive to release the lock, so do it here.
       setTogglingId(null);
     }
   }

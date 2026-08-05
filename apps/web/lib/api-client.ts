@@ -139,7 +139,14 @@ async function requestNewAccessToken(): Promise<string | null> {
 
     if (outcome.kind === 'expired') {
       accessToken = null;
-      onUnauthenticated?.();
+      try {
+        onUnauthenticated?.();
+      } catch {
+        // The handler is supplied from outside this module. If it throws, that
+        // is its problem — it must not turn a handled "session expired" into a
+        // rejected refresh promise that every awaiting caller then has to deal
+        // with.
+      }
     }
     return null;
   })();
@@ -150,10 +157,15 @@ async function requestNewAccessToken(): Promise<string | null> {
   // unconditionally would let a settling old promise wipe the pointer for a
   // newer refresh, allowing two to run at once — the exact replay this
   // single-flight guard exists to prevent.
-  void attempt.finally(() => {
-    if (refreshInFlight === attempt) refreshInFlight = null;
-    if (refreshAbort === controller) refreshAbort = null;
-  });
+  //
+  // `.finally()` returns a promise that mirrors any rejection, and discarding it
+  // would raise an unhandled-rejection event, so the chain ends in a catch.
+  void attempt
+    .finally(() => {
+      if (refreshInFlight === attempt) refreshInFlight = null;
+      if (refreshAbort === controller) refreshAbort = null;
+    })
+    .catch(() => undefined);
 
   return attempt;
 }
@@ -220,6 +232,19 @@ export const api = {
 
 /** Exchanges credentials via the BFF route, which sets the httpOnly cookie. */
 export async function login(email: string, password: string): Promise<string> {
+  // Cancel BEFORE the request, not after the response.
+  //
+  // The previous attempt aborted once login had already returned, which left a
+  // window: an old refresh could land between the login response setting the
+  // new cookie and the abort firing, overwriting it. The result was the worst
+  // possible pairing — account B's access token in memory next to account A's
+  // refresh cookie, so the next refresh silently minted a token for A.
+  //
+  // Aborting first closes the window entirely: nothing from the previous
+  // session is still on the wire by the time the new cookie is written.
+  sessionGeneration += 1;
+  cancelInFlightRefresh();
+
   let res: Response;
   try {
     res = await fetch('/api/auth/login', {
@@ -241,11 +266,6 @@ export async function login(email: string, password: string): Promise<string> {
     throw new ApiError(data?.message ?? 'Đăng nhập thất bại', res.status);
   }
 
-  // A fresh sign-in supersedes anything already in flight — and the old refresh
-  // must be aborted, not merely forgotten, so its Set-Cookie can never land on
-  // top of the cookie this login just established.
-  sessionGeneration += 1;
-  cancelInFlightRefresh();
   accessToken = data.accessToken;
   return data.accessToken;
 }

@@ -121,21 +121,29 @@ describe('api-client', () => {
       expect(mod.getAccessToken()).toBeNull();
     });
 
-    it('aborts the in-flight refresh on login, so it cannot overwrite the new cookie', async () => {
+    it('aborts the previous refresh BEFORE sending the login request', async () => {
+      // Ordering is the whole fix. Aborting after login returned left a window
+      // in which the old refresh could land between the new cookie being set
+      // and the abort firing — pairing account B's access token with account
+      // A's refresh cookie, so the next refresh minted a token for A.
       const gate = deferred<Response>();
       let refreshSignal: AbortSignal | undefined;
+      let abortedWhenLoginSent: boolean | undefined;
 
       fetchMock.mockImplementation((input, init) => {
         if (String(input).includes('/api/auth/refresh')) {
           refreshSignal = init?.signal ?? undefined;
           return gate.promise;
         }
+        // Captured at the moment the login request is issued.
+        abortedWhenLoginSent = refreshSignal?.aborted;
         return Promise.resolve(jsonResponse({ accessToken: 'account-b' }));
       });
 
       const refreshing = mod.restoreSession();
       await mod.login('b@example.com', 'password123');
 
+      expect(abortedWhenLoginSent).toBe(true);
       expect(refreshSignal?.aborted).toBe(true);
 
       // Account A's refresh resolving late must not displace account B.
