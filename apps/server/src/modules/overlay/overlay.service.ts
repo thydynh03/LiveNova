@@ -56,6 +56,28 @@ export class OverlayService {
     return overlay;
   }
 
+  /**
+   * Socket-side token lookup. Returns null instead of throwing.
+   *
+   * The HTTP variant above deliberately throws 404 so a caller cannot probe
+   * which tokens exist. On the socket path we need the owner id to pick a room,
+   * and a rejected handshake is the "not found" signal, so a null return keeps
+   * the gateway free of exception handling on its hot path.
+   */
+  async findByPublicToken(token: string) {
+    if (typeof token !== 'string' || token.length < 32 || token.length > 64) {
+      return null;
+    }
+
+    const overlay = await this.prisma.overlay.findUnique({
+      where: { publicToken: token },
+      select: { id: true, userId: true, type: true, enabled: true },
+    });
+
+    if (!overlay || !overlay.enabled) return null;
+    return overlay;
+  }
+
   async updateConfig(id: string, userId: string, config: Prisma.InputJsonObject) {
     const result = await this.prisma.overlay.updateMany({
       where: { id, userId },

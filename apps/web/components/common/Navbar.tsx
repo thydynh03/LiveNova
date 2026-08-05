@@ -2,53 +2,86 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { ThemeToggle } from './ThemeToggle';
+import { getNavItems } from '../../config/nav';
 
 export function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const pathname = usePathname();
+
+  // Links come from the registry — adding a feature never edits this file.
+  const items = getNavItems();
 
   return (
-    <nav className="glass" style={{
-      position: 'sticky',
-      top: 0,
-      zIndex: 1000,
-      borderBottom: '1px solid var(--glass-border)',
-      padding: '1rem 2rem',
-    }}>
-      <div style={{
-        maxWidth: '1200px',
-        margin: '0 auto',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-      }}>
+    <nav
+      className="glass"
+      style={{
+        position: 'sticky',
+        top: 0,
+        zIndex: 1000,
+        borderBottom: '1px solid var(--glass-border)',
+        padding: '1rem 2rem',
+      }}
+    >
+      <div
+        style={{
+          maxWidth: '1200px',
+          margin: '0 auto',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+        }}
+      >
         <Link href="/" style={{ fontSize: '1.5rem', fontWeight: 700 }}>
-          <span className="text-gradient">TK LIVE</span> Auto
+          <span className="text-gradient">Live</span>Nova
         </Link>
-        
-        <div style={{ display: 'flex', gap: '2rem', alignItems: 'center' }} className="desktop-nav">
-          <Link href="/dashboard" style={{ fontWeight: 500 }}>Dashboard</Link>
-          <Link href="/rules" style={{ fontWeight: 500 }}>Rules</Link>
-          <Link href="/tts" style={{ fontWeight: 500 }}>TTS</Link>
-          <Link href="/overlays" style={{ fontWeight: 500 }}>Overlays</Link>
+
+        <div
+          style={{ display: 'flex', gap: '2rem', alignItems: 'center' }}
+          className="desktop-nav"
+        >
+          {items.map((item) => {
+            const active =
+              pathname === item.href || pathname?.startsWith(`${item.href}/`);
+            return (
+              <Link
+                key={item.id}
+                href={item.href}
+                aria-current={active ? 'page' : undefined}
+                style={{
+                  fontWeight: active ? 700 : 500,
+                  opacity: active ? 1 : 0.85,
+                }}
+              >
+                {item.label}
+              </Link>
+            );
+          })}
+
           <ThemeToggle />
-          <div style={{
-            width: '40px',
-            height: '40px',
-            borderRadius: '50%',
-            background: 'hsl(var(--primary))',
-            color: 'hsl(var(--primary-foreground))',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontWeight: 'bold',
-            cursor: 'pointer'
-          }}>
+
+          <div
+            style={{
+              width: '40px',
+              height: '40px',
+              borderRadius: '50%',
+              background: 'hsl(var(--primary))',
+              color: 'hsl(var(--primary-foreground))',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontWeight: 'bold',
+              cursor: 'pointer',
+            }}
+          >
             U
           </div>
+
           <button
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
             aria-label="Toggle Menu"
+            aria-expanded={mobileMenuOpen}
             style={{ display: 'none' }}
           >
             ☰

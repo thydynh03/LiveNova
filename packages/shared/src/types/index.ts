@@ -272,3 +272,20 @@ export function clampMediaDuration(ms: number | undefined): number {
     MEDIA_POPUP_LIMITS.MAX_DURATION_MS,
   );
 }
+
+/**
+ * Contract between the rule engine (Dev A) and the overlay gateway (Dev B).
+ *
+ * A emits `overlay.dispatch` on the internal NestJS event bus; B's gateway is
+ * the only consumer. Neither side needs to know how the other works — this
+ * type is the entire seam between them.
+ */
+export const OVERLAY_DISPATCH_EVENT = 'overlay.dispatch';
+
+export interface OverlayDispatchEvent {
+  /** Owner of the overlay(s) this action should reach. */
+  userId: string;
+  action: OverlayAction;
+  /** Optional: restrict delivery to one overlay instead of all of the user's. */
+  overlayId?: string;
+}

@@ -11,7 +11,8 @@
     "**/build/**",
     "**/.next/**",
     "**/node_modules/**",
-    "**/target/**"
+    "**/target/**",
+    "**/wailsjs/**"
   ],
   "env": {
     "node": true,
