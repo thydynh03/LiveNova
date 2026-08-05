@@ -1,13 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
-import { OverlayType } from '@prisma/client';
+import { OverlayType, Prisma } from '@prisma/client';
 import { v4 as uuidv4 } from 'uuid';
 
 @Injectable()
 export class OverlayService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async createOverlay(userId: string, type: OverlayType, config: Record<string, unknown>) {
+  async createOverlay(userId: string, type: OverlayType, config: Prisma.InputJsonObject) {
     return this.prisma.overlay.create({
       data: {
         userId,
