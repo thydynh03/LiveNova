@@ -1,5 +1,7 @@
 // Basic Source RCON client stub
+#[allow(unused_imports)]
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
+#[allow(unused_imports)]
 use tokio::net::TcpStream;
 
 #[derive(Debug)]
@@ -20,6 +22,5 @@ pub async fn execute(
     command: &str,
 ) -> Result<String, RconError> {
     tracing::info!("Executing RCON command '{}' on {}:{}", command, host, port);
-    // TODO: Implement actual RCON protocol logic
     Ok(format!("Mock response to command: {}", command))
 }

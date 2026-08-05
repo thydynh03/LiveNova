@@ -1,4 +1,4 @@
-use futures_util::{SinkExt, StreamExt};
+use futures_util::StreamExt;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tokio::net::TcpListener;
@@ -65,7 +65,6 @@ pub async fn start_server(
                     match msg {
                         Ok(msg) => {
                             if msg.is_text() {
-                                // Basic echo or auth processing here
                                 tracing::debug!("Received WS message");
                             }
                         }
