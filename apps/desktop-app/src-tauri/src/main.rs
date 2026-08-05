@@ -1,25 +1,23 @@
 // Prevents additional console window on Windows in release
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod key_simulator;
 mod local_bridge;
 mod obs_controller;
 mod rcon_client;
-mod key_simulator;
 
 use tauri::Manager;
 use tracing_subscriber::EnvFilter;
 
 #[tauri::command]
-async fn get_bridge_status(state: tauri::State<'_, local_bridge::BridgeState>) -> Result<local_bridge::BridgeStatus, String> {
+async fn get_bridge_status(
+    state: tauri::State<'_, local_bridge::BridgeState>,
+) -> Result<local_bridge::BridgeStatus, String> {
     Ok(state.get_status().await)
 }
 
 #[tauri::command]
-async fn connect_obs(
-    host: String,
-    port: u16,
-    password: Option<String>,
-) -> Result<bool, String> {
+async fn connect_obs(host: String, port: u16, password: Option<String>) -> Result<bool, String> {
     obs_controller::connect(&host, port, password.as_deref())
         .await
         .map_err(|e| e.to_string())
@@ -39,14 +37,16 @@ async fn send_rcon_command(
 
 #[tauri::command]
 fn simulate_key_press(key_code: u16, hold_ms: u64) -> Result<(), String> {
-    key_simulator::press_key(key_code, hold_ms)
-        .map_err(|e| e.to_string())
+    key_simulator::press_key(key_code, hold_ms).map_err(|e| e.to_string())
 }
 
 fn main() {
     // Initialize logging
     tracing_subscriber::fmt()
-        .with_env_filter(EnvFilter::from_default_env().add_directive("tiktok_live_desktop=info".parse().unwrap()))
+        .with_env_filter(
+            EnvFilter::from_default_env()
+                .add_directive("tiktok_live_desktop=info".parse().unwrap()),
+        )
         .init();
 
     tauri::Builder::default()

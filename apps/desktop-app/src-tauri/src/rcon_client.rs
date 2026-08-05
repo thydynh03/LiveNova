@@ -1,6 +1,6 @@
 // Basic Source RCON client stub
-use tokio::net::TcpStream;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::net::TcpStream;
 
 #[derive(Debug)]
 pub struct RconError(String);
@@ -13,7 +13,12 @@ impl std::fmt::Display for RconError {
 
 impl std::error::Error for RconError {}
 
-pub async fn execute(host: &str, port: u16, _password: &str, command: &str) -> Result<String, RconError> {
+pub async fn execute(
+    host: &str,
+    port: u16,
+    _password: &str,
+    command: &str,
+) -> Result<String, RconError> {
     tracing::info!("Executing RCON command '{}' on {}:{}", command, host, port);
     // TODO: Implement actual RCON protocol logic
     Ok(format!("Mock response to command: {}", command))

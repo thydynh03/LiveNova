@@ -1,10 +1,10 @@
+use futures_util::{SinkExt, StreamExt};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use tokio::sync::Mutex;
-use uuid::Uuid;
 use tokio::net::TcpListener;
+use tokio::sync::Mutex;
 use tokio_tungstenite::accept_async;
-use futures_util::{StreamExt, SinkExt};
+use uuid::Uuid;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BridgeStatus {
@@ -42,10 +42,13 @@ impl BridgeState {
     }
 }
 
-pub async fn start_server(state: BridgeState, _app_handle: tauri::AppHandle) -> Result<(), Box<dyn std::error::Error>> {
+pub async fn start_server(
+    state: BridgeState,
+    _app_handle: tauri::AppHandle,
+) -> Result<(), Box<dyn std::error::Error>> {
     let addr = format!("127.0.0.1:{}", state.port);
     let listener = TcpListener::bind(&addr).await?;
-    
+
     *state.is_running.lock().await = true;
     tracing::info!("Local Bridge running on {}", addr);
     tracing::info!("Session Token: {}", state.session_token);
