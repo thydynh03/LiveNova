@@ -1,97 +1,97 @@
-# 🚀 LiveNova — Feature-Based & Zero-Overlap Development Roadmap
+# ⚡ LiveNova — 2-Developer MVP Roadmap & Task Breakdown
 
-> **Nguyên tắc phân chia:** Chia công việc theo **Tính Năng Độc Lập (Vertical Feature Ownership)**. Mỗi người làm trọn gói từ Backend -> Frontend -> Desktop cho tính năng đó.
-> 🛡️ **Zero Overlap:** Mỗi người sở hữu thư mục code riêng biệt, KHÔNG SỬA CHUNG FILE của nhau, tránh bị trùng lặp (conflict) khi merge code.
+> **Mô hình 2 Developers:** Tối ưu hóa cho team **2 người**, tập trung 100% vào **MVP (Minimum Viable Product)** để chạy thử trực tiếp trên Livestream TikTok sớm nhất.
+> 🛡️ **Zero Overlap:** Phân chia ranh giới rõ ràng giữa Dev A (Desktop & Core Engine) và Dev B (Web Dashboard & Audio/Visual Overlays).
 
 ---
 
-## 🎯 1. Thứ Tự Triển Khai Tính Năng (Feature Priorities)
+## 🎯 1. Phạm Vi MVP (Những gì CẦN CÓ để Livestream ngay)
+
+| Tính năng MVP | Mục đích | Phân công |
+|---|---|---|
+| 📡 **1. TikTok LIVE Pipeline** | Đọc bình luận & quà từ TikTok LIVE thời gian thực | **DEV A** |
+| 🎮 **2. Win32 Key Simulator** | Tặng quà/Comment -> Tự động bấm phím trong Game | **DEV A** |
+| 🎬 **3. OBS Controller** | Kết nối OBS Studio -> Chuyển cảnh/Ẩn hiện Source | **DEV A** |
+| 🗣️ **4. TTS Voice & Speech Queue** | Đọc bình luận bằng giọng nói AI Tiếng Việt | **DEV B** |
+| 📺 **5. OBS Chatbox & Goal Widget** | Hiển thị bong bóng chat & mục tiêu quà trên OBS | **DEV B** |
+| 🎛️ **6. Streamer Web Dashboard** | Giao diện bật/tắt ứng dụng & cài đặt phím bấm | **DEV B** |
+
+*(Giai đoạn 2 sau MVP: Cổng thanh toán VNPay/MoMo, PK Bar 8 đội, Game RCON server)*
+
+---
+
+## 👥 2. Phân Chia Chi Tiết Cho 2 Developers
 
 ```mermaid
 graph TD
-    MVP[F0: Core Stream Pipeline - Làm đầu tiên] --> FA[Feature A: Rule & Win32 Key Simulator]
-    MVP --> FB[Feature B: TTS AI & Speech Queue]
-    MVP --> FC[Feature C: OBS Overlays & OBS Remote]
-    MVP --> FD[Feature D: Billing, Credits & Auth]
+    subgraph DEVA [👨‍💻 DEV A: Core System & Automation Specialist]
+        A1[TikTok LIVE Listener]
+        A2[Local Bridge WebSocket]
+        A3[Win32 Key Simulator]
+        A4[OBS WebSocket Controller]
+    end
+
+    subgraph DEVB [👨‍💻 DEV B: Web Dashboard & Audio/Visual Specialist]
+        B1[Streamer Web Dashboard UI]
+        B2[TTS Engine & Speech Queue]
+        B3[OBS Chatbox & Goal Overlay]
+        B4[Overlay Token Manager]
+    end
 ```
 
-1. **F0: Core Stream Pipeline (Làm Đầu Tiên - Lead/Core Dev)**:
-   - Dẫn sự kiện TikTok Live (Comment, Gift, Like) về Local Bridge (`ws://127.0.0.1:4000`).
-   - Đảm bảo kênh giao tiếp giữa Web Server và Desktop Client thông suốt.
+---
+
+### 👨‍💻 DEV A (Bạn — Core Engine & Desktop Automation)
+> **Trọng tâm:** Dữ liệu thời gian thực, điều khiển phần cứng/game và kết nối phần mềm livestream.
+
+- 📂 **Thư mục sở hữu độc quyền:**
+  - `apps/desktop-app/` (Rust + Tauri Client)
+  - `apps/server/src/modules/rule/` (Engine khớp điều kiện phím bấm)
+  - `packages/shared/` (Khai báo Data Types & Constants)
+
+- 📋 **Danh sách Công việc MVP (Checklist):**
+  - [ ] **A1. TikTok Live Parser:** Nhận sự kiện TikTok (Comment, Gift) -> Gửi dữ liệu qua Local Bridge (`ws://127.0.0.1:4000`).
+  - [ ] **A2. Win32 Key Simulator (`key_simulator.rs`):** 
+    - Nhận lệnh bấm phím từ Rule Engine -> Thực thi `SendInput` bấm phím game.
+    - Xử lý thời gian giữ phím (Hold ms) & Cooldown chống đè phím.
+    - Nút **Emergency Stop** trên Desktop App để hủy bấm phím lập tức.
+  - [ ] **A3. OBS WebSocket v5 Controller (`obs_controller.rs`):**
+    - Kết nối `ws://localhost:4455` của OBS Studio.
+    - Thực thi chuyển Scene / Mute Micro khi nhận được quà lớn.
 
 ---
 
-## 🧩 2. Chia Công Việc Theo Feature (Phân Chia Không Trùng Lặp)
+### 👨‍💻 DEV B (Đồng nghiệp — Web Dashboard & Audio/Visual Overlays)
+> **Trọng tâm:** Giao diện điều khiển Streamer, đọc giọng nói AI và các Widget hiển thị trên OBS.
 
-### 📌 FEATURE A: Rule Engine & Win32 Key Simulator (Tự Động Bấm Phím Game)
-> **Mục tiêu:** Streamer cài đặt: khi viewer tặng quà/gửi comment -> tự động bấm phím trong Game (vd: nhảy, xả đạn, bật skill).
+- 📂 **Thư mục sở hữu độc quyền:**
+  - `apps/web/` (Next.js Dashboard & Overlays)
+  - `apps/server/src/modules/tts/` (Hệ thống TTS API & Speech Queue)
+  - `apps/server/src/modules/overlay/` (Quản lý Token Overlay)
 
-- 📂 **Thư mục sở hữu độc quyền (Exclusive Paths):**
-  - `apps/server/src/modules/rule/`
-  - `apps/web/app/(dashboard)/rules/`
-  - `apps/desktop-app/src-tauri/src/key_simulator.rs`
-- 📋 **Nhiệm vụ cụ thể:**
-  - **Frontend:** Giao diện thêm/sửa Rule, chọn phím game, kéo-thả thứ tự ưu tiên (Priority), lọc loại quà/từ khóa.
-  - **Backend:** Xử lý logic so khớp điều kiện Rule (`RuleEvaluator`), đếm thời gian Cooldown.
-  - **Desktop (Rust):** Thực thi bấm phím Windows (`SendInput`), bấm giữ phím, phím tổ hợp (Combo keys) & Nút **Emergency Stop** dừng khẩn cấp.
-
----
-
-### 📌 FEATURE B: TTS AI & Speech Queue (Đọc Bình Luận / Thông Báo Trí Tuệ Nhân Tạo)
-> **Mục tiêu:** Tự động chuyển comment/gift trên TikTok thành giọng đọc thông báo trực tiếp trên stream.
-
-- 📂 **Thư mục sở hữu độc quyền (Exclusive Paths):**
-  - `apps/server/src/modules/tts/`
-  - `apps/web/app/(dashboard)/tts/`
-  - `apps/desktop-app/src/components/SpeechQueue.tsx`
-- 📋 **Nhiệm vụ cụ thể:**
-  - **Frontend:** Trình chỉnh giọng đọc (Việt Nam Standard / Wavenet, Pitch, Speed), nút nghe thử.
-  - **Backend:** Gọi TTS API, mã hóa & lưu Cache âm thanh (`TtsCache`), tính toán số Credit tiêu tốn cho câu đọc.
-  - **Desktop (Rust/React):** Quản lý Hàng chờ giọng đọc (Speech Queue), nút Bỏ qua câu hiện tại (Skip), Xóa hàng chờ (Clear Queue), phát âm thanh.
+- 📋 **Danh sách Công việc MVP (Checklist):**
+  - [ ] **B1. Streamer Web Dashboard UI (`apps/web/app/(dashboard)/`):**
+    - Giao diện kết nối kênh TikTok (Nhập Username TikTok).
+    - Trình cài đặt danh sách Rule: Chọn loại quà/từ khóa -> Chọn phím bấm tương ứng.
+    - Bảng hiển thị trạng thái kết nối (Local Bridge, OBS, TikTok).
+  - [ ] **B2. TTS AI & Speech Queue (`apps/server/src/modules/tts/`):**
+    - Gọi API giọng đọc Tiếng Việt (Google / Viettel / FPT TTS), lưu Cache âm thanh.
+    - Hàng chờ đọc thoại (Speech Queue) hiển thị câu đang đọc + nút Skip câu tiếp theo.
+  - [ ] **B3. OBS Browser Source Overlays (`apps/web/app/overlays/`):**
+    - `chat/page.tsx`: Khung Chatbox nền trong suốt cho OBS, hiệu ứng tin nhắn trượt mượt.
+    - `goal/page.tsx`: Thanh mục tiêu quà/follower với hiệu ứng chúc mừng khi hoàn thành.
 
 ---
 
-### 📌 FEATURE C: OBS Overlays & OBS Remote Control (Giao Diện Livestream & Điều Khiển OBS)
-> **Mục tiêu:** Cung cấp Chatbox, PK Bar, Goal Bar hiển thị trên OBS và điều khiển OBS Studio từ xa.
+## 📅 3. Lộ Trình 2 Tuần Cán Đích MVP
 
-- 📂 **Thư mục sở hữu độc quyền (Exclusive Paths):**
-  - `apps/web/app/overlays/` (`chat`, `pk`, `goal`)
-  - `apps/server/src/modules/overlay/`
-  - `apps/desktop-app/src-tauri/src/obs_controller.rs`
-- 📋 **Nhiệm vụ cụ thể:**
-  - **Frontend Overlays:** 
-    - `chat/page.tsx`: Khung Chatbox trong suốt cho OBS, animation cuộn mượt.
-    - `pk/page.tsx`: Thanh thanh đo PK 2-8 đội có hiệu ứng nổ điểm.
-    - `goal/page.tsx`: Widget mục tiêu Follower/Gift có hiệu ứng pháo hoa.
-  - **Backend:** Quản lý Public Token cho Browser Source của OBS, xoay Token bảo mật.
-  - **Desktop (Rust):** Kết nối OBS Studio WebSocket v5 (`ws://localhost:4455`) -> Chuyển Scene, ẩn/hiện Source, Mute Audio khi có quà lớn.
+```
+Tuần 1: Nối Luồng & Khung Giao Diện
+├── DEV A: Xong kết nối TikTok Live -> Đẩy tin nhắn qua Local Bridge + Bấm phím thử nghiệm.
+└── DEV B: Xong giao diện Web Dashboard cài phím bấm + Dựng khung OBS Chatbox Overlay.
 
----
-
-### 📌 FEATURE D: Billing, Credits System & Security (Thanh Toán & Nạp Tiền)
-> **Mục tiêu:** Quản lý tài khoản Streamer, nạp tiền tự động và quản lý số dư Credit.
-
-- 📂 **Thư mục sở hữu độc quyền (Exclusive Paths):**
-  - `apps/server/src/modules/credit/`
-  - `apps/server/src/modules/auth/`
-  - `apps/server/src/modules/user/`
-  - `apps/web/app/(dashboard)/billing/`
-- 📋 **Nhiệm vụ cụ thể:**
-  - **Frontend:** Trang Nạp tiền (Billing), chọn gói Credit, xem lịch sử biến động số dư (Ledger).
-  - **Backend:** Tích hợp cổng thanh toán VNPay / MoMo / Stripe (Webhook Callback), xử lý trừ Credit an toàn (Optimistic Locking), tự động tặng Quota hàng ngày.
-  - **Security:** Đăng nhập OAuth 2.0 (Google/Facebook), JWT Token Rotation.
-
----
-
-## 🔒 3. Quy Tắc Tránh Overlap (Trùng Lập Code) Khi Làm Việc Team
-
-1. **Không sửa chung File:** 
-   - Code của ai thuộc Thư mục sở hữu của người đó.
-   - Nếu cần sử dụng Type chung -> Đóng góp vào `packages/shared/src/types/index.ts`.
-2. **Giao tiếp qua API / Contract:**
-   - Người làm Frontend chỉ cần khớp API endpoint hoặc WebSocket payload theo chuẩn từ `packages/shared`.
-3. **Mỗi Feature một Git Branch:**
-   - Người A làm branch: `feature/rule-key-simulator`
-   - Người B làm branch: `feature/tts-speech-queue`
-   - Người C làm branch: `feature/obs-overlays`
-   - Người D làm branch: `feature/billing-credit`
+Tuần 2: Hoàn Thiện MVP & Livestream Thực Tế
+├── DEV A: Tích hợp OBS WebSocket controller + Nút Emergency Stop phím bấm.
+└── DEV B: Tích hợp TTS đọc bình luận Tiếng Việt + Hoàn thiện Goal Widget.
+└── TEST CHUNG: Chạy livestream thử nghiệm trực tiếp trên TikTok! 🚀
+```
