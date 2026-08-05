@@ -46,6 +46,9 @@ jobs:
       - name: Lint all packages
         run: pnpm --filter @tiktok-live/shared --filter @tiktok-live/server --filter @tiktok-live/web lint
 
+      - name: Build shared package
+        run: pnpm --filter @tiktok-live/shared build
+
       - name: Generate Prisma client
         run: pnpm --filter @tiktok-live/server prisma:generate
 
