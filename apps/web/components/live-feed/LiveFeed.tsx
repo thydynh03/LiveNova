@@ -24,13 +24,26 @@ const ACCENT: Record<LiveEventType, string> = {
   [LiveEventType.JOIN]: '#a78bfa',
 };
 
-function formatTime(value: LiveEvent['occurredAt']): string {
-  // `occurredAt` is a Date on the server but arrives as an ISO string over
-  // Socket.IO, so it must not be treated as a Date without conversion.
+/**
+ * `occurredAt` is typed as a Date but arrives as an ISO string over Socket.IO,
+ * so both shapes must be handled.
+ */
+function toDate(value: LiveEvent['occurredAt']): Date | null {
   const date = value instanceof Date ? value : new Date(value);
-  return Number.isNaN(date.getTime())
-    ? ''
-    : date.toLocaleTimeString('vi-VN', { hour12: false });
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function formatTime(value: LiveEvent['occurredAt']): string {
+  const date = toDate(value);
+  return date ? date.toLocaleTimeString('vi-VN', { hour12: false }) : '';
+}
+
+/**
+ * `<time dateTime>` requires a valid machine-readable datetime. `String(date)`
+ * yields "Mon Aug 06 2026 …", which no parser and no screen reader can use.
+ */
+function toIsoAttribute(value: LiveEvent['occurredAt']): string | undefined {
+  return toDate(value)?.toISOString();
 }
 
 function describe(event: LiveEvent): string {
@@ -88,6 +101,7 @@ export function LiveFeed({ events }: { events: LiveEvent[] }) {
               display: 'flex',
               gap: '0.75rem',
               alignItems: 'baseline',
+              flexWrap: 'wrap',
               padding: '0.6rem 0.75rem',
               borderRadius: 'var(--radius)',
               background: 'hsl(var(--muted) / 0.25)',
@@ -95,7 +109,7 @@ export function LiveFeed({ events }: { events: LiveEvent[] }) {
             }}
           >
             <time
-              dateTime={String(event.occurredAt)}
+              dateTime={toIsoAttribute(event.occurredAt)}
               style={{
                 color: 'hsl(var(--muted-foreground))',
                 fontVariantNumeric: 'tabular-nums',
@@ -109,7 +123,11 @@ export function LiveFeed({ events }: { events: LiveEvent[] }) {
               {LABEL[event.type]}
             </span>
 
-            <strong style={{ whiteSpace: 'nowrap' }}>{event.senderDisplayName}</strong>
+            {/* Display names come from TikTok and can be arbitrarily long.
+                `nowrap` pushed the row past the viewport on narrow screens. */}
+            <strong style={{ wordBreak: 'break-word', minWidth: 0 }}>
+              {event.senderDisplayName}
+            </strong>
 
             {detail && (
               <span style={{ color: 'hsl(var(--muted-foreground))', wordBreak: 'break-word' }}>

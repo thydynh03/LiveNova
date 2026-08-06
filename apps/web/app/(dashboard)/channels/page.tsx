@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { LiveEvent } from '@livenova/shared';
 import { useApi } from '../../../lib/use-api';
 import { api, ApiError } from '../../../lib/api-client';
@@ -38,11 +38,32 @@ export default function ChannelsPage() {
     setEvents((prev) => [...prev, event].slice(-LIVE_FEED_LIMIT));
   }, []);
 
+  // Drop events belonging to channels that are no longer linked. Without this,
+  // unlinking a channel left its events sitting in the feed under a heading
+  // that now describes a different set of channels.
+  const activeKey = channelIds.join(',');
+  useEffect(() => {
+    setEvents((prev) => prev.filter((e) => channelIds.includes(e.channelId)));
+    // `channelIds` is compared by value through activeKey; depending on the
+    // array itself would re-run on every render.
+  }, [activeKey]);
+
   const { status, subscribed } = useEventsSocket({
     channelIds,
     onEvent: handleEvent,
     enabled: channelIds.length > 0,
   });
+
+  // `isLive` comes from a snapshot and would otherwise stay stale for as long
+  // as the tab is open. Revalidating on visibility is the cheap half of the fix;
+  // a push-based status event belongs with the ingest work (Q-01).
+  useEffect(() => {
+    function revalidate() {
+      if (document.visibilityState === 'visible') reload();
+    }
+    document.addEventListener('visibilitychange', revalidate);
+    return () => document.removeEventListener('visibilitychange', revalidate);
+  }, [reload]);
 
   async function linkChannel(e: React.FormEvent) {
     e.preventDefault();
@@ -91,6 +112,11 @@ export default function ChannelsPage() {
     setActionError(null);
     setBusyId(channel.id);
     try {
+      // Stop ingest first. Deleting the row alone leaves the server's session
+      // running and still emitting events for a channel that no longer exists.
+      // The server should enforce this for non-UI callers too — noted for Dev A,
+      // who owns TiktokService.
+      await api.delete(`/tiktok/channels/${channel.id}/connect`).catch(() => undefined);
       await api.delete(`/channels/${channel.id}`);
       reload();
     } catch (err) {

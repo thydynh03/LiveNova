@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { EVENTS_SOCKET, LiveEvent } from '@livenova/shared';
-import { getAccessToken } from './api-client';
+import { getAccessToken, restoreSession } from './api-client';
 
 export type EventsConnectionStatus =
   | 'idle'
@@ -33,9 +33,9 @@ export interface UseEventsSocketResult {
  * Different from `useOverlaySocket` in two ways that matter:
  *
  * 1. **It authenticates with a JWT**, not an overlay token, because this runs in
- *    a real session. The access token lives in module memory and is read at
- *    connect time rather than captured in a closure — a token refreshed between
- *    renders would otherwise leave this holding a stale one.
+ *    a real session. The access token is read at connect time rather than
+ *    captured in a closure — a token refreshed between renders would otherwise
+ *    leave this holding a stale one.
  *
  * 2. **Auth and subscription are re-done on every reconnect.** Socket.IO
  *    restores the transport but the server keeps no memory of who a socket was,
@@ -48,19 +48,20 @@ export function useEventsSocket(options: UseEventsSocketOptions): UseEventsSocke
   const [status, setStatus] = useState<EventsConnectionStatus>('idle');
   const [subscribed, setSubscribed] = useState<string[]>([]);
 
-  // Mirror of `subscribed` for use inside effects that must not depend on it.
+  // Mirror of `subscribed` for effects that must not depend on it. Written
+  // synchronously alongside the state so a reconcile that runs in the same tick
+  // sees the truth rather than the previous render's value.
   const subscribedRef = useRef<string[]>([]);
-  useEffect(() => {
-    subscribedRef.current = subscribed;
-  }, [subscribed]);
+  const setSubscribedBoth = useCallback((next: string[]) => {
+    subscribedRef.current = next;
+    setSubscribed(next);
+  }, []);
 
   const onEventRef = useRef(onEvent);
   useEffect(() => {
     onEventRef.current = onEvent;
   }, [onEvent]);
 
-  // Kept in a ref so the socket is not torn down and rebuilt every time the
-  // caller passes a new array literal with the same contents.
   const channelIdsRef = useRef<string[]>(channelIds);
   const channelKey = channelIds.join(',');
   useEffect(() => {
@@ -68,14 +69,17 @@ export function useEventsSocket(options: UseEventsSocketOptions): UseEventsSocke
   }, [channelIds]);
 
   const socketRef = useRef<Socket | null>(null);
+  /** Subscribe requests emitted but not yet acknowledged. */
+  const pendingRef = useRef<Set<string>>(new Set());
+  /** Guards the one-shot token refresh so a dead session cannot loop. */
+  const refreshAttempted = useRef(false);
 
-  const authenticateAndSubscribe = useCallback((socket: Socket) => {
+  const authenticate = useCallback((socket: Socket) => {
     const token = getAccessToken();
     if (!token) {
       setStatus('unauthorized');
       return;
     }
-
     setStatus('authenticating');
     socket.emit(EVENTS_SOCKET.AUTHENTICATE, { token });
   }, []);
@@ -97,34 +101,76 @@ export function useEventsSocket(options: UseEventsSocketOptions): UseEventsSocke
     });
     socketRef.current = socket;
 
-    socket.on('connect', () => authenticateAndSubscribe(socket));
+    socket.on('connect', () => authenticate(socket));
 
     socket.on('authenticated', () => {
+      refreshAttempted.current = false;
+      pendingRef.current.clear();
+      // Clear first: the server has no memory of this socket's previous
+      // subscriptions, so anything we still believed is now wrong. The
+      // reconcile effect below performs the actual subscribe once status flips
+      // to 'connected' — emitting here as well would send every subscription
+      // twice and double the ownership queries on the server.
+      setSubscribedBoth([]);
       setStatus('connected');
-      setSubscribed([]);
-      for (const id of channelIdsRef.current) {
-        socket.emit(EVENTS_SOCKET.SUBSCRIBE_CHANNEL, id);
-      }
     });
 
     socket.on('subscribed', (payload: { channelId?: string }) => {
-      if (!payload?.channelId) return;
-      setSubscribed((prev) =>
-        prev.includes(payload.channelId as string) ? prev : [...prev, payload.channelId as string],
-      );
+      const id = payload?.channelId;
+      if (!id) return;
+      pendingRef.current.delete(id);
+
+      // The channel may have been unlinked while this subscribe was in flight.
+      // The reconcile effect cannot catch that case — it compares against the
+      // acknowledged set, which did not contain this id at the time — so the
+      // socket would stay subscribed to a channel the user removed and keep
+      // feeding its events into the list.
+      if (!channelIdsRef.current.includes(id)) {
+        socket.emit(EVENTS_SOCKET.UNSUBSCRIBE_CHANNEL, id);
+        return;
+      }
+
+      if (subscribedRef.current.includes(id)) return;
+      setSubscribedBoth([...subscribedRef.current, id]);
+    });
+
+    // Without this the set only ever grows: unlinking then re-linking a channel
+    // on a live socket would find the stale id still present and never re-send
+    // SUBSCRIBE_CHANNEL, leaving the feed permanently silent for it.
+    socket.on('unsubscribed', (payload: { channelId?: string }) => {
+      const id = payload?.channelId;
+      if (!id) return;
+      setSubscribedBoth(subscribedRef.current.filter((existing) => existing !== id));
     });
 
     socket.on('error', (payload: { code?: string }) => {
-      // AUTH_REQUIRED / AUTH_INVALID are terminal: the server disconnects right
-      // after, and reconnecting with the same dead token would just loop.
-      if (payload?.code === 'AUTH_REQUIRED' || payload?.code === 'AUTH_INVALID') {
-        setStatus('unauthorized');
-        socket.io.reconnection(false);
+      const code = payload?.code;
+      if (code !== 'AUTH_REQUIRED' && code !== 'AUTH_INVALID') return;
+
+      // An access token lives 15 minutes. A reconnect after that window is the
+      // normal case, not a dead session — treating it as terminal killed the
+      // feed for a streamer who simply left the tab open. Try once to mint a
+      // fresh token from the refresh cookie before giving up.
+      if (!refreshAttempted.current) {
+        refreshAttempted.current = true;
+        void restoreSession().then((fresh) => {
+          if (fresh && socketRef.current === socket && socket.connected) {
+            authenticate(socket);
+          } else {
+            setStatus('unauthorized');
+            socket.io.reconnection(false);
+          }
+        });
+        return;
       }
+
+      setStatus('unauthorized');
+      socket.io.reconnection(false);
     });
 
     socket.on('disconnect', (reason) => {
-      setSubscribed([]);
+      pendingRef.current.clear();
+      setSubscribedBoth([]);
       setStatus(reason === 'io server disconnect' ? 'unauthorized' : 'reconnecting');
     });
 
@@ -140,15 +186,15 @@ export function useEventsSocket(options: UseEventsSocketOptions): UseEventsSocke
       socket.disconnect();
       socketRef.current = null;
       setStatus('idle');
-      setSubscribed([]);
+      setSubscribedBoth([]);
     };
-  }, [enabled, url, authenticateAndSubscribe]);
+  }, [enabled, url, authenticate, setSubscribedBoth]);
 
   // Subscribing to a newly linked channel must not drop the socket, so the
   // channel list is reconciled incrementally rather than being a dependency of
   // the connection effect.
   //
-  // The current subscriptions are read from a ref, not from state: depending on
+  // Current subscriptions are read from the ref, not from state: depending on
   // `subscribed` would re-run this on every server ack, and each run would emit
   // again — the effect would feed itself.
   useEffect(() => {
@@ -157,9 +203,15 @@ export function useEventsSocket(options: UseEventsSocketOptions): UseEventsSocke
 
     const want = channelIdsRef.current;
     const have = subscribedRef.current;
+    const pending = pendingRef.current;
 
     for (const id of want) {
-      if (!have.includes(id)) socket.emit(EVENTS_SOCKET.SUBSCRIBE_CHANNEL, id);
+      // `pending` stops a second reconcile from re-sending a subscribe that is
+      // still awaiting its acknowledgement.
+      if (!have.includes(id) && !pending.has(id)) {
+        pending.add(id);
+        socket.emit(EVENTS_SOCKET.SUBSCRIBE_CHANNEL, id);
+      }
     }
     for (const id of have) {
       if (!want.includes(id)) socket.emit(EVENTS_SOCKET.UNSUBSCRIBE_CHANNEL, id);

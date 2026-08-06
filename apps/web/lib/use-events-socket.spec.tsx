@@ -32,8 +32,10 @@ jest.mock('socket.io-client', () => ({
 }));
 
 let currentToken: string | null = 'access-token';
+const restoreSessionMock = jest.fn<Promise<string | null>, []>();
 jest.mock('./api-client', () => ({
   getAccessToken: () => currentToken,
+  restoreSession: () => restoreSessionMock(),
 }));
 
 
@@ -75,6 +77,8 @@ describe('useEventsSocket', () => {
     handlers.clear();
     jest.clearAllMocks();
     currentToken = 'access-token';
+    restoreSessionMock.mockResolvedValue('refreshed-token');
+    (socketMock as unknown as { connected: boolean }).connected = true;
   });
 
   it('authenticates with the JWT once connected', () => {
@@ -150,14 +154,21 @@ describe('useEventsSocket', () => {
     expect(socketMock.emit).not.toHaveBeenCalled();
   });
 
-  it('stops retrying when the server rejects the token', () => {
+  it('does not treat a rejected token as terminal on the first attempt', async () => {
+    // This test previously asserted the opposite. That encoded the very bug
+    // review found: a token rejected once was treated as a dead session, so a
+    // reconnect after the 15-minute access-token TTL killed the feed for good.
+    // The terminal path is now covered in 'token expiry on reconnect' below,
+    // after the refresh has actually been tried and failed.
     render(<Harness channelIds={['ch-1']} onEvent={jest.fn()} />);
 
     emit('connect');
-    emit('error', { code: 'AUTH_INVALID' });
+    await act(async () => {
+      handlers.get('error')?.({ code: 'AUTH_INVALID' });
+    });
 
-    expect(screen.getByTestId('status')).toHaveTextContent('unauthorized');
-    expect(socketMock.io.reconnection).toHaveBeenCalledWith(false);
+    expect(restoreSessionMock).toHaveBeenCalled();
+    expect(screen.getByTestId('status')).not.toHaveTextContent('unauthorized');
   });
 
   it('does not stop retrying on a non-auth error', () => {
@@ -225,5 +236,123 @@ describe('useEventsSocket', () => {
 
     expect(socketMock.removeAllListeners).toHaveBeenCalled();
     expect(socketMock.disconnect).toHaveBeenCalled();
+  });
+
+  describe('token expiry on reconnect', () => {
+    it('refreshes the access token before giving up', async () => {
+      // An access token lives 15 minutes. A reconnect after that window is the
+      // normal case for a tab left open, not a dead session — treating it as
+      // terminal killed the feed permanently.
+      render(<Harness channelIds={['ch-1']} onEvent={jest.fn()} />);
+      emit('connect');
+      socketMock.emit.mockClear();
+
+      currentToken = 'refreshed-token';
+      await act(async () => {
+        handlers.get('error')?.({ code: 'AUTH_INVALID' });
+      });
+
+      expect(restoreSessionMock).toHaveBeenCalledTimes(1);
+      expect(socketMock.emit).toHaveBeenCalledWith(EVENTS_SOCKET.AUTHENTICATE, {
+        token: 'refreshed-token',
+      });
+      expect(socketMock.io.reconnection).not.toHaveBeenCalled();
+    });
+
+    it('gives up when the refresh cookie is also dead', async () => {
+      restoreSessionMock.mockResolvedValue(null);
+      render(<Harness channelIds={['ch-1']} onEvent={jest.fn()} />);
+      emit('connect');
+
+      await act(async () => {
+        handlers.get('error')?.({ code: 'AUTH_INVALID' });
+      });
+
+      expect(screen.getByTestId('status')).toHaveTextContent('unauthorized');
+      expect(socketMock.io.reconnection).toHaveBeenCalledWith(false);
+    });
+
+    it('only attempts the refresh once per connection', async () => {
+      restoreSessionMock.mockResolvedValue(null);
+      render(<Harness channelIds={['ch-1']} onEvent={jest.fn()} />);
+      emit('connect');
+
+      await act(async () => {
+        handlers.get('error')?.({ code: 'AUTH_INVALID' });
+      });
+      await act(async () => {
+        handlers.get('error')?.({ code: 'AUTH_INVALID' });
+      });
+
+      expect(restoreSessionMock).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('subscription reconciliation', () => {
+    it('subscribes each channel exactly once after authenticating', () => {
+      // The 'authenticated' handler used to emit as well as the reconcile
+      // effect, doubling every ownership query on the server.
+      render(<Harness channelIds={['ch-1', 'ch-2']} onEvent={jest.fn()} />);
+
+      emit('connect');
+      emit('authenticated');
+
+      const subs = socketMock.emit.mock.calls.filter(
+        (c) => c[0] === EVENTS_SOCKET.SUBSCRIBE_CHANNEL,
+      );
+      expect(subs).toHaveLength(2);
+    });
+
+    it('unsubscribes a channel that is removed', () => {
+      const { rerender } = render(
+        <Harness channelIds={['ch-1', 'ch-2']} onEvent={jest.fn()} />,
+      );
+      emit('connect');
+      emit('authenticated');
+      emit('subscribed', { channelId: 'ch-1' });
+      emit('subscribed', { channelId: 'ch-2' });
+      socketMock.emit.mockClear();
+
+      rerender(<Harness channelIds={['ch-1']} onEvent={jest.fn()} />);
+
+      expect(socketMock.emit).toHaveBeenCalledWith(
+        EVENTS_SOCKET.UNSUBSCRIBE_CHANNEL,
+        'ch-2',
+      );
+    });
+
+    it('drops a channel from state when the server acknowledges the unsubscribe', () => {
+      // Without this the set only grows, and unlink-then-relink on a live socket
+      // would never re-send SUBSCRIBE for the returning channel.
+      render(<Harness channelIds={['ch-1']} onEvent={jest.fn()} />);
+      emit('connect');
+      emit('authenticated');
+      emit('subscribed', { channelId: 'ch-1' });
+      expect(screen.getByTestId('subscribed')).toHaveTextContent('ch-1');
+
+      emit('unsubscribed', { channelId: 'ch-1' });
+
+      expect(screen.getByTestId('subscribed')).toHaveTextContent('');
+    });
+
+    it('unsubscribes when the ack arrives after the channel was removed', () => {
+      // The reconcile effect cannot catch this: at the time the channel was
+      // dropped the subscribe had not been acknowledged, so it was in neither
+      // the wanted nor the acknowledged set.
+      const { rerender } = render(<Harness channelIds={['ch-1']} onEvent={jest.fn()} />);
+      emit('connect');
+      emit('authenticated');
+
+      rerender(<Harness channelIds={[]} onEvent={jest.fn()} />);
+      socketMock.emit.mockClear();
+
+      emit('subscribed', { channelId: 'ch-1' });
+
+      expect(socketMock.emit).toHaveBeenCalledWith(
+        EVENTS_SOCKET.UNSUBSCRIBE_CHANNEL,
+        'ch-1',
+      );
+      expect(screen.getByTestId('subscribed')).toHaveTextContent('');
+    });
   });
 });

@@ -273,12 +273,12 @@ Ký hiệu: `M` = MUST · `S` = SHOULD · `C` = COULD · `⛔` = đang bị ch�
 | 3 — TTS | 36 | 5 | 41 | 3 tuần |
 | 4 — Overlay mở rộng | 12 | 36 | 48 | 3–4 tuần |
 | 5 — Game & OBS | 28 | 5 | 33 | 3 tuần |
-| 6 — Thanh toán | 34 | 13 | 47 | 3–4 tuần |
+| 6 — Thanh toán | 42 | 5 | 47 | 3–4 tuần |
 | 7 — Admin & Analytics | 29 | 16 | 45 | 3 tuần |
 | 8 — Chất lượng & Phát hành | 22 | 36 | 58 | 4 tuần |
-| **TỔNG** | **208** | **145** | **356 SP** | **~26 tuần (6 tháng)** |
+| **TỔNG** | **216** | **137** | **356 SP** | **~26 tuần (6 tháng)** |
 
-Dev A nặng hơn (208 vs 145). Cân bằng bằng cách chuyển sang B: P4-07 (upload media, 8 SP), P5-05 (UI game profile, 8 SP), P7-05 (thống kê, 8 SP) → còn 184 vs 169. Hợp lý.
+Dev A nặng hơn (216 vs 137) sau khi P6-06 chuyển sang A. Cân bằng bằng cách chuyển sang B: P4-07 (upload media, 8 SP), P5-05 (UI game profile, 8 SP), P7-05 (thống kê, 8 SP) → còn **192 vs 161**. Chấp nhận được: Dev A gánh cả luồng tiền, vốn là phần cần một chủ duy nhất.
 
 **1 SP ≈ 4 giờ tập trung.** Không tính thời gian giải quyết Q-01…Q-21.
 
