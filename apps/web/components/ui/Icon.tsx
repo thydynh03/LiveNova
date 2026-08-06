@@ -36,6 +36,7 @@ import {
   Trash,
   ArrowClockwise,
   Eye,
+  EyeSlash,
 } from '@phosphor-icons/react';
 
 /**
@@ -85,6 +86,8 @@ export const ICONS = {
   trash: Trash,
   rotate: ArrowClockwise,
   preview: Eye,
+  eye: Eye,
+  eyeSlash: EyeSlash,
 } as const satisfies Record<string, PhosphorIcon>;
 
 export type IconName = keyof typeof ICONS;

@@ -1,24 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import {
-  REFRESH_COOKIE,
-  refreshCookieOptions,
-  maxAgeFromExpiry,
-  apiBaseUrl,
-  isSameOrigin,
-} from '../../../../lib/auth-cookie';
-
-interface AuthPayload {
-  accessToken?: string;
-  refreshToken?: string;
-  expiresAt?: string;
-  user?: any;
-  message?: string;
-}
-
-async function readJson(res: Response): Promise<AuthPayload> {
-  const parsed = (await res.json().catch(() => null)) as AuthPayload | null;
-  return parsed ?? {};
-}
+import { apiBaseUrl, isSameOrigin } from '../../../../lib/auth-cookie';
 
 export async function POST(request: NextRequest) {
   if (!isSameOrigin(request)) {
@@ -47,7 +28,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const data = await readJson(upstream);
+  const data = await upstream.json().catch(() => ({}));
 
   if (!upstream.ok) {
     const rawError = data as any;
@@ -62,21 +43,5 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ message: msg }, { status: upstream.status });
   }
 
-  if (!data.accessToken || !data.refreshToken) {
-    return NextResponse.json({ message: 'Phản hồi không hợp lệ' }, { status: 502 });
-  }
-
-  const response = NextResponse.json({
-    accessToken: data.accessToken,
-    expiresAt: data.expiresAt,
-    user: data.user,
-  });
-
-  response.cookies.set(
-    REFRESH_COOKIE,
-    data.refreshToken,
-    refreshCookieOptions(maxAgeFromExpiry(data.expiresAt)),
-  );
-
-  return response;
+  return NextResponse.json(data);
 }
