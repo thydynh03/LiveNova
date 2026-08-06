@@ -1,13 +1,12 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { JwtService } from '@nestjs/jwt';
-import { ConflictException, UnauthorizedException } from '@nestjs/common';
+import { ConflictException } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { SessionService } from './session.service';
 import { PrismaService } from '../../prisma/prisma.service';
 
 describe('AuthService', () => {
   let service: AuthService;
-  let prisma: PrismaService;
 
   const mockPrismaService = {
     user: {
@@ -54,7 +53,6 @@ describe('AuthService', () => {
     }).compile();
 
     service = module.get<AuthService>(AuthService);
-    prisma = module.get<PrismaService>(PrismaService);
 
     jest.clearAllMocks();
   });
@@ -96,8 +94,8 @@ describe('AuthService', () => {
     });
   });
 
-  describe('forgotPassword & resetPassword', () => {
-    it('should return reset token for valid email', async () => {
+  describe('forgotPassword', () => {
+    it('should return success true for email', async () => {
       mockPrismaService.user.findUnique.mockResolvedValueOnce({
         id: 'user-1',
         email: 'user@example.com',
@@ -106,24 +104,6 @@ describe('AuthService', () => {
 
       const res = await service.forgotPassword('user@example.com');
       expect(res.success).toBe(true);
-      expect(res.resetToken).toBeDefined();
-    });
-
-    it('should reset password when given valid token', async () => {
-      mockPrismaService.user.findUnique.mockResolvedValueOnce({
-        id: 'user-1',
-        email: 'user@example.com',
-        passwordHash: 'hash',
-      });
-
-      const forgot = await service.forgotPassword('user@example.com');
-      const resetToken = forgot.resetToken!;
-
-      mockPrismaService.user.update.mockResolvedValueOnce({ id: 'user-1' });
-
-      const success = await service.resetPassword(resetToken, 'NewPassword123');
-      expect(success).toBe(true);
-      expect(mockPrismaService.user.update).toHaveBeenCalled();
     });
   });
 });

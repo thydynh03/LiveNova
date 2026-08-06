@@ -43,7 +43,7 @@ export default function ProfileSettingsPage() {
   const [savingPwd, setSavingPwd] = useState(false);
 
   // Sessions
-  const [sessions, setSessions] = useState<any[]>([]);
+  const [sessions, setSessions] = useState<Array<Record<string, unknown>>>([]);
   const [loadingSessions, setLoadingSessions] = useState(false);
 
   useEffect(() => {
@@ -107,10 +107,13 @@ export default function ProfileSettingsPage() {
 
     try {
       await changePassword(currentPassword, newPassword);
-      setPwdMsg({ type: 'success', text: 'Đổi mật khẩu thành công! Hãy đăng nhập lại.' });
+      setPwdMsg({ type: 'success', text: 'Đổi mật khẩu thành công! Đang đăng xuất để bạn đăng nhập lại...' });
       setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
+      setTimeout(() => {
+        signOut();
+      }, 2000);
     } catch (err) {
       setPwdMsg({ type: 'error', text: err instanceof Error ? err.message : 'Đổi mật khẩu thất bại' });
     } finally {
@@ -338,7 +341,7 @@ export default function ProfileSettingsPage() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
               {sessions.map((s) => (
                 <div
-                  key={s.id}
+                  key={String(s.id)}
                   style={{
                     padding: '1rem 1.25rem',
                     borderRadius: 'var(--radius)',
@@ -351,14 +354,14 @@ export default function ProfileSettingsPage() {
                 >
                   <div>
                     <div style={{ fontWeight: 600, fontSize: '0.95rem', marginBottom: '0.25rem' }}>
-                      💻 {s.userAgent || 'Thiết bị không xác định'}
+                      💻 {String(s.userAgent || 'Thiết bị không xác định')}
                     </div>
                     <div style={{ fontSize: '0.8rem', color: 'hsl(var(--muted-foreground))' }}>
-                      IP: {s.ip || '127.0.0.1'} • Đăng nhập: {new Date(s.createdAt).toLocaleString('vi-VN')}
+                      IP: {String(s.ip || 'Không xác định')} • Đăng nhập: {new Date(String(s.createdAt)).toLocaleString('vi-VN')}
                     </div>
                   </div>
                   <button
-                    onClick={() => handleRevokeSession(s.id)}
+                    onClick={() => handleRevokeSession(String(s.id))}
                     style={{
                       padding: '0.4rem 0.85rem',
                       borderRadius: '6px',

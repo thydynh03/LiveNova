@@ -18,7 +18,6 @@ const inputStyle: React.CSSProperties = {
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('');
   const [submitted, setSubmitted] = useState(false);
-  const [resetToken, setResetToken] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -28,11 +27,8 @@ export default function ForgotPasswordPage() {
     setLoading(true);
 
     try {
-      const res = await forgotPassword(email);
+      await forgotPassword(email);
       setSubmitted(true);
-      if (res.resetToken) {
-        setResetToken(res.resetToken);
-      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Yêu cầu thất bại');
     } finally {
@@ -65,7 +61,7 @@ export default function ForgotPasswordPage() {
           Quên <span className="text-gradient">mật khẩu</span>
         </h1>
         <p style={{ color: 'hsl(var(--muted-foreground))', marginBottom: '1.5rem', fontSize: '0.9rem' }}>
-          Nhập email đăng ký của bạn để nhận liên kết khôi phục mật khẩu.
+          Nhập email đăng ký của bạn để nhận hướng dẫn khôi phục mật khẩu.
         </p>
 
         {submitted ? (
@@ -81,22 +77,10 @@ export default function ForgotPasswordPage() {
               marginBottom: '1.5rem',
             }}
           >
-            <p style={{ fontWeight: 600, marginBottom: '0.5rem' }}>✓ Yêu cầu đã được xử lý</p>
+            <p style={{ fontWeight: 600, marginBottom: '0.5rem' }}>✓ Yêu cầu đã được tiếp nhận</p>
             <p style={{ fontSize: '0.85rem' }}>
-              Nếu email tồn tại trong hệ thống, liên kết khôi phục mật khẩu đã được gửi tới <strong>{email}</strong>.
+              Nếu email <strong>{email}</strong> tồn tại trong hệ thống, chúng tôi đã gửi hướng dẫn khôi phục mật khẩu.
             </p>
-
-            {resetToken && (
-              <div style={{ marginTop: '1rem', padding: '0.75rem', background: 'rgba(0,0,0,0.3)', borderRadius: '6px', color: '#fff' }}>
-                <p style={{ fontSize: '0.8rem', color: '#aaa', marginBottom: '0.25rem' }}>[Môi trường thử nghiệm] Link reset trực tiếp:</p>
-                <Link
-                  href={`/reset-password?token=${resetToken}`}
-                  style={{ color: '#6366f1', wordBreak: 'break-all', fontSize: '0.85rem', fontWeight: 600 }}
-                >
-                  Bấm vào đây để đổi mật khẩu ngay
-                </Link>
-              </div>
-            )}
           </div>
         ) : (
           <form onSubmit={handleSubmit}>

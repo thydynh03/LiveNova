@@ -174,8 +174,12 @@ export const api = {
   delete: <T>(path: string) => apiFetch<T>(path, { method: 'DELETE' }),
 };
 
-export async function login(email: string, password: string, rememberMe?: boolean): Promise<string> {
-  sessionGeneration += 1;
+async function performAuthExchange(
+  url: string,
+  payload: Record<string, unknown>,
+  defaultErrorMessage: string,
+): Promise<string> {
+  const generation = (sessionGeneration += 1);
   cancelInFlightRefresh();
   pendingLogins += 1;
 
@@ -184,11 +188,11 @@ export async function login(email: string, password: string, rememberMe?: boolea
 
   try {
     try {
-      res = await fetch('/api/auth/login', {
+      res = await fetch(url, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         credentials: 'same-origin',
-        body: JSON.stringify({ email, password, rememberMe }),
+        body: JSON.stringify(payload),
       });
     } catch {
       throw new NetworkError();
@@ -197,7 +201,11 @@ export async function login(email: string, password: string, rememberMe?: boolea
     data = (await res.json().catch(() => null)) as typeof data;
 
     if (!res.ok || !data?.accessToken) {
-      throw new ApiError(data?.message ?? 'Đăng nhập thất bại', res.status);
+      throw new ApiError(data?.message ?? defaultErrorMessage, res.status);
+    }
+
+    if (generation !== sessionGeneration) {
+      throw new ApiError('Thao tác đã bị hủy', 401);
     }
   } finally {
     pendingLogins -= 1;
@@ -206,44 +214,18 @@ export async function login(email: string, password: string, rememberMe?: boolea
 
   accessToken = data.accessToken;
   return data.accessToken;
+}
+
+export async function login(email: string, password: string, rememberMe?: boolean): Promise<string> {
+  return performAuthExchange('/api/auth/login', { email, password, rememberMe }, 'Đăng nhập thất bại');
 }
 
 export async function register(email: string, password: string, displayName: string): Promise<string> {
-  sessionGeneration += 1;
-  cancelInFlightRefresh();
-  pendingLogins += 1;
-
-  let res: Response;
-  let data: { accessToken?: string; message?: string } | null;
-
-  try {
-    try {
-      res = await fetch('/api/auth/register', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        credentials: 'same-origin',
-        body: JSON.stringify({ email, password, displayName }),
-      });
-    } catch {
-      throw new NetworkError();
-    }
-
-    data = (await res.json().catch(() => null)) as typeof data;
-
-    if (!res.ok || !data?.accessToken) {
-      throw new ApiError(data?.message ?? 'Đăng ký thất bại', res.status);
-    }
-  } finally {
-    pendingLogins -= 1;
-    if (pendingLogins === 0) cancelInFlightRefresh();
-  }
-
-  accessToken = data.accessToken;
-  return data.accessToken;
+  return performAuthExchange('/api/auth/register', { email, password, displayName }, 'Đăng ký thất bại');
 }
 
-export async function forgotPassword(email: string): Promise<{ success: boolean; resetToken?: string }> {
-  return api.post<{ success: boolean; resetToken?: string }>('/auth/forgot-password', { email });
+export async function forgotPassword(email: string): Promise<{ success: boolean }> {
+  return api.post<{ success: boolean }>('/auth/forgot-password', { email });
 }
 
 export async function resetPassword(token: string, newPassword: string): Promise<{ success: boolean }> {

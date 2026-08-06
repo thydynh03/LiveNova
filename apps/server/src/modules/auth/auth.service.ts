@@ -4,6 +4,7 @@ import {
   ConflictException,
   NotFoundException,
   BadRequestException,
+  Logger,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as argon2 from 'argon2';
@@ -35,7 +36,7 @@ interface ResetTokenData {
 
 @Injectable()
 export class AuthService {
-  // Map of storedTokenHash -> ResetTokenData
+  private readonly logger = new Logger(AuthService.name);
   private readonly resetTokens = new Map<string, ResetTokenData>();
   private readonly env = loadEnv();
 
@@ -164,9 +165,10 @@ export class AuthService {
     return this.sessionService.revokeAllForUser(userId);
   }
 
-  async forgotPassword(email: string): Promise<{ success: boolean; resetToken?: string }> {
+  async forgotPassword(email: string): Promise<{ success: boolean }> {
     const user = await this.prisma.user.findUnique({ where: { email } });
 
+    // P0: Always return identical response shape for unknown emails to avoid account enumeration oracle.
     if (!user || !user.passwordHash || user.deletedAt) {
       return { success: true };
     }
@@ -177,17 +179,18 @@ export class AuthService {
 
     this.resetTokens.set(tokenHash, { userId: user.id, expiresAt });
 
-    return {
-      success: true,
-      resetToken: rawToken,
-    };
+    // Never return resetToken in API response body. Deliver out-of-band / log in dev.
+    if (process.env.NODE_ENV !== 'production') {
+      this.logger.log(`[DEV ONLY] Password reset token for ${email}: ${rawToken}`);
+    }
+
+    return { success: true };
   }
 
   async resetPassword(rawToken: string, newPassword: string): Promise<boolean> {
     let matchedHash: string | null = null;
     let matchedData: ResetTokenData | null = null;
 
-    // Prune expired & verify matching token using argon2
     for (const [hash, data] of this.resetTokens.entries()) {
       if (data.expiresAt < Date.now()) {
         this.resetTokens.delete(hash);
@@ -235,6 +238,9 @@ export class AuthService {
       where: { id: userId },
       data: { passwordHash },
     });
+
+    // P3 fix: Revoke all sessions on password change to force re-authentication
+    await this.logoutEverywhere(userId);
 
     return true;
   }

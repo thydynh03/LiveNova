@@ -60,13 +60,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const fetchUserProfile = useCallback(async () => {
+    const generation = authGeneration.current;
     try {
       const profile = await getProfile();
-      if (mounted.current) {
+      if (mounted.current && generation === authGeneration.current) {
         setUser(profile);
       }
     } catch {
-      if (mounted.current) {
+      if (mounted.current && generation === authGeneration.current) {
         setUser(null);
       }
     }

@@ -16,6 +16,8 @@ const inputStyle: React.CSSProperties = {
   outline: 'none',
 };
 
+const PASSWORD_COMPLEXITY_REGEX = /^(?=.*[a-zA-Z])(?=.*\d)/;
+
 function ResetPasswordForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -48,7 +50,12 @@ function ResetPasswordForm() {
     }
 
     if (newPassword.length < 8) {
-      setError('Mật khẩu mới phải từ 8 ký tự trở lên');
+      setError('Mật khẩu mới tối thiểu 8 ký tự');
+      return;
+    }
+
+    if (!PASSWORD_COMPLEXITY_REGEX.test(newPassword)) {
+      setError('Mật khẩu mới phải chứa ít nhất 1 chữ cái và 1 chữ số');
       return;
     }
 

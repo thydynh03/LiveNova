@@ -16,6 +16,8 @@ const inputStyle: React.CSSProperties = {
   outline: 'none',
 };
 
+const PASSWORD_COMPLEXITY_REGEX = /^(?=.*[a-zA-Z])(?=.*\d)/;
+
 export default function RegisterPage() {
   const { signUp } = useAuth();
   const router = useRouter();
@@ -38,6 +40,11 @@ export default function RegisterPage() {
 
     if (password.length < 8) {
       setError('Mật khẩu phải chứa ít nhất 8 ký tự');
+      return;
+    }
+
+    if (!PASSWORD_COMPLEXITY_REGEX.test(password)) {
+      setError('Mật khẩu phải chứa ít nhất 1 chữ cái và 1 chữ số');
       return;
     }
 
