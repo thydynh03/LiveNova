@@ -216,7 +216,11 @@ async function performAuthExchange(
     data = (await res.json().catch(() => null)) as typeof data;
 
     if (!res.ok || !data?.accessToken) {
-      throw new ApiError(data?.message ?? defaultErrorMessage, res.status);
+      const rawMsg = (data as any)?.message;
+      const msg = Array.isArray(rawMsg)
+        ? rawMsg.join(', ')
+        : (typeof rawMsg === 'string' ? rawMsg : null) ?? defaultErrorMessage;
+      throw new ApiError(msg, res.status);
     }
 
     // Only discard the response if logout() occurred while the request was in flight.
