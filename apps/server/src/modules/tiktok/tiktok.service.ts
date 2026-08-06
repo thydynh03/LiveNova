@@ -8,7 +8,8 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { LiveEvent, LiveEventType } from '@livenova/shared';
 import { randomInt } from 'crypto';
 import { v4 as uuidv4 } from 'uuid';
-import { WebcastPushConnection } from 'tiktok-live-connector';
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const { WebcastPushConnection } = require('tiktok-live-connector');
 
 /**
  * Picks a random element using a CSPRNG.

@@ -5,6 +5,7 @@ import {
   RuleEvaluator,
   LiveEvent,
   LiveEventType,
+  RuleActionType,
   Rule as SharedRule,
   RuleCondition,
   RuleAction,
