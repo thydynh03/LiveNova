@@ -13,7 +13,10 @@ import {
   OVERLAY_DISPATCH_EVENT,
   OVERLAY_CHANGED_EVENT,
   OverlayChangedEvent,
+  GAME_INPUT_EVENT,
+  GameInputDispatch,
   clampMediaDuration,
+  readGameInput,
 } from '@livenova/shared';
 import { v4 as uuidv4 } from 'uuid';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -61,6 +64,11 @@ export class RuleEngineService {
     RuleActionType.EFFECT,
     RuleActionType.SOUND,
     RuleActionType.TTS_READ,
+  ]);
+
+  /** Delivered to the desktop bridge through the dashboard, not to an overlay. */
+  private static readonly RELAYED_ACTIONS: ReadonlySet<RuleActionType> = new Set([
+    RuleActionType.GAME_INPUT,
   ]);
 
   /** userId → the overlay that renders alerts, or null if they have none. */
@@ -120,10 +128,21 @@ export class RuleEngineService {
     action: RuleAction,
     event: LiveEvent,
   ): Promise<void> {
-    if (!RuleEngineService.OVERLAY_ACTIONS.has(action.type)) {
+    if (
+      !RuleEngineService.OVERLAY_ACTIONS.has(action.type) &&
+      !RuleEngineService.RELAYED_ACTIONS.has(action.type)
+    ) {
       this.logger.warn(
         `Rule "${rule.name}" requested ${action.type}, which no connected surface handles yet`,
       );
+      return;
+    }
+
+    // Key presses do not go to an overlay at all: they leave over the signed-in
+    // dashboard socket, because an overlay's credential is a public token that
+    // gets pasted into OBS and is routinely visible on stream.
+    if (action.type === RuleActionType.GAME_INPUT) {
+      this.dispatchGameInput(userId, rule, action);
       return;
     }
 
@@ -158,6 +177,29 @@ export class RuleEngineService {
 
     const dispatchEvent: OverlayDispatchEvent = { userId, action: overlayAction, overlayId };
     this.eventEmitter.emit(OVERLAY_DISPATCH_EVENT, dispatchEvent);
+  }
+
+  /**
+   * Relay a key press toward the streamer's machine.
+   *
+   * Nothing is executed here — the server cannot reach a keyboard. The bridge
+   * on the streamer's machine owns the allowlist, the hold clamp, the per-key
+   * cooldown, the per-minute ceiling and the emergency stop, and re-checks all
+   * of them. The validation below only stops a rule that could never work from
+   * crossing the network on every matching gift.
+   */
+  private dispatchGameInput(userId: string, rule: SharedRule, action: RuleAction): void {
+    const input = readGameInput(action.payload);
+    if (!input) {
+      this.logger.warn(`Rule "${rule.name}" has a game input action with no usable key code`);
+      return;
+    }
+
+    const dispatch: GameInputDispatch = {
+      userId,
+      command: { id: uuidv4(), ruleName: rule.name, ...input },
+    };
+    this.eventEmitter.emit(GAME_INPUT_EVENT, dispatch);
   }
 
   /**

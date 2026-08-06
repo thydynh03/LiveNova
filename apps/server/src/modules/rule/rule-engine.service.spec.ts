@@ -5,6 +5,8 @@ import {
   RuleActionType,
   OverlayDispatchEvent,
   OVERLAY_DISPATCH_EVENT,
+  GameInputDispatch,
+  GAME_INPUT_EVENT,
 } from '@livenova/shared';
 import { RuleEngineService } from './rule-engine.service';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -284,6 +286,68 @@ describe('RuleEngineService', () => {
       await service.handleLiveEvent(giftEvent());
 
       expect(dispatched()[0].action.payload.caption).toBe('Cảm ơn Ngọc Hân!');
+    });
+  });
+  describe('GAME_INPUT', () => {
+    function gameInputs(): GameInputDispatch[] {
+      return emit.mock.calls
+        .filter((c) => c[0] === GAME_INPUT_EVENT)
+        .map((c) => c[1] as GameInputDispatch);
+    }
+
+    it('relays a key press to the owner, not to an overlay', async () => {
+      prisma.rule.findMany.mockResolvedValue([
+        ruleRow({
+          actions: [
+            { type: RuleActionType.GAME_INPUT, payload: { vkCode: 32, holdMs: 60, cooldownMs: 1500 } },
+          ],
+        }),
+      ]);
+
+      await service.handleLiveEvent(giftEvent());
+
+      // An overlay's credential is a public token pasted into OBS and routinely
+      // visible on stream; nothing that moves a keyboard may travel that way.
+      expect(dispatched()).toHaveLength(0);
+      expect(gameInputs()).toHaveLength(1);
+      expect(gameInputs()[0]).toMatchObject({
+        userId: 'user-1',
+        command: { vkCode: 32, holdMs: 60, cooldownMs: 1500, ruleName: 'Quà to thì chạy video' },
+      });
+    });
+
+    it('applies defaults for an omitted hold and cooldown', async () => {
+      prisma.rule.findMany.mockResolvedValue([
+        ruleRow({ actions: [{ type: RuleActionType.GAME_INPUT, payload: { vkCode: 65 } }] }),
+      ]);
+
+      await service.handleLiveEvent(giftEvent());
+
+      expect(gameInputs()[0].command).toMatchObject({ holdMs: 50, cooldownMs: 1000 });
+    });
+
+    it('refuses a rule whose key code cannot be a key', async () => {
+      prisma.rule.findMany.mockResolvedValue([
+        ruleRow({ actions: [{ type: RuleActionType.GAME_INPUT, payload: { vkCode: 9999 } }] }),
+      ]);
+
+      await service.handleLiveEvent(giftEvent());
+
+      // The bridge re-checks everything, but a rule that can never work should
+      // not cross the network on every matching gift.
+      expect(gameInputs()).toHaveLength(0);
+    });
+
+    it('gives each dispatch its own id so the bridge can drop repeats', async () => {
+      prisma.rule.findMany.mockResolvedValue([
+        ruleRow({ actions: [{ type: RuleActionType.GAME_INPUT, payload: { vkCode: 32 } }] }),
+      ]);
+
+      await service.handleLiveEvent(giftEvent());
+      await service.handleLiveEvent(giftEvent({ id: 'evt-2' }));
+
+      const [a, b] = gameInputs();
+      expect(a.command.id).not.toBe(b.command.id);
     });
   });
 });

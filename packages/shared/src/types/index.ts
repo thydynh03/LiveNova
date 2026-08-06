@@ -269,7 +269,63 @@ export const EVENTS_SOCKET = {
   SUBSCRIBE_CHANNEL: 'subscribe_channel',
   UNSUBSCRIBE_CHANNEL: 'unsubscribe_channel',
   LIVE_EVENT: 'live_event',
+  /**
+   * A rule asked for a key press on the streamer's machine.
+   *
+   * This rides the authenticated dashboard socket rather than the overlay one.
+   * An overlay authenticates with a public token that gets pasted into OBS and
+   * is routinely visible on stream; anything that can move the streamer's
+   * keyboard must never travel on a credential like that.
+   */
+  GAME_INPUT: 'game_input',
 } as const;
+
+/**
+ * A key press for the desktop Local Bridge to perform.
+ *
+ * The server does not execute this — it cannot reach the streamer's keyboard.
+ * It relays the request to the signed-in dashboard, which forwards it to the
+ * bridge running on the same machine. Every safety limit is enforced there,
+ * because that is the only side that can guarantee it.
+ */
+export interface GameInputCommand {
+  /** Unique per dispatch, so the bridge can ignore a repeat after a reconnect. */
+  id: string;
+  ruleName: string;
+  /** Win32 virtual-key code. */
+  vkCode: number;
+  holdMs: number;
+  cooldownMs: number;
+}
+
+/** Internal bus event carrying a GameInputCommand to the dashboard gateway. */
+export const GAME_INPUT_EVENT = 'game.input';
+
+export interface GameInputDispatch {
+  userId: string;
+  command: GameInputCommand;
+}
+
+/**
+ * Read a GAME_INPUT action payload written by a rule author.
+ *
+ * Returns null when the payload cannot describe a key press at all. The bridge
+ * re-checks everything against its own allowlist, but a rule that can never
+ * work should not be relayed across the network on every matching gift.
+ */
+export function readGameInput(payload: unknown): Omit<GameInputCommand, 'id' | 'ruleName'> | null {
+  const raw = (payload ?? {}) as Record<string, unknown>;
+  const vkCode = typeof raw.vkCode === 'number' ? Math.floor(raw.vkCode) : NaN;
+
+  // Win32 virtual-key codes are a single byte.
+  if (!Number.isFinite(vkCode) || vkCode < 1 || vkCode > 0xff) return null;
+
+  const holdMs = typeof raw.holdMs === 'number' && raw.holdMs > 0 ? Math.floor(raw.holdMs) : 50;
+  const cooldownMs =
+    typeof raw.cooldownMs === 'number' && raw.cooldownMs > 0 ? Math.floor(raw.cooldownMs) : 1000;
+
+  return { vkCode, holdMs, cooldownMs };
+}
 
 export function clampMediaDuration(ms: number | undefined): number {
   const value = typeof ms === 'number' && Number.isFinite(ms)
