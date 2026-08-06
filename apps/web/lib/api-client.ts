@@ -292,6 +292,28 @@ export async function updateProfile(data: { displayName?: string; avatar?: strin
   return api.patch<any>('/users/me', data);
 }
 
+export async function uploadImage(file: File): Promise<{ url: string; publicId: string }> {
+  const formData = new FormData();
+  formData.append('file', file);
+
+  const token = getAccessToken();
+  const res = await fetch(`${apiBase()}/upload/image`, {
+    method: 'POST',
+    headers: {
+      ...(token ? { authorization: `Bearer ${token}` } : {}),
+    },
+    body: formData,
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    const message = Array.isArray(err?.message) ? err.message.join(', ') : (err?.message || 'Tải ảnh lên thất bại');
+    throw new ApiError(message, res.status);
+  }
+
+  return res.json();
+}
+
 export async function getProfile(): Promise<any> {
   return api.get<any>('/users/me');
 }

@@ -1,9 +1,9 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../../../context/AuthContext';
 import { motion } from 'motion/react';
-import { updateProfile, changePassword, listSessions, revokeSession } from '../../../../lib/api-client';
+import { updateProfile, changePassword, listSessions, revokeSession, uploadImage } from '../../../../lib/api-client';
 import { Icon, type IconName } from '../../../../components/ui/Icon';
 
 type TabId = 'profile' | 'security' | 'sessions';
@@ -47,6 +47,26 @@ export default function ProfileSettingsPage() {
   const [timezone, setTimezone] = useState(user?.timezone || 'Asia/Ho_Chi_Minh');
   const [profileMsg, setProfileMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [savingProfile, setSavingProfile] = useState(false);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  async function handleAvatarFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploadingAvatar(true);
+    setProfileMsg(null);
+
+    try {
+      const res = await uploadImage(file);
+      setAvatar(res.url);
+      setProfileMsg({ type: 'success', text: 'Tải ảnh lên Cloudinary thành công! Nhấn "Lưu thay đổi" để cập nhật.' });
+    } catch (err) {
+      setProfileMsg({ type: 'error', text: err instanceof Error ? err.message : 'Tải ảnh thất bại' });
+    } finally {
+      setUploadingAvatar(false);
+    }
+  }
 
   // Change Password Form
   const [currentPassword, setCurrentPassword] = useState('');
@@ -248,8 +268,76 @@ export default function ProfileSettingsPage() {
             </div>
 
             <div style={{ marginBottom: '1.25rem' }}>
-              <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 500 }}>Đường dẫn Ảnh đại diện (Avatar URL)</label>
-              <input type="url" placeholder="https://example.com/avatar.jpg" value={avatar} onChange={(e) => setAvatar(e.target.value)} style={inputStyle} />
+              <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 500 }}>Ảnh đại diện (Avatar)</label>
+              
+              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '0.75rem' }}>
+                {avatar ? (
+                  <img
+                    src={avatar}
+                    alt="Avatar preview"
+                    style={{ width: '64px', height: '64px', borderRadius: '50%', objectFit: 'cover', border: '2px solid hsl(var(--primary))' }}
+                  />
+                ) : (
+                  <div
+                    style={{
+                      width: '64px',
+                      height: '64px',
+                      borderRadius: '50%',
+                      background: 'linear-gradient(135deg, hsl(var(--primary)), #a855f7)',
+                      color: '#fff',
+                      fontSize: '1.5rem',
+                      fontWeight: 700,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                  >
+                    {(displayName || 'U').charAt(0).toUpperCase()}
+                  </div>
+                )}
+
+                <div style={{ flex: 1 }}>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handleAvatarFileUpload}
+                    style={{ display: 'none' }}
+                  />
+                  <button
+                    type="button"
+                    disabled={uploadingAvatar}
+                    onClick={() => fileInputRef.current?.click()}
+                    style={{
+                      padding: '0.5rem 1rem',
+                      borderRadius: 'var(--radius)',
+                      background: 'hsl(var(--primary) / 0.15)',
+                      color: 'hsl(var(--primary))',
+                      border: '1px solid hsl(var(--primary) / 0.4)',
+                      fontWeight: 600,
+                      fontSize: '0.875rem',
+                      cursor: uploadingAvatar ? 'not-allowed' : 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '0.4rem',
+                    }}
+                  >
+                    <Icon name="link" size={16} />
+                    {uploadingAvatar ? 'Đang tải ảnh lên Cloudinary...' : 'Tải ảnh từ máy tính (Cloudinary)'}
+                  </button>
+                  <p style={{ fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))', marginTop: '0.35rem' }}>
+                    Hỗ trợ định dạng JPG, PNG, WEBP (Tối đa 10MB)
+                  </p>
+                </div>
+              </div>
+
+              <input
+                type="url"
+                placeholder="Hoặc dán URL ảnh trực tiếp (https://...)"
+                value={avatar}
+                onChange={(e) => setAvatar(e.target.value)}
+                style={inputStyle}
+              />
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1.5rem' }}>
