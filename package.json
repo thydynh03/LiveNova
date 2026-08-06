@@ -3,13 +3,15 @@
   "private": true,
   "workspaces": [
     "packages/*",
-    "apps/*",
-    "apps/desktop-app/frontend"
+    "apps/*"
   ],
   "scripts": {
     "lint": "eslint .",
     "build": "pnpm -r run build",
-    "dev": "pnpm -r run dev",
+    "dev": "pnpm --parallel run dev",
+    "dev:web": "pnpm --filter @livenova/web dev",
+    "dev:server": "pnpm --filter @livenova/server dev",
+    "dev:no-desktop": "pnpm --parallel --filter !@livenova/desktop-app dev",
     "test": "pnpm -r run test"
   },
   "devDependencies": {

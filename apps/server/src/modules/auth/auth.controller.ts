@@ -19,18 +19,18 @@ import { Response, Request } from 'express';
 import { AuthService } from './auth.service';
 import { SessionService } from './session.service';
 import { UserService } from '../user/user.service';
-import { LoginDto, RefreshDto, LogoutDto } from './dto/auth.dto';
+import {
+  LoginDto,
+  RegisterDto,
+  ForgotPasswordDto,
+  ResetPasswordDto,
+  ChangePasswordDto,
+  RefreshDto,
+  LogoutDto,
+} from './dto/auth.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { CurrentUserId } from '../../common/decorators/current-user.decorator';
 
-/**
- * FR-005 — the post-login destination is chosen from a fixed allowlist.
- *
- * Pattern-matching on the string ("must start with /", "must not start with //")
- * is a losing game: `/\evil.com` is normalised to `//evil.com` by several
- * browsers and sails straight through such a filter. An allowlist has no
- * equivalent bypass.
- */
 const ALLOWED_REDIRECTS = new Set([
   '/',
   '/dashboard',
@@ -39,6 +39,7 @@ const ALLOWED_REDIRECTS = new Set([
   '/billing',
   '/overlays',
   '/overlays/media',
+  '/settings/profile',
 ]);
 
 @Controller('auth')
@@ -49,11 +50,18 @@ export class AuthController {
     private readonly userService: UserService,
   ) {}
 
-  private static context(req: Request) {
+  private static context(req: Request, rememberMe?: boolean) {
     return {
       ip: req.ip,
       userAgent: req.get('user-agent') ?? undefined,
+      rememberMe,
     };
+  }
+
+  @Post('register')
+  @HttpCode(HttpStatus.CREATED)
+  async register(@Body() dto: RegisterDto, @Req() req: Request) {
+    return this.authService.register(dto, AuthController.context(req));
   }
 
   @Post('login')
@@ -61,25 +69,39 @@ export class AuthController {
   async login(@Body() dto: LoginDto, @Req() req: Request) {
     const user = await this.userService.findByEmail(dto.email);
 
-    // Same message and roughly the same work either way, so the response does
-    // not reveal whether the address is registered.
     if (!user || !user.passwordHash || user.deletedAt) {
-      throw new UnauthorizedException('Invalid credentials');
+      throw new UnauthorizedException('Email hoặc mật khẩu không chính xác');
     }
 
     const valid = await this.authService.verifyPassword(user.passwordHash, dto.password);
     if (!valid) {
-      throw new UnauthorizedException('Invalid credentials');
+      throw new UnauthorizedException('Email hoặc mật khẩu không chính xác');
     }
 
-    return this.authService.login(user.id, AuthController.context(req));
+    return this.authService.login(user.id, AuthController.context(req, dto.rememberMe));
   }
 
-  /**
-   * OAuth callbacks are intentionally still unimplemented — wiring them requires
-   * provider credentials and a decision on Q-02. They now fail loudly instead of
-   * returning a success-shaped stub.
-   */
+  @Post('forgot-password')
+  @HttpCode(HttpStatus.OK)
+  async forgotPassword(@Body() dto: ForgotPasswordDto) {
+    return this.authService.forgotPassword(dto.email);
+  }
+
+  @Post('reset-password')
+  @HttpCode(HttpStatus.OK)
+  async resetPassword(@Body() dto: ResetPasswordDto) {
+    const success = await this.authService.resetPassword(dto.token, dto.newPassword);
+    return { success, message: 'Đặt lại mật khẩu thành công' };
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('change-password')
+  @HttpCode(HttpStatus.OK)
+  async changePassword(@CurrentUserId() userId: string, @Body() dto: ChangePasswordDto) {
+    const success = await this.authService.changePassword(userId, dto);
+    return { success, message: 'Đổi mật khẩu thành công' };
+  }
+
   @Get('facebook/callback')
   facebookCallback(): never {
     throw new NotFoundException('Facebook OAuth is not configured yet');
@@ -99,7 +121,6 @@ export class AuthController {
   @Post('logout')
   @HttpCode(HttpStatus.OK)
   async logout(@Body() dto: LogoutDto) {
-    // C-06 — this used to return { success: true } without revoking anything.
     const revoked = await this.authService.logout(dto.refreshToken);
     return { success: revoked };
   }
@@ -112,7 +133,6 @@ export class AuthController {
     return { success: true, revokedSessions: count };
   }
 
-  /** FR-007 — visible session list, token material never returned. */
   @UseGuards(JwtAuthGuard)
   @Get('sessions')
   async sessions(@CurrentUserId() userId: string) {

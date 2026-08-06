@@ -6,6 +6,9 @@
 go.mod      text eol=lf
 go.sum      text eol=lf
 
+# Same reasoning for Wails JS/TS generated bindings
+apps/desktop-app/frontend/wailsjs/** text eol=lf
+
 # Same reasoning for the shell used by CI steps and for YAML workflows.
 *.sh        text eol=lf
 *.yml       text eol=lf

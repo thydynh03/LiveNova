@@ -11,34 +11,45 @@ import React, {
 import { useRouter } from 'next/navigation';
 import {
   login as apiLogin,
+  register as apiRegister,
   logout as apiLogout,
   restoreSession,
   setAccessToken,
   setUnauthenticatedHandler,
+  getProfile,
 } from '../lib/api-client';
 
 export type AuthStatus = 'loading' | 'authenticated' | 'anonymous';
 
+export interface UserProfile {
+  id: string;
+  email: string;
+  displayName: string | null;
+  avatar: string | null;
+  role: string;
+  locale: string;
+  timezone: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 interface AuthContextValue {
   status: AuthStatus;
-  signIn: (email: string, password: string) => Promise<void>;
+  user: UserProfile | null;
+  signIn: (email: string, password: string, rememberMe?: boolean) => Promise<void>;
+  signUp: (email: string, password: string, displayName: string) => Promise<void>;
   signOut: () => Promise<void>;
+  refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [status, setStatus] = useState<AuthStatus>('loading');
+  const [user, setUser] = useState<UserProfile | null>(null);
   const router = useRouter();
   const mounted = useRef(true);
 
-  /**
-   * Bumped by any deliberate auth action (sign-in, sign-out).
-   *
-   * The mount-time session restore is asynchronous. If the user signs in while
-   * it is still running, the restore resolving afterwards would otherwise mark
-   * them anonymous and overwrite the brand-new token with the old session's.
-   */
   const authGeneration = useRef(0);
 
   useEffect(() => {
@@ -48,49 +59,87 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
+  const fetchUserProfile = useCallback(async () => {
+    const generation = authGeneration.current;
+    try {
+      const profile = await getProfile();
+      if (mounted.current && generation === authGeneration.current) {
+        setUser(profile);
+      }
+    } catch {
+      if (mounted.current && generation === authGeneration.current) {
+        setUser(null);
+      }
+    }
+  }, []);
+
   useEffect(() => {
     const generation = authGeneration.current;
 
     restoreSession()
-      .then((token) => {
+      .then(async (token) => {
         if (!mounted.current || generation !== authGeneration.current) return;
-        setStatus(token ? 'authenticated' : 'anonymous');
+        if (token) {
+          setStatus('authenticated');
+          await fetchUserProfile();
+        } else {
+          setStatus('anonymous');
+          setUser(null);
+        }
       })
       .catch(() => {
         if (!mounted.current || generation !== authGeneration.current) return;
         setStatus('anonymous');
+        setUser(null);
       });
-  }, []);
+  }, [fetchUserProfile]);
 
-  // A 401 that survives a refresh means the session is gone for good.
   useEffect(() => {
     setUnauthenticatedHandler(() => {
       authGeneration.current += 1;
       setAccessToken(null);
-      if (mounted.current) setStatus('anonymous');
+      if (mounted.current) {
+        setStatus('anonymous');
+        setUser(null);
+      }
     });
     return () => setUnauthenticatedHandler(null);
   }, []);
 
-  const signIn = useCallback(async (email: string, password: string) => {
-    // The generation is bumped only after a *successful* login. Bumping first
-    // meant a rejected password invalidated the in-flight mount-time restore,
-    // whose result was then discarded — leaving status stuck on 'loading'
-    // forever, with no way to reach the login form again.
-    await apiLogin(email, password);
+  const signIn = useCallback(async (email: string, password: string, rememberMe?: boolean) => {
+    await apiLogin(email, password, rememberMe);
     authGeneration.current += 1;
-    if (mounted.current) setStatus('authenticated');
-  }, []);
+    if (mounted.current) {
+      setStatus('authenticated');
+      await fetchUserProfile();
+    }
+  }, [fetchUserProfile]);
+
+  const signUp = useCallback(async (email: string, password: string, displayName: string) => {
+    await apiRegister(email, password, displayName);
+    authGeneration.current += 1;
+    if (mounted.current) {
+      setStatus('authenticated');
+      await fetchUserProfile();
+    }
+  }, [fetchUserProfile]);
 
   const signOut = useCallback(async () => {
     authGeneration.current += 1;
     await apiLogout();
-    if (mounted.current) setStatus('anonymous');
+    if (mounted.current) {
+      setStatus('anonymous');
+      setUser(null);
+    }
     router.push('/login');
   }, [router]);
 
+  const refreshUser = useCallback(async () => {
+    await fetchUserProfile();
+  }, [fetchUserProfile]);
+
   return (
-    <AuthContext.Provider value={{ status, signIn, signOut }}>
+    <AuthContext.Provider value={{ status, user, signIn, signUp, signOut, refreshUser }}>
       {children}
     </AuthContext.Provider>
   );

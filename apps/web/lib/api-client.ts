@@ -1,13 +1,5 @@
 'use client';
 
-/**
- * Browser-side API client.
- *
- * The access token lives in module memory only — never localStorage, never a
- * readable cookie. A page reload drops it and the client silently re-mints one
- * from the httpOnly refresh cookie via /api/auth/refresh.
- */
-
 export class ApiError extends Error {
   constructor(
     message: string,
@@ -19,7 +11,6 @@ export class ApiError extends Error {
   }
 }
 
-/** Distinguishes "the server said no" from "the server said nothing". */
 export class NetworkError extends Error {
   constructor(message = 'Không kết nối được máy chủ') {
     super(message);
@@ -29,25 +20,7 @@ export class NetworkError extends Error {
 
 let accessToken: string | null = null;
 let onUnauthenticated: (() => void) | null = null;
-
-/** Single in-flight refresh, shared by every caller that hits a 401 at once. */
 let refreshInFlight: Promise<string | null> | null = null;
-
-/**
- * Lets a session change abort a refresh that is still on the wire.
- *
- * Dropping the promise reference is not enough. `/api/auth/refresh` rewrites the
- * httpOnly cookie from the route handler, so a late response would apply its
- * `Set-Cookie` no matter what the client did with the promise. On an account
- * switch that means the previous account's rotated token lands on top of the new
- * one, and the next refresh quietly mints an access token for the wrong user.
- *
- * Aborting stops the response from being processed at all. The trade-off: the
- * server may already have rotated, leaving this browser holding a consumed
- * token, whose next use trips reuse detection and revokes that family. Losing
- * the *old* session during a deliberate account switch is the acceptable side of
- * that trade; serving the wrong account's data is not.
- */
 let refreshAbort: AbortController | null = null;
 
 function cancelInFlightRefresh(): void {
@@ -56,29 +29,7 @@ function cancelInFlightRefresh(): void {
   refreshInFlight = null;
 }
 
-/**
- * Blocks refreshes for the duration of a login.
- *
- * Cancelling the refresh that existed when login started is not sufficient: a
- * request that 401s *while* login is in flight would start a brand-new refresh,
- * carrying the old account's cookie, which then resolves after login and
- * reinstalls that account's token and cookie over the one just established.
- * Nothing may refresh until the login has settled.
- *
- * A counter, not a boolean: with overlapping logins the first one to finish
- * would clear a flag while the second was still open, reopening the gate early
- * and letting a refresh rotate the cookie between the two login responses.
- */
 let pendingLogins = 0;
-
-/**
- * Bumped by logout (and any future session reset).
- *
- * Without it, signing out while a refresh is in flight lets the resolving
- * refresh write a valid token straight back into module memory — the user
- * believes they are signed out while the client keeps making authenticated
- * calls.
- */
 let sessionGeneration = 0;
 
 export function setAccessToken(token: string | null): void {
@@ -89,7 +40,6 @@ export function getAccessToken(): string | null {
   return accessToken;
 }
 
-/** Registered by AuthProvider so a dead session can bounce the user to /login. */
 export function setUnauthenticatedHandler(handler: (() => void) | null): void {
   onUnauthenticated = handler;
 }
@@ -112,7 +62,6 @@ async function performRefresh(signal: AbortSignal): Promise<RefreshOutcome> {
       signal,
     });
   } catch {
-    // Includes AbortError. An aborted refresh is never an expired session.
     return { kind: 'unavailable' };
   }
 
@@ -122,23 +71,13 @@ async function performRefresh(signal: AbortSignal): Promise<RefreshOutcome> {
     return { kind: 'unavailable' };
   }
 
-  // Only 401/403 means the credential itself is dead. A 5xx or 503 is the API
-  // being briefly unavailable, and treating that as an expired session would
-  // sign every user out during a short outage.
   return res.status === 401 || res.status === 403
     ? { kind: 'expired' }
     : { kind: 'unavailable' };
 }
 
 async function requestNewAccessToken(): Promise<string | null> {
-  // Collapse concurrent refreshes: the API rotates the refresh token on every
-  // use and treats a replayed one as reuse, revoking the whole family. Firing
-  // two refreshes at once would log the user out.
-  // Refusing here is safe: the caller treats a null as "could not refresh" and
-  // surfaces a 401, and during a login the user is not looking at authenticated
-  // data anyway.
   if (pendingLogins > 0) return null;
-
   if (refreshInFlight) return refreshInFlight;
 
   const generation = sessionGeneration;
@@ -148,8 +87,6 @@ async function requestNewAccessToken(): Promise<string | null> {
   const attempt = (async (): Promise<string | null> => {
     const outcome = await performRefresh(controller.signal);
 
-    // A logout or login happened while this was in flight — its result is
-    // stale and must not resurrect (or overwrite) the current session.
     if (generation !== sessionGeneration) return null;
 
     if (outcome.kind === 'ok') {
@@ -162,10 +99,7 @@ async function requestNewAccessToken(): Promise<string | null> {
       try {
         onUnauthenticated?.();
       } catch {
-        // The handler is supplied from outside this module. If it throws, that
-        // is its problem — it must not turn a handled "session expired" into a
-        // rejected refresh promise that every awaiting caller then has to deal
-        // with.
+        // ignore
       }
     }
     return null;
@@ -173,13 +107,6 @@ async function requestNewAccessToken(): Promise<string | null> {
 
   refreshInFlight = attempt;
 
-  // Release the pointer only if it still refers to *this* attempt. Clearing it
-  // unconditionally would let a settling old promise wipe the pointer for a
-  // newer refresh, allowing two to run at once — the exact replay this
-  // single-flight guard exists to prevent.
-  //
-  // `.finally()` returns a promise that mirrors any rejection, and discarding it
-  // would raise an unhandled-rejection event, so the chain ends in a catch.
   void attempt
     .finally(() => {
       if (refreshInFlight === attempt) refreshInFlight = null;
@@ -192,7 +119,6 @@ async function requestNewAccessToken(): Promise<string | null> {
 
 interface RequestOptions extends Omit<RequestInit, 'body'> {
   body?: unknown;
-  /** Internal: prevents an infinite refresh loop. */
   _retried?: boolean;
 }
 
@@ -222,8 +148,6 @@ export async function apiFetch<T = unknown>(
     if (fresh) {
       return apiFetch<T>(path, { ...options, _retried: true });
     }
-    // requestNewAccessToken already notified the auth provider if the session
-    // was genuinely expired; this only reports the failed call.
     throw new ApiError('Phiên đăng nhập đã hết hạn', 401);
   }
 
@@ -250,19 +174,12 @@ export const api = {
   delete: <T>(path: string) => apiFetch<T>(path, { method: 'DELETE' }),
 };
 
-/** Exchanges credentials via the BFF route, which sets the httpOnly cookie. */
-export async function login(email: string, password: string): Promise<string> {
-  // Cancel BEFORE the request, not after the response.
-  //
-  // The previous attempt aborted once login had already returned, which left a
-  // window: an old refresh could land between the login response setting the
-  // new cookie and the abort firing, overwriting it. The result was the worst
-  // possible pairing — account B's access token in memory next to account A's
-  // refresh cookie, so the next refresh silently minted a token for A.
-  //
-  // Aborting first closes the window entirely: nothing from the previous
-  // session is still on the wire by the time the new cookie is written.
-  sessionGeneration += 1;
+async function performAuthExchange(
+  url: string,
+  payload: Record<string, unknown>,
+  defaultErrorMessage: string,
+): Promise<string> {
+  const initialGeneration = sessionGeneration;
   cancelInFlightRefresh();
   pendingLogins += 1;
 
@@ -271,11 +188,11 @@ export async function login(email: string, password: string): Promise<string> {
 
   try {
     try {
-      res = await fetch('/api/auth/login', {
+      res = await fetch(url, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         credentials: 'same-origin',
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify(payload),
       });
     } catch {
       throw new NetworkError();
@@ -284,13 +201,15 @@ export async function login(email: string, password: string): Promise<string> {
     data = (await res.json().catch(() => null)) as typeof data;
 
     if (!res.ok || !data?.accessToken) {
-      throw new ApiError(data?.message ?? 'Đăng nhập thất bại', res.status);
+      throw new ApiError(data?.message ?? defaultErrorMessage, res.status);
+    }
+
+    // Only discard response if logout() occurred while login request was in-flight
+    if (initialGeneration !== sessionGeneration) {
+      throw new ApiError('Thao tác đã bị hủy', 401);
     }
   } finally {
-    // Anything that slipped past the gate is cancelled before it can write.
     pendingLogins -= 1;
-    // Only the last login out closes the operation; cancelling here while
-    // another is still open would be harmless, but reopening the gate would not.
     if (pendingLogins === 0) cancelInFlightRefresh();
   }
 
@@ -298,9 +217,43 @@ export async function login(email: string, password: string): Promise<string> {
   return data.accessToken;
 }
 
+export async function login(email: string, password: string, rememberMe?: boolean): Promise<string> {
+  return performAuthExchange('/api/auth/login', { email, password, rememberMe }, 'Đăng nhập thất bại');
+}
+
+export async function register(email: string, password: string, displayName: string): Promise<string> {
+  return performAuthExchange('/api/auth/register', { email, password, displayName }, 'Đăng ký thất bại');
+}
+
+export async function forgotPassword(email: string): Promise<{ success: boolean }> {
+  return api.post<{ success: boolean }>('/auth/forgot-password', { email });
+}
+
+export async function resetPassword(token: string, newPassword: string): Promise<{ success: boolean }> {
+  return api.post<{ success: boolean }>('/auth/reset-password', { token, newPassword });
+}
+
+export async function changePassword(currentPassword: string, newPassword: string): Promise<{ success: boolean }> {
+  return api.post<{ success: boolean }>('/auth/change-password', { currentPassword, newPassword });
+}
+
+export async function updateProfile(data: { displayName?: string; avatar?: string; locale?: string; timezone?: string }): Promise<any> {
+  return api.patch<any>('/users/me', data);
+}
+
+export async function getProfile(): Promise<any> {
+  return api.get<any>('/users/me');
+}
+
+export async function listSessions(): Promise<{ sessions: any[] }> {
+  return api.get<{ sessions: any[] }>('/auth/sessions');
+}
+
+export async function revokeSession(sessionId: string): Promise<{ success: boolean }> {
+  return api.delete<{ success: boolean }>(`/auth/sessions/${sessionId}`);
+}
+
 export async function logout(): Promise<void> {
-  // Invalidate first: any refresh still running is now stale, and aborting it
-  // stops a late response from rewriting the cookie we are about to clear.
   sessionGeneration += 1;
   accessToken = null;
   cancelInFlightRefresh();
@@ -310,12 +263,10 @@ export async function logout(): Promise<void> {
   );
 }
 
-/** Called once on app start to restore a session from the refresh cookie. */
 export async function restoreSession(): Promise<string | null> {
   return requestNewAccessToken();
 }
 
-/** Test/diagnostic helper. */
 export function currentSessionGeneration(): number {
   return sessionGeneration;
 }

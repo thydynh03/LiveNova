@@ -5,7 +5,7 @@
   "frontend:install": "pnpm install",
   "frontend:build": "pnpm run build",
   "frontend:dev:watcher": "pnpm run dev",
-  "frontend:dev:serverUrl": "http://localhost:1420",
+  "frontend:dev:serverUrl": "auto",
   "wailsjsdir": "./frontend",
   "info": {
     "productName": "LiveNova Desktop",

@@ -1,18 +1,9 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import React, { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '../../context/AuthContext';
-
-const ALLOWED_REDIRECTS = new Set([
-  '/dashboard',
-  '/rules',
-  '/tts',
-  '/billing',
-  '/overlays',
-  '/settings/profile',
-]);
 
 const inputStyle: React.CSSProperties = {
   width: '100%',
@@ -25,33 +16,44 @@ const inputStyle: React.CSSProperties = {
   outline: 'none',
 };
 
-function LoginForm() {
-  const { status, signIn } = useAuth();
-  const router = useRouter();
-  const searchParams = useSearchParams();
+const PASSWORD_COMPLEXITY_REGEX = /^(?=.*[a-zA-Z])(?=.*\d)/;
 
+export default function RegisterPage() {
+  const { signUp } = useAuth();
+  const router = useRouter();
+
+  const [displayName, setDisplayName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [rememberMe, setRememberMe] = useState(false);
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-
-  const requested = searchParams.get('next');
-  const destination = requested && ALLOWED_REDIRECTS.has(requested) ? requested : '/dashboard';
-
-  useEffect(() => {
-    if (status === 'authenticated') router.replace(destination);
-  }, [status, destination, router]);
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
     setError(null);
+
+    if (password !== confirmPassword) {
+      setError('Mật khẩu nhập lại không khớp');
+      return;
+    }
+
+    if (password.length < 8) {
+      setError('Mật khẩu phải chứa ít nhất 8 ký tự');
+      return;
+    }
+
+    if (!PASSWORD_COMPLEXITY_REGEX.test(password)) {
+      setError('Mật khẩu phải chứa ít nhất 1 chữ cái và 1 chữ số');
+      return;
+    }
+
     setSubmitting(true);
     try {
-      await signIn(email, password, rememberMe);
-      router.replace(destination);
+      await signUp(email, password, displayName);
+      router.replace('/dashboard');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Đăng nhập thất bại');
+      setError(err instanceof Error ? err.message : 'Đăng ký thất bại');
     } finally {
       setSubmitting(false);
     }
@@ -59,8 +61,6 @@ function LoginForm() {
 
   return (
     <main
-      id="main-content"
-      tabIndex={-1}
       style={{
         minHeight: '100vh',
         display: 'flex',
@@ -73,7 +73,7 @@ function LoginForm() {
         className="glass"
         style={{
           width: '100%',
-          maxWidth: '420px',
+          maxWidth: '440px',
           padding: '2.5rem',
           borderRadius: 'var(--radius)',
           border: '1px solid var(--glass-border)',
@@ -81,10 +81,10 @@ function LoginForm() {
         }}
       >
         <h1 style={{ fontSize: '1.75rem', fontWeight: 700, marginBottom: '0.5rem' }}>
-          Đăng nhập <span className="text-gradient">LiveNova</span>
+          Tạo tài khoản <span className="text-gradient">LiveNova</span>
         </h1>
         <p style={{ color: 'hsl(var(--muted-foreground))', marginBottom: '1.5rem', fontSize: '0.9rem' }}>
-          Quản lý kịch bản tự động, overlay và TTS cho livestream của bạn.
+          Đăng ký miễn phí và nhận ngay 100 lượt tương tác/ngày.
         </p>
 
         {error && (
@@ -105,6 +105,21 @@ function LoginForm() {
 
         <form onSubmit={handleSubmit}>
           <div style={{ marginBottom: '1.25rem' }}>
+            <label htmlFor="displayName" style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 500, fontSize: '0.9rem' }}>
+              Tên hiển thị / Streamer Name
+            </label>
+            <input
+              id="displayName"
+              type="text"
+              placeholder="VD: Streamer HoangNam"
+              required
+              value={displayName}
+              onChange={(e) => setDisplayName(e.target.value)}
+              style={inputStyle}
+            />
+          </div>
+
+          <div style={{ marginBottom: '1.25rem' }}>
             <label htmlFor="email" style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 500, fontSize: '0.9rem' }}>
               Địa chỉ Email
             </label>
@@ -121,21 +136,13 @@ function LoginForm() {
           </div>
 
           <div style={{ marginBottom: '1.25rem' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
-              <label htmlFor="password" style={{ fontWeight: 500, fontSize: '0.9rem' }}>
-                Mật khẩu
-              </label>
-              <Link
-                href="/forgot-password"
-                style={{ fontSize: '0.825rem', color: '#6366f1', textDecoration: 'none' }}
-              >
-                Quên mật khẩu?
-              </Link>
-            </div>
+            <label htmlFor="password" style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 500, fontSize: '0.9rem' }}>
+              Mật khẩu (Tối thiểu 8 ký tự, có chữ và số)
+            </label>
             <input
               id="password"
               type="password"
-              autoComplete="current-password"
+              autoComplete="new-password"
               placeholder="••••••••"
               required
               value={password}
@@ -144,17 +151,20 @@ function LoginForm() {
             />
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', marginBottom: '1.5rem' }}>
-            <input
-              id="rememberMe"
-              type="checkbox"
-              checked={rememberMe}
-              onChange={(e) => setRememberMe(e.target.checked)}
-              style={{ width: '1rem', height: '1rem', accentColor: '#6366f1', cursor: 'pointer' }}
-            />
-            <label htmlFor="rememberMe" style={{ marginLeft: '0.5rem', fontSize: '0.875rem', cursor: 'pointer' }}>
-              Ghi nhớ đăng nhập (Duy trì 30 ngày)
+          <div style={{ marginBottom: '1.5rem' }}>
+            <label htmlFor="confirmPassword" style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 500, fontSize: '0.9rem' }}>
+              Nhập lại mật khẩu
             </label>
+            <input
+              id="confirmPassword"
+              type="password"
+              autoComplete="new-password"
+              placeholder="••••••••"
+              required
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              style={inputStyle}
+            />
           </div>
 
           <button
@@ -174,25 +184,17 @@ function LoginForm() {
               transition: 'all 0.2s ease',
             }}
           >
-            {submitting ? 'Đang đăng nhập...' : 'Đăng nhập'}
+            {submitting ? 'Đang tạo tài khoản...' : 'Đăng ký tài khoản'}
           </button>
         </form>
 
         <div style={{ marginTop: '1.75rem', textAlign: 'center', fontSize: '0.875rem', color: 'hsl(var(--muted-foreground))' }}>
-          Chưa có tài khoản?{' '}
-          <Link href="/register" style={{ color: '#6366f1', fontWeight: 600, textDecoration: 'none' }}>
-            Đăng ký ngay
+          Đã có tài khoản?{' '}
+          <Link href="/login" style={{ color: '#6366f1', fontWeight: 600, textDecoration: 'none' }}>
+            Đăng nhập ngay
           </Link>
         </div>
       </div>
     </main>
-  );
-}
-
-export default function LoginPage() {
-  return (
-    <React.Suspense fallback={<div style={{ padding: '2rem', textAlign: 'center' }}>Đang tải...</div>}>
-      <LoginForm />
-    </React.Suspense>
   );
 }

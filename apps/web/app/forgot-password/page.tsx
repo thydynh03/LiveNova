@@ -1,0 +1,147 @@
+'use client';
+
+import React, { useState } from 'react';
+import Link from 'next/link';
+import { forgotPassword } from '../../lib/api-client';
+
+const inputStyle: React.CSSProperties = {
+  width: '100%',
+  padding: '0.75rem 1rem',
+  borderRadius: 'var(--radius)',
+  border: '1px solid var(--glass-border)',
+  background: 'rgba(255, 255, 255, 0.05)',
+  color: 'inherit',
+  fontSize: '0.95rem',
+  outline: 'none',
+};
+
+export default function ForgotPasswordPage() {
+  const [email, setEmail] = useState('');
+  const [submitted, setSubmitted] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setLoading(true);
+
+    try {
+      await forgotPassword(email);
+      setSubmitted(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Yêu cầu thất bại');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <main
+      style={{
+        minHeight: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '1.5rem',
+      }}
+    >
+      <div
+        className="glass"
+        style={{
+          width: '100%',
+          maxWidth: '440px',
+          padding: '2.5rem',
+          borderRadius: 'var(--radius)',
+          border: '1px solid var(--glass-border)',
+          boxShadow: '0 20px 40px rgba(0,0,0,0.3)',
+        }}
+      >
+        <h1 style={{ fontSize: '1.75rem', fontWeight: 700, marginBottom: '0.5rem' }}>
+          Quên <span className="text-gradient">mật khẩu</span>
+        </h1>
+        <p style={{ color: 'hsl(var(--muted-foreground))', marginBottom: '1.5rem', fontSize: '0.9rem' }}>
+          Nhập email đăng ký của bạn để nhận hướng dẫn khôi phục mật khẩu.
+        </p>
+
+        {submitted ? (
+          <div
+            style={{
+              padding: '1.25rem',
+              borderRadius: 'var(--radius)',
+              background: 'rgba(34, 197, 94, 0.15)',
+              border: '1px solid rgba(34, 197, 94, 0.3)',
+              color: '#4ade80',
+              fontSize: '0.9rem',
+              lineHeight: 1.5,
+              marginBottom: '1.5rem',
+            }}
+          >
+            <p style={{ fontWeight: 600, marginBottom: '0.5rem' }}>✓ Yêu cầu đã được tiếp nhận</p>
+            <p style={{ fontSize: '0.85rem' }}>
+              Nếu email <strong>{email}</strong> tồn tại trong hệ thống, chúng tôi đã gửi hướng dẫn khôi phục mật khẩu.
+            </p>
+          </div>
+        ) : (
+          <form onSubmit={handleSubmit}>
+            {error && (
+              <div
+                style={{
+                  padding: '0.75rem 1rem',
+                  borderRadius: 'var(--radius)',
+                  background: 'rgba(239, 68, 68, 0.15)',
+                  border: '1px solid rgba(239, 68, 68, 0.3)',
+                  color: '#f87171',
+                  fontSize: '0.875rem',
+                  marginBottom: '1.25rem',
+                }}
+              >
+                {error}
+              </div>
+            )}
+
+            <div style={{ marginBottom: '1.5rem' }}>
+              <label htmlFor="email" style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 500, fontSize: '0.9rem' }}>
+                Địa chỉ Email đăng ký
+              </label>
+              <input
+                id="email"
+                type="email"
+                required
+                placeholder="name@example.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                style={inputStyle}
+              />
+            </div>
+
+            <button
+              type="submit"
+              disabled={loading}
+              style={{
+                width: '100%',
+                padding: '0.85rem',
+                borderRadius: 'var(--radius)',
+                background: 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)',
+                color: '#fff',
+                border: 'none',
+                fontWeight: 600,
+                fontSize: '1rem',
+                cursor: loading ? 'not-allowed' : 'pointer',
+                opacity: loading ? 0.7 : 1,
+              }}
+            >
+              {loading ? 'Đang gửi...' : 'Gửi yêu cầu khôi phục'}
+            </button>
+          </form>
+        )}
+
+        <div style={{ marginTop: '1.75rem', textAlign: 'center', fontSize: '0.875rem' }}>
+          <Link href="/login" style={{ color: '#6366f1', textDecoration: 'none', fontWeight: 500 }}>
+            ← Quay lại đăng nhập
+          </Link>
+        </div>
+      </div>
+    </main>
+  );
+}

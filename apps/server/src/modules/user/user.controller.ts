@@ -22,6 +22,11 @@ class UpdateMeDto {
   displayName?: string;
 
   @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  avatar?: string;
+
+  @IsOptional()
   @IsIn(['vi', 'en'])
   locale?: string;
 
