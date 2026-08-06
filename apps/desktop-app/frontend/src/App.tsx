@@ -1,20 +1,28 @@
 import type React from 'react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
-  Gamepad2,
+  CheckCircle2,
   AlertTriangle,
-  Video,
-  Swords,
   Moon,
   Sun,
-  Plug,
-  Hourglass,
-  Crosshair,
-  Zap,
-  Keyboard,
-  ScrollText,
+  ChevronRight,
+  ChevronDown,
+  Gauge,
+  Users,
+  Clock,
+  Video,
+  Swords,
+  Gamepad2,
 } from 'lucide-react';
-import { ConnectOBS, GetBridgeStatus, SendRconCommand, SimulateKeyPress } from '../wailsjs/go/main/App';
+import {
+  ConnectOBS,
+  GetBridgeStatus,
+  SendRconCommand,
+  SimulateKeyPress,
+  EmergencyStop,
+  ResumeAfterStop,
+  IsHalted,
+} from '../wailsjs/go/main/App';
 import type { bridge } from '../wailsjs/go/models';
 
 interface KeyOption {
@@ -39,35 +47,64 @@ const ALLOWED_KEYS: KeyOption[] = [
   { label: 'Phím 3', code: 0x33, hex: '0x33', action: 'Chọn ô item 3' },
 ];
 
-/** Section headings: icon and text on one baseline, one place to change it. */
-const headingStyle: React.CSSProperties = {
-  display: 'flex',
-  alignItems: 'center',
-  gap: '0.5rem',
-  fontSize: '1.2rem',
-  margin: '0 0 1rem 0',
-};
+/** A collapsed section. Everything technical lives inside one of these. */
+function Disclosure({
+  title,
+  icon,
+  children,
+}: {
+  title: string;
+  icon?: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="card">
+      <button type="button" className="disclosure" aria-expanded={open} onClick={() => setOpen((v) => !v)}>
+        {open ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+        {icon}
+        {title}
+      </button>
+      {open && <div style={{ marginTop: '0.875rem' }}>{children}</div>}
+    </div>
+  );
+}
+
+function Tile({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
+  return (
+    <div className="card" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+      <span style={{ color: 'var(--muted-foreground)', display: 'flex' }}>{icon}</span>
+      <span>
+        <span style={{ display: 'block', fontSize: '0.78rem', color: 'var(--muted-foreground)' }}>
+          {label}
+        </span>
+        <strong style={{ fontSize: '1rem' }}>{value}</strong>
+      </span>
+    </div>
+  );
+}
 
 export default function App() {
-  const [theme, setTheme] = useState<'light' | 'dark'>('dark');
+  const [theme, setTheme] = useState<'light' | 'dark'>('light');
   const [bridgeStatus, setBridgeStatus] = useState<bridge.Status | null>(null);
+  const [statusError, setStatusError] = useState(false);
+  const [halted, setHalted] = useState(false);
   const [logs, setLogs] = useState<string[]>([]);
+  const [startedAt] = useState(() => Date.now());
+  const [uptime, setUptime] = useState('0 phút');
 
-  // Key Simulation State
-  const [selectedKey, setSelectedKey] = useState<number>(0x20); // Space
-  const [holdTime, setHoldTime] = useState<number>(200); // 200ms
+  const [selectedKey, setSelectedKey] = useState<number>(0x20);
+  const [holdTime, setHoldTime] = useState<number>(200);
   const [isPressingKey, setIsPressingKey] = useState<boolean>(false);
 
-  // OBS State
   const [obsHost, setObsHost] = useState<string>('127.0.0.1');
   const [obsPort, setObsPort] = useState<number>(4455);
   const [obsPassword, setObsPassword] = useState<string>('');
 
-  // RCON State
   const [rconHost, setRconHost] = useState<string>('127.0.0.1');
   const [rconPort, setRconPort] = useState<number>(25575);
   const [rconPassword, setRconPassword] = useState<string>('');
-  const [rconCommand, setRconCommand] = useState<string>('give @a diamond 1');
+  const [rconCommand, setRconCommand] = useState<string>('');
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
@@ -76,9 +113,13 @@ export default function App() {
   useEffect(() => {
     const fetchStatus = async () => {
       try {
-        setBridgeStatus(await GetBridgeStatus());
+        const [status, isHalted] = await Promise.all([GetBridgeStatus(), IsHalted()]);
+        setBridgeStatus(status);
+        setHalted(isHalted);
+        setStatusError(false);
       } catch (err) {
         console.error('Failed to get bridge status', err);
+        setStatusError(true);
       }
     };
 
@@ -87,158 +128,204 @@ export default function App() {
     return () => clearInterval(interval);
   }, []);
 
-  const addLog = (msg: string) => {
-    setLogs((prev) => [`[${new Date().toLocaleTimeString()}] ${msg}`, ...prev].slice(0, 100));
-  };
+  useEffect(() => {
+    const tick = () => {
+      const mins = Math.floor((Date.now() - startedAt) / 60000);
+      setUptime(mins < 60 ? `${mins} phút` : `${Math.floor(mins / 60)} giờ ${mins % 60} phút`);
+    };
+    tick();
+    const id = setInterval(tick, 30000);
+    return () => clearInterval(id);
+  }, [startedAt]);
 
-  // ── Key Simulation Handler ───────────────────────────────────────────
+  const addLog = useCallback((msg: string) => {
+    setLogs((prev) => [`[${new Date().toLocaleTimeString()}] ${msg}`, ...prev].slice(0, 100));
+  }, []);
+
   const handleTestKeyPress = async (keyCodeOverride?: number) => {
     const vkCode = keyCodeOverride ?? selectedKey;
     setIsPressingKey(true);
     const keyInfo = ALLOWED_KEYS.find((k) => k.code === vkCode);
-    addLog(`[...] Đang giả lập bấm phím: ${keyInfo?.label || vkCode} (giữ ${holdTime}ms)...`);
+    addLog(`Đang thử bấm: ${keyInfo?.label || vkCode} (giữ ${holdTime}ms)`);
 
     try {
       await SimulateKeyPress(vkCode, holdTime, 1000);
-      addLog(`[OK] Giả lập bấm phím thành công: ${keyInfo?.label || vkCode}`);
+      addLog(`Bấm thử thành công: ${keyInfo?.label || vkCode}`);
     } catch (err: any) {
-      addLog(`[LỖI] Lỗi giả lập phím: ${err?.message || err}`);
+      addLog(`Không bấm được: ${err?.message || err}`);
     } finally {
       setIsPressingKey(false);
     }
   };
 
-  // ── OBS Handler ──────────────────────────────────────────────────────
   const handleConnectObs = async () => {
-    addLog(`[...] Đang kết nối OBS Studio WebSocket (${obsHost}:${obsPort})...`);
+    addLog(`Đang kết nối OBS (${obsHost}:${obsPort})`);
     try {
       const ok = await ConnectOBS(obsHost, obsPort, obsPassword);
-      if (ok) {
-        addLog('[OK] Kết nối OBS Studio thành công');
-      } else {
-        addLog('[LỖI] Kết nối OBS thất bại (Vui lòng kiểm tra OBS WebSocket Settings).');
-      }
+      addLog(ok ? 'Đã kết nối OBS' : 'Không kết nối được OBS — kiểm tra lại cài đặt WebSocket trong OBS');
     } catch (err: any) {
-      addLog(`[LỖI] OBS connect failed: ${err?.message || err}`);
+      addLog(`Không kết nối được OBS: ${err?.message || err}`);
     }
   };
 
-  // ── RCON Handler ─────────────────────────────────────────────────────
   const handleSendRcon = async () => {
-    addLog(`[...] Đang gửi lệnh RCON đến Game (${rconHost}:${rconPort}): "${rconCommand}"...`);
+    addLog(`Đang gửi lệnh tới máy chủ game (${rconHost}:${rconPort})`);
     try {
       const reply = await SendRconCommand(rconHost, rconPort, rconPassword, rconCommand);
-      addLog(`[OK] Phản hồi RCON: ${reply || 'Đã thực thi thành công'}`);
+      addLog(`Máy chủ trả lời: ${reply || 'đã thực thi'}`);
     } catch (err: any) {
-      addLog(`[LỖI] Lỗi RCON: ${err?.message || err}`);
+      addLog(`Lỗi gửi lệnh: ${err?.message || err}`);
     }
   };
 
-  // ── Emergency Stop Handler ───────────────────────────────────────────
-  const handleEmergencyStop = () => {
-    addLog('[DỪNG] Nút khẩn cấp đã kích hoạt. Đã ngắt toàn bộ chuỗi bấm phím & âm thanh.');
+  /**
+   * This now calls into Go and genuinely blocks every further key press,
+   * including ones triggered by gifts arriving over the Local Bridge. It used
+   * to only append a log line.
+   */
+  const handleEmergencyStop = async () => {
+    try {
+      await EmergencyStop();
+      setHalted(true);
+      addLog('ĐÃ DỪNG KHẨN CẤP — mọi thao tác bấm phím bị chặn');
+    } catch (err: any) {
+      addLog(`Không dừng được: ${err?.message || err}`);
+    }
   };
 
+  const handleResume = async () => {
+    try {
+      await ResumeAfterStop();
+      setHalted(false);
+      addLog('Đã bật lại — thao tác bấm phím hoạt động bình thường');
+    } catch (err: any) {
+      addLog(`Không bật lại được: ${err?.message || err}`);
+    }
+  };
+
+  const running = Boolean(bridgeStatus?.is_running) && !statusError;
+  const healthy = running && !halted;
+
   return (
-    <div style={{ padding: '1.5rem', maxWidth: '1200px', margin: '0 auto' }}>
-      {/* Header */}
+    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
       <header
         style={{
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
-          marginBottom: '1.5rem',
+          padding: '0.75rem 1.25rem',
           borderBottom: '1px solid var(--border)',
-          paddingBottom: '1rem',
+          background: 'var(--card-bg)',
         }}
       >
-        <div>
-          <h1 style={{ fontSize: '1.75rem', fontWeight: 800, margin: 0 }}>LiveNova Desktop App</h1>
-          <p style={{ margin: '0.25rem 0 0 0', opacity: 0.7, fontSize: '0.9rem' }}>
-            Ứng dụng giả lập phím bấm Win32, Local Bridge WebSocket & Điều khiển OBS Studio / Game RCON
-          </p>
-        </div>
+        <strong style={{ fontSize: '1rem' }}>LiveNova trên máy tính</strong>
         <button
-          className="btn-primary"
+          type="button"
+          className="btn-secondary"
           onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
-          style={{ padding: '0.6rem 1.2rem', borderRadius: '8px', cursor: 'pointer' }}
         >
           {theme === 'light' ? <Moon size={16} /> : <Sun size={16} />}
-          {theme === 'light' ? 'Chế độ tối' : 'Chế độ sáng'}
+          {theme === 'light' ? 'Nền tối' : 'Nền sáng'}
         </button>
       </header>
 
-      {/* Main Grid */}
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))',
-          gap: '1.25rem',
-          marginBottom: '1.5rem',
-        }}
-      >
-        {/* 1. Local Bridge Status */}
-        <div className="card">
-          <h2 style={headingStyle}>
-            <Plug size={18} />
-            Local Bridge Daemon
-          </h2>
-          {bridgeStatus ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', fontSize: '0.95rem' }}>
-              <p style={{ margin: 0 }}>
-                <span className={`status-dot ${bridgeStatus.is_running ? 'status-green' : 'status-red'}`}></span>
-                Trạng thái: <strong>{bridgeStatus.is_running ? 'Đang chạy (Running)' : 'Đã dừng'}</strong>
-              </p>
-              <p style={{ margin: 0 }}>
-                Cổng Listening: <code>127.0.0.1:{bridgeStatus.port}</code>
-              </p>
-              <p style={{ margin: 0 }}>Clients kết nối: {bridgeStatus.connected_clients}</p>
-              <p style={{ margin: 0 }}>
-                Token phiên: <code style={{ fontSize: '0.85rem' }}>{bridgeStatus.session_token}</code>
-              </p>
-            </div>
-          ) : (
-            <p>Đang tải thông tin Local Bridge...</p>
+      <main style={{ flex: 1, padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+        {/* One calm sentence. Ports, tokens and client counts are facts about
+            the software, not answers to the question the user is asking. */}
+        <section
+          className="card"
+          style={{
+            textAlign: 'center',
+            padding: '2rem 1.25rem',
+            borderColor: healthy ? 'var(--border)' : 'var(--warning)',
+            background: healthy ? 'var(--card-bg)' : 'rgba(217, 119, 6, 0.06)',
+          }}
+        >
+          <span style={{ display: 'inline-flex', color: healthy ? 'var(--success)' : 'var(--warning)' }}>
+            {healthy ? <CheckCircle2 size={44} /> : <AlertTriangle size={44} />}
+          </span>
+          <h1 style={{ fontSize: '1.5rem', fontWeight: 700, margin: '0.75rem 0 0.35rem' }}>
+            {halted
+              ? 'Đang tạm dừng theo yêu cầu của bạn'
+              : healthy
+                ? 'Mọi thứ đang chạy tốt'
+                : 'Chưa kết nối được'}
+          </h1>
+          <p style={{ margin: 0, color: 'var(--muted-foreground)' }}>
+            {halted
+              ? 'Bạn đã bấm dừng khẩn cấp. Bấm “Bật lại” khi muốn tiếp tục.'
+              : healthy
+                ? 'Ứng dụng đang kết nối với LiveNova và sẵn sàng làm việc với OBS.'
+                : 'Hãy thử khởi động lại ứng dụng. Nếu vẫn vậy, khởi động lại máy giúp mình nhé.'}
+          </p>
+
+          {halted && (
+            <button type="button" className="btn-primary" style={{ marginTop: '1rem' }} onClick={handleResume}>
+              Bật lại
+            </button>
           )}
+        </section>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.75rem' }}>
+          <Tile
+            icon={<Gauge size={18} />}
+            label="Kết nối"
+            value={running ? 'Rất tốt' : 'Chưa có'}
+          />
+          <Tile
+            icon={<Users size={18} />}
+            label="Hiệu ứng đang mở"
+            value={`${bridgeStatus?.connected_clients ?? 0}`}
+          />
+          <Tile icon={<Clock size={18} />} label="Đang chạy" value={uptime} />
         </div>
 
-        {/* 2. Win32 Key Simulation Test Panel */}
-        <div className="card">
-          <h2 style={headingStyle}>
-            <Gamepad2 size={18} />
-            Giả lập phím bấm game (Win32)
-          </h2>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+        <Disclosure title="Cài đặt OBS" icon={<Video size={16} />}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
+            <div style={{ display: 'flex', gap: '0.5rem' }}>
+              <div style={{ flex: 2 }}>
+                <label className="field-label" htmlFor="obs-host">Địa chỉ</label>
+                <input id="obs-host" className="field-input" type="text" value={obsHost} onChange={(e) => setObsHost(e.target.value)} />
+              </div>
+              <div style={{ flex: 1 }}>
+                <label className="field-label" htmlFor="obs-port">Cổng</label>
+                <input id="obs-port" className="field-input" type="number" value={obsPort} onChange={(e) => setObsPort(Number(e.target.value))} />
+              </div>
+            </div>
             <div>
-              <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.35rem' }}>
-                Chọn phím bấm:
-              </label>
+              <label className="field-label" htmlFor="obs-pass">Mật khẩu (nếu OBS có đặt)</label>
+              <input id="obs-pass" className="field-input" type="password" value={obsPassword} onChange={(e) => setObsPassword(e.target.value)} />
+            </div>
+            <button type="button" className="btn-primary" onClick={handleConnectObs}>
+              Kết nối OBS
+            </button>
+          </div>
+        </Disclosure>
+
+        <Disclosure title="Điều khiển game" icon={<Gamepad2 size={16} />}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+            <div>
+              <label className="field-label" htmlFor="key-select">Phím muốn thử</label>
               <select
+                id="key-select"
+                className="field-input"
                 value={selectedKey}
                 onChange={(e) => setSelectedKey(Number(e.target.value))}
-                style={{
-                  width: '100%',
-                  padding: '0.5rem',
-                  borderRadius: '6px',
-                  background: 'var(--background)',
-                  color: 'var(--foreground)',
-                  border: '1px solid var(--border)',
-                }}
               >
                 {ALLOWED_KEYS.map((k) => (
                   <option key={k.code} value={k.code}>
-                    {k.label} ({k.hex})
+                    {k.label} — {k.action}
                   </option>
                 ))}
               </select>
             </div>
-
             <div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.35rem' }}>
-                <label style={{ fontSize: '0.85rem', fontWeight: 600 }}>Thời gian giữ phím (Hold):</label>
-                <span style={{ fontSize: '0.85rem', color: 'var(--primary)', fontWeight: 700 }}>{holdTime} ms</span>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <label className="field-label" htmlFor="hold-time">Giữ phím bao lâu</label>
+                <span style={{ fontSize: '0.8rem', color: 'var(--muted-foreground)' }}>{holdTime} ms</span>
               </div>
               <input
+                id="hold-time"
                 type="range"
                 min="50"
                 max="1000"
@@ -248,251 +335,130 @@ export default function App() {
                 style={{ width: '100%', cursor: 'pointer' }}
               />
             </div>
-
             <button
+              type="button"
               className="btn-primary"
               onClick={() => handleTestKeyPress()}
-              disabled={isPressingKey}
-              style={{ width: '100%', padding: '0.65rem', marginTop: '0.25rem' }}
+              disabled={isPressingKey || halted}
             >
-              {isPressingKey ? <Hourglass size={16} /> : <Crosshair size={16} />}
-              {isPressingKey ? 'Đang bấm phím…' : 'Thử bấm phím ngay'}
+              {isPressingKey ? 'Đang bấm…' : 'Bấm thử'}
             </button>
-          </div>
-        </div>
 
-        {/* 3. OBS Controller */}
-        <div className="card">
-          <h2 style={headingStyle}>
-            <Video size={18} />
-            Điều khiển OBS Studio
-          </h2>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
-            <div style={{ display: 'flex', gap: '0.5rem' }}>
-              <div style={{ flex: 2 }}>
-                <label style={{ fontSize: '0.8rem', display: 'block' }}>Host:</label>
-                <input
-                  type="text"
-                  value={obsHost}
-                  onChange={(e) => setObsHost(e.target.value)}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(190px, 1fr))', gap: '0.5rem' }}>
+              {ALLOWED_KEYS.map((k) => (
+                <div
+                  key={k.code}
                   style={{
-                    width: '100%',
-                    padding: '0.4rem',
-                    borderRadius: '4px',
-                    background: 'var(--background)',
-                    color: 'var(--foreground)',
+                    padding: '0.5rem 0.65rem',
+                    borderRadius: '0.5rem',
                     border: '1px solid var(--border)',
-                  }}
-                />
-              </div>
-              <div style={{ flex: 1 }}>
-                <label style={{ fontSize: '0.8rem', display: 'block' }}>Port:</label>
-                <input
-                  type="number"
-                  value={obsPort}
-                  onChange={(e) => setObsPort(Number(e.target.value))}
-                  style={{
-                    width: '100%',
-                    padding: '0.4rem',
-                    borderRadius: '4px',
-                    background: 'var(--background)',
-                    color: 'var(--foreground)',
-                    border: '1px solid var(--border)',
-                  }}
-                />
-              </div>
-            </div>
-            <div>
-              <label style={{ fontSize: '0.8rem', display: 'block' }}>Mật khẩu OBS WS:</label>
-              <input
-                type="password"
-                value={obsPassword}
-                onChange={(e) => setObsPassword(e.target.value)}
-                placeholder="Nhập mật khẩu nếu có"
-                style={{
-                  width: '100%',
-                  padding: '0.4rem',
-                  borderRadius: '4px',
-                  background: 'var(--background)',
-                  color: 'var(--foreground)',
-                  border: '1px solid var(--border)',
-                }}
-              />
-            </div>
-            <button className="btn-primary" onClick={handleConnectObs} style={{ marginTop: '0.25rem' }}>
-              <Plug size={16} />
-              Kết nối OBS Studio
-            </button>
-          </div>
-        </div>
-
-        {/* 4. Game RCON */}
-        <div className="card">
-          <h2 style={headingStyle}>
-            <Swords size={18} />
-            Game RCON Command
-          </h2>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
-            <div style={{ display: 'flex', gap: '0.5rem' }}>
-              <div style={{ flex: 2 }}>
-                <label style={{ fontSize: '0.8rem', display: 'block' }}>Host:</label>
-                <input
-                  type="text"
-                  value={rconHost}
-                  onChange={(e) => setRconHost(e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '0.4rem',
-                    borderRadius: '4px',
-                    background: 'var(--background)',
-                    color: 'var(--foreground)',
-                    border: '1px solid var(--border)',
-                  }}
-                />
-              </div>
-              <div style={{ flex: 1 }}>
-                <label style={{ fontSize: '0.8rem', display: 'block' }}>Port:</label>
-                <input
-                  type="number"
-                  value={rconPort}
-                  onChange={(e) => setRconPort(Number(e.target.value))}
-                  style={{
-                    width: '100%',
-                    padding: '0.4rem',
-                    borderRadius: '4px',
-                    background: 'var(--background)',
-                    color: 'var(--foreground)',
-                    border: '1px solid var(--border)',
-                  }}
-                />
-              </div>
-            </div>
-            <div>
-              <label style={{ fontSize: '0.8rem', display: 'block' }}>Mật khẩu RCON:</label>
-              <input
-                type="password"
-                value={rconPassword}
-                onChange={(e) => setRconPassword(e.target.value)}
-                placeholder="Nhập mật khẩu RCON nếu có"
-                style={{
-                  width: '100%',
-                  padding: '0.4rem',
-                  borderRadius: '4px',
-                  background: 'var(--background)',
-                  color: 'var(--foreground)',
-                  border: '1px solid var(--border)',
-                }}
-              />
-            </div>
-            <div>
-              <label style={{ fontSize: '0.8rem', display: 'block' }}>Lệnh RCON:</label>
-              <input
-                type="text"
-                value={rconCommand}
-                onChange={(e) => setRconCommand(e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '0.4rem',
-                  borderRadius: '4px',
-                  background: 'var(--background)',
-                  color: 'var(--foreground)',
-                  border: '1px solid var(--border)',
-                }}
-              />
-            </div>
-            <button className="btn-primary" onClick={handleSendRcon} style={{ marginTop: '0.25rem' }}>
-              <Zap size={16} />
-              Gửi lệnh RCON
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* 5. Hotkeys Map Viewer */}
-      <div className="card" style={{ marginBottom: '1.5rem' }}>
-        <h2 style={headingStyle}>
-          <Keyboard size={18} />
-          Phím nóng và bảng mã Win32
-        </h2>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: '0.75rem' }}>
-          {ALLOWED_KEYS.map((k) => (
-            <div
-              key={k.code}
-              style={{
-                padding: '0.75rem',
-                borderRadius: '8px',
-                background: 'var(--background)',
-                border: '1px solid var(--border)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-              }}
-            >
-              <div>
-                <span
-                  style={{
-                    display: 'inline-block',
-                    padding: '0.2rem 0.5rem',
-                    borderRadius: '4px',
-                    background: 'var(--primary)',
-                    color: '#fff',
-                    fontWeight: 700,
-                    fontSize: '0.8rem',
-                    marginRight: '0.5rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: '0.5rem',
                   }}
                 >
-                  {k.hex}
-                </span>
-                <span style={{ fontWeight: 600, fontSize: '0.9rem' }}>{k.label}</span>
-                <p style={{ margin: '0.2rem 0 0 0', opacity: 0.7, fontSize: '0.8rem' }}>{k.action}</p>
-              </div>
-              <button
-                type="button"
-                onClick={() => handleTestKeyPress(k.code)}
-                style={{
-                  padding: '0.35rem 0.6rem',
-                  fontSize: '0.75rem',
-                  borderRadius: '6px',
-                  background: 'rgba(59, 130, 246, 0.15)',
-                  color: 'var(--primary)',
-                  border: '1px solid var(--primary)',
-                  cursor: 'pointer',
-                  fontWeight: 600,
-                }}
-              >
-                Bấm thử
-              </button>
+                  <span>
+                    <strong style={{ fontSize: '0.85rem' }}>{k.label}</strong>
+                    <span style={{ display: 'block', fontSize: '0.75rem', color: 'var(--muted-foreground)' }}>
+                      {k.action}
+                    </span>
+                  </span>
+                  <button
+                    type="button"
+                    className="btn-secondary"
+                    style={{ minHeight: '32px', padding: '0.3rem 0.6rem', fontSize: '0.75rem' }}
+                    onClick={() => handleTestKeyPress(k.code)}
+                    disabled={halted}
+                  >
+                    Thử
+                  </button>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
-      </div>
+          </div>
+        </Disclosure>
 
-      {/* Emergency Stop Button */}
-      <div style={{ textAlign: 'center', margin: '2rem 0' }}>
-        <button className="btn-danger" onClick={handleEmergencyStop}>
-          <AlertTriangle size={18} />
-          Nút khẩn cấp (Emergency Stop)
-        </button>
-        <p style={{ marginTop: '0.5rem', opacity: 0.7, fontSize: '0.85rem' }}>
-          Ngắt lập tức toàn bộ chuỗi bấm phím và hàng chờ âm thanh trên máy
-        </p>
-      </div>
+        <Disclosure title="Gửi lệnh tới máy chủ game" icon={<Swords size={16} />}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
+            <div style={{ display: 'flex', gap: '0.5rem' }}>
+              <div style={{ flex: 2 }}>
+                <label className="field-label" htmlFor="rcon-host">Địa chỉ</label>
+                <input id="rcon-host" className="field-input" type="text" value={rconHost} onChange={(e) => setRconHost(e.target.value)} />
+              </div>
+              <div style={{ flex: 1 }}>
+                <label className="field-label" htmlFor="rcon-port">Cổng</label>
+                <input id="rcon-port" className="field-input" type="number" value={rconPort} onChange={(e) => setRconPort(Number(e.target.value))} />
+              </div>
+            </div>
+            <div>
+              <label className="field-label" htmlFor="rcon-pass">Mật khẩu</label>
+              <input id="rcon-pass" className="field-input" type="password" value={rconPassword} onChange={(e) => setRconPassword(e.target.value)} />
+            </div>
+            <div>
+              <label className="field-label" htmlFor="rcon-cmd">Lệnh</label>
+              <input
+                id="rcon-cmd"
+                className="field-input"
+                type="text"
+                value={rconCommand}
+                placeholder="Ví dụ: give @a diamond 1"
+                onChange={(e) => setRconCommand(e.target.value)}
+              />
+            </div>
+            <button type="button" className="btn-primary" onClick={handleSendRcon} disabled={!rconCommand.trim()}>
+              Gửi lệnh
+            </button>
+          </div>
+        </Disclosure>
 
-      {/* System Logs */}
-      <div className="card">
-        <h2 style={headingStyle}>
-          <ScrollText size={18} />
-          Nhật ký hoạt động
-        </h2>
-        <div className="log-viewer">
-          {logs.length === 0 ? <p style={{ color: '#888' }}>Chưa có nhật ký hoạt động...</p> : null}
-          {logs.map((log, i) => (
-            <p key={i} className="log-line">
-              {log}
+        <Disclosure title="Nhật ký kỹ thuật">
+          <div className="log-viewer">
+            {logs.length === 0 ? (
+              <p className="log-line">Chưa có gì để xem — đó là dấu hiệu tốt.</p>
+            ) : (
+              logs.map((log, i) => (
+                <p key={i} className="log-line">
+                  {log}
+                </p>
+              ))
+            )}
+          </div>
+          {bridgeStatus && (
+            <p style={{ marginTop: '0.6rem', fontSize: '0.75rem', color: 'var(--muted-foreground)' }}>
+              Địa chỉ nội bộ 127.0.0.1:{bridgeStatus.port} · {bridgeStatus.connected_clients} kết nối
             </p>
-          ))}
-        </div>
-      </div>
+          )}
+        </Disclosure>
+      </main>
+
+      {/* Always reachable, never scrolls away. */}
+      <footer
+        style={{
+          position: 'sticky',
+          bottom: 0,
+          padding: '0.75rem 1.25rem',
+          borderTop: '1px solid var(--border)',
+          background: 'var(--card-bg)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: '1rem',
+        }}
+      >
+        <span style={{ fontSize: '0.8rem', color: 'var(--muted-foreground)' }}>
+          Dừng ngay mọi thao tác tự động lên game và OBS.
+        </span>
+        <button
+          type="button"
+          className="btn-danger"
+          onClick={handleEmergencyStop}
+          disabled={halted}
+        >
+          <AlertTriangle size={18} />
+          DỪNG KHẨN CẤP
+        </button>
+      </footer>
     </div>
   );
 }

@@ -252,19 +252,10 @@ export default function TtsPage() {
   };
 
   return (
-    <div style={{ padding: '2rem', maxWidth: '1000px', margin: '0 auto' }}>
-      <h1
-        style={{
-          fontSize: '2rem',
-          fontWeight: 800,
-          letterSpacing: '-0.02em',
-          marginBottom: '0.5rem',
-        }}
-      >
-        Giọng đọc tự động (TTS Engine)
-      </h1>
-      <p style={{ color: 'hsl(var(--muted-foreground))', marginBottom: '2rem' }}>
-        Tùy chỉnh giọng đọc tự động & Hàng chờ đọc tuần tự (Sequential TTS Queue) cho bình luận, quà tặng TikTok LIVE.
+    <div>
+      <h1 className="page-title">Giọng đọc</h1>
+      <p style={{ color: 'hsl(var(--muted-foreground))', margin: '0.25rem 0 1.5rem' }}>
+        Chọn giọng và cách đọc cho những câu LiveNova nói hộ bạn trên sóng.
       </p>
 
       {statusMessage && (
@@ -272,7 +263,7 @@ export default function TtsPage() {
           style={{
             padding: '0.75rem 1rem',
             marginBottom: '1.5rem',
-            borderRadius: '12px',
+            borderRadius: 'var(--radius)',
             background: isPlaying ? 'rgba(34, 197, 94, 0.1)' : 'rgba(234, 179, 8, 0.1)',
             border: `1px solid ${isPlaying ? 'rgba(34, 197, 94, 0.2)' : 'rgba(234, 179, 8, 0.2)'}`,
             color: isPlaying ? '#22c55e' : '#eab308',
@@ -300,7 +291,7 @@ export default function TtsPage() {
         <div
           style={{
             padding: '1.5rem',
-            borderRadius: '16px',
+            borderRadius: 'var(--radius-lg)',
             background: 'hsl(var(--card))',
             border: '1px solid hsl(var(--border))',
           }}
@@ -316,13 +307,13 @@ export default function TtsPage() {
             }}
           >
             <Icon name="settings" size={20} style={{ color: 'hsl(var(--primary))' }} />
-            Cấu hình giọng đọc
+            Chọn giọng
           </h2>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
             <div>
               <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: 600, marginBottom: '0.5rem' }}>
-                Chọn giọng đọc:
+                Giọng đọc
               </label>
               <select
                 value={selectedVoiceId}
@@ -333,7 +324,7 @@ export default function TtsPage() {
                 style={{
                   width: '100%',
                   padding: '0.75rem',
-                  borderRadius: '8px',
+                  borderRadius: 'var(--radius)',
                   background: 'hsl(var(--background))',
                   color: 'hsl(var(--foreground))',
                   border: '1px solid hsl(var(--border))',
@@ -358,12 +349,17 @@ export default function TtsPage() {
 
             <div>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-                <label style={{ fontSize: '0.9rem', fontWeight: 600 }}>Tốc độ đọc:</label>
-                <span style={{ fontSize: '0.9rem', color: 'hsl(var(--primary))', fontWeight: 700 }}>
-                  {speed.toFixed(1)}x
+                <label htmlFor="tts-speed" style={{ fontSize: '0.9375rem', fontWeight: 600 }}>
+                  Đọc nhanh hay chậm
+                </label>
+                {/* A word, not "1.4x". Nobody has an intuition for what 1.4x
+                    of a synthetic voice sounds like. */}
+                <span style={{ fontSize: '0.875rem', color: 'hsl(var(--muted-foreground))' }}>
+                  {speed < 0.85 ? 'chậm rãi' : speed > 1.25 ? 'nhanh' : 'vừa phải'}
                 </span>
               </div>
               <input
+                id="tts-speed"
                 type="range"
                 min="0.5"
                 max="2.0"
@@ -380,12 +376,15 @@ export default function TtsPage() {
 
             <div>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-                <label style={{ fontSize: '0.9rem', fontWeight: 600 }}>Giọng điệu (Pitch):</label>
-                <span style={{ fontSize: '0.9rem', color: 'hsl(var(--primary))', fontWeight: 700 }}>
-                  {pitch.toFixed(1)}
+                <label htmlFor="tts-pitch" style={{ fontSize: '0.9375rem', fontWeight: 600 }}>
+                  Giọng cao hay trầm
+                </label>
+                <span style={{ fontSize: '0.875rem', color: 'hsl(var(--muted-foreground))' }}>
+                  {pitch < 0.9 ? 'trầm' : pitch > 1.1 ? 'cao' : 'tự nhiên'}
                 </span>
               </div>
               <input
+                id="tts-pitch"
                 type="range"
                 min="0.5"
                 max="1.5"
@@ -406,7 +405,7 @@ export default function TtsPage() {
         <div
           style={{
             padding: '1.5rem',
-            borderRadius: '16px',
+            borderRadius: 'var(--radius-lg)',
             background: 'hsl(var(--card))',
             border: '1px solid hsl(var(--border))',
             display: 'flex',
@@ -426,7 +425,7 @@ export default function TtsPage() {
               }}
             >
               <Icon name="audio" size={20} style={{ color: 'hsl(var(--primary))' }} />
-              Thử nghiệm giọng đọc & Hàng chờ
+              Nghe thử
             </h2>
             <textarea
               rows={3}
@@ -436,7 +435,7 @@ export default function TtsPage() {
               style={{
                 width: '100%',
                 padding: '0.75rem',
-                borderRadius: '8px',
+                borderRadius: 'var(--radius)',
                 background: 'hsl(var(--background))',
                 color: 'hsl(var(--foreground))',
                 border: '1px solid hsl(var(--border))',
@@ -519,7 +518,7 @@ export default function TtsPage() {
       <div
         style={{
           padding: '1.5rem',
-          borderRadius: '16px',
+          borderRadius: 'var(--radius-lg)',
           background: 'hsl(var(--card))',
           border: '1px solid hsl(var(--border))',
         }}
@@ -543,7 +542,7 @@ export default function TtsPage() {
             }}
           >
             <Icon name="queue" size={18} style={{ color: 'hsl(var(--primary))' }} />
-            Hàng chờ đọc ({queue.length})
+            Đang chờ đọc ({queue.length})
           </h2>
           {queue.length > 0 && (
             <button
@@ -575,7 +574,7 @@ export default function TtsPage() {
                 key={item.id}
                 style={{
                   padding: '0.75rem 1rem',
-                  borderRadius: '8px',
+                  borderRadius: 'var(--radius)',
                   background: 'hsl(var(--background))',
                   border: '1px solid hsl(var(--border))',
                   display: 'flex',

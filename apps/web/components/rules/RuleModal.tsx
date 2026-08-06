@@ -14,8 +14,8 @@ const inputStyle: React.CSSProperties = {
   width: '100%',
   padding: '0.75rem 1rem',
   borderRadius: 'var(--radius)',
-  border: '1px solid var(--glass-border)',
-  background: 'rgba(255, 255, 255, 0.05)',
+  border: '1px solid hsl(var(--border))',
+  background: 'hsl(var(--background))',
   color: 'inherit',
   fontSize: '0.95rem',
   outline: 'none',
@@ -178,7 +178,7 @@ export function RuleModal({ rule, onClose, onSuccess }: RuleModalProps) {
       style={{
         position: 'fixed',
         inset: 0,
-        background: 'rgba(0, 0, 0, 0.75)',
+        background: 'hsl(20 8% 11% / 0.45)',
         backdropFilter: 'blur(8px)',
         zIndex: 999,
         display: 'flex',
@@ -188,16 +188,16 @@ export function RuleModal({ rule, onClose, onSuccess }: RuleModalProps) {
       }}
     >
       <div
-        className="glass"
+        className="card"
         style={{
           width: '100%',
           maxWidth: '680px',
           maxHeight: '90vh',
           borderRadius: 'var(--radius-lg)',
-          border: '1px solid var(--glass-border)',
+          border: '1px solid hsl(var(--border))',
           display: 'flex',
           flexDirection: 'column',
-          boxShadow: '0 25px 50px rgba(0,0,0,0.5)',
+          boxShadow: 'var(--shadow-lg)',
           overflow: 'hidden',
         }}
       >
@@ -205,7 +205,7 @@ export function RuleModal({ rule, onClose, onSuccess }: RuleModalProps) {
         <div
           style={{
             padding: '1.25rem 1.5rem',
-            borderBottom: '1px solid var(--glass-border)',
+            borderBottom: '1px solid hsl(var(--border))',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
@@ -224,7 +224,7 @@ export function RuleModal({ rule, onClose, onSuccess }: RuleModalProps) {
         </div>
 
         {/* Wizard Step Tabs */}
-        <div style={{ display: 'flex', borderBottom: '1px solid var(--glass-border)', background: 'rgba(0,0,0,0.2)' }}>
+        <div style={{ display: 'flex', borderBottom: '1px solid hsl(var(--border))', background: 'hsl(var(--muted))' }}>
           {[
             { num: 1, label: '1. Thông tin' },
             { num: 2, label: '2. Điều kiện' },
@@ -257,8 +257,8 @@ export function RuleModal({ rule, onClose, onSuccess }: RuleModalProps) {
               style={{
                 padding: '0.75rem 1rem',
                 borderRadius: 'var(--radius)',
-                background: 'rgba(239, 68, 68, 0.15)',
-                border: '1px solid rgba(239, 68, 68, 0.3)',
+                background: 'hsl(var(--destructive) / 0.08)',
+                border: '1px solid hsl(var(--destructive) / 0.3)',
                 color: 'hsl(var(--destructive))',
                 marginBottom: '1.25rem',
                 fontSize: '0.9rem',
@@ -350,7 +350,7 @@ export function RuleModal({ rule, onClose, onSuccess }: RuleModalProps) {
               </div>
 
               {eventType === 'gift' && (
-                <div style={{ background: 'rgba(255,255,255,0.03)', padding: '1rem', borderRadius: 'var(--radius)', border: '1px solid var(--glass-border)' }}>
+                <div style={{ background: 'rgba(255,255,255,0.03)', padding: '1rem', borderRadius: 'var(--radius)', border: '1px solid hsl(var(--border))' }}>
                   <div style={{ marginBottom: '1rem' }}>
                     <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 500 }}>Tên quà tặng chính xác (Tùy chọn)</label>
                     <input
@@ -430,10 +430,10 @@ export function RuleModal({ rule, onClose, onSuccess }: RuleModalProps) {
                 <div
                   key={idx}
                   style={{
-                    background: 'rgba(255, 255, 255, 0.04)',
+                    background: 'hsl(var(--background))',
                     padding: '1.25rem',
                     borderRadius: 'var(--radius)',
-                    border: '1px solid var(--glass-border)',
+                    border: '1px solid hsl(var(--border))',
                   }}
                 >
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>

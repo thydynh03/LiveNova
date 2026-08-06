@@ -101,15 +101,15 @@ export function AvatarDropdown() {
 
       {open && (
         <div
-          className="glass"
+          className="card"
           style={{
             position: 'absolute',
             right: 0,
             top: 'calc(100% + 8px)',
             width: '240px',
             borderRadius: 'var(--radius)',
-            border: '1px solid var(--glass-border)',
-            boxShadow: '0 12px 32px rgba(0, 0, 0, 0.4)',
+            border: '1px solid hsl(var(--border))',
+            boxShadow: 'var(--shadow-lg)',
             padding: '0.75rem',
             zIndex: 200,
             backdropFilter: 'blur(16px)',
@@ -120,7 +120,7 @@ export function AvatarDropdown() {
           <div
             style={{
               padding: '0.5rem 0.5rem 0.75rem',
-              borderBottom: '1px solid var(--glass-border)',
+              borderBottom: '1px solid hsl(var(--border))',
               marginBottom: '0.5rem',
               display: 'flex',
               alignItems: 'center',
@@ -176,7 +176,7 @@ export function AvatarDropdown() {
               textDecoration: 'none',
               transition: 'background 0.15s ease',
             }}
-            onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(255, 255, 255, 0.08)')}
+            onMouseEnter={(e) => (e.currentTarget.style.background = 'hsl(var(--secondary))')}
             onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
           >
             <Icon name="user" size={16} />
@@ -203,7 +203,7 @@ export function AvatarDropdown() {
               transition: 'background 0.15s ease',
               marginTop: '0.25rem',
             }}
-            onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(239, 68, 68, 0.15)')}
+            onMouseEnter={(e) => (e.currentTarget.style.background = 'hsl(var(--destructive) / 0.08)')}
             onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
           >
             <Icon name="signOut" size={16} />

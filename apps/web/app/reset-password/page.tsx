@@ -10,8 +10,8 @@ const inputStyle: React.CSSProperties = {
   width: '100%',
   padding: '0.75rem 1rem',
   borderRadius: 'var(--radius)',
-  border: '1px solid var(--glass-border)',
-  background: 'rgba(255, 255, 255, 0.05)',
+  border: '1px solid hsl(var(--border))',
+  background: 'hsl(var(--background))',
   color: 'inherit',
   fontSize: '0.95rem',
   outline: 'none',
@@ -89,14 +89,14 @@ function ResetPasswordForm() {
       }}
     >
       <div
-        className="glass"
+        className="card"
         style={{
           width: '100%',
           maxWidth: '440px',
           padding: '2.5rem',
           borderRadius: 'var(--radius)',
-          border: '1px solid var(--glass-border)',
-          boxShadow: '0 20px 40px rgba(0,0,0,0.3)',
+          border: '1px solid hsl(var(--border))',
+          boxShadow: 'var(--shadow-lg)',
         }}
       >
         <h1 style={{ fontSize: '1.75rem', fontWeight: 700, marginBottom: '0.5rem' }}>
@@ -137,8 +137,8 @@ function ResetPasswordForm() {
                 style={{
                   padding: '0.75rem 1rem',
                   borderRadius: 'var(--radius)',
-                  background: 'rgba(239, 68, 68, 0.15)',
-                  border: '1px solid rgba(239, 68, 68, 0.3)',
+                  background: 'hsl(var(--destructive) / 0.08)',
+                  border: '1px solid hsl(var(--destructive) / 0.3)',
                   color: 'hsl(var(--destructive))',
                   fontSize: '0.875rem',
                   marginBottom: '1.25rem',

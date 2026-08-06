@@ -55,7 +55,7 @@ export function PresetLibraryModal({ onClose, onSuccess }: PresetLibraryModalPro
       style={{
         position: 'fixed',
         inset: 0,
-        background: 'rgba(0, 0, 0, 0.75)',
+        background: 'hsl(20 8% 11% / 0.45)',
         backdropFilter: 'blur(8px)',
         zIndex: 999,
         display: 'flex',
@@ -65,15 +65,15 @@ export function PresetLibraryModal({ onClose, onSuccess }: PresetLibraryModalPro
       }}
     >
       <div
-        className="glass"
+        className="card"
         style={{
           width: '100%',
           maxWidth: '640px',
           borderRadius: 'var(--radius-lg)',
-          border: '1px solid var(--glass-border)',
+          border: '1px solid hsl(var(--border))',
           display: 'flex',
           flexDirection: 'column',
-          boxShadow: '0 25px 50px rgba(0,0,0,0.5)',
+          boxShadow: 'var(--shadow-lg)',
           overflow: 'hidden',
         }}
       >
@@ -81,7 +81,7 @@ export function PresetLibraryModal({ onClose, onSuccess }: PresetLibraryModalPro
         <div
           style={{
             padding: '1.25rem 1.5rem',
-            borderBottom: '1px solid var(--glass-border)',
+            borderBottom: '1px solid hsl(var(--border))',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
@@ -106,7 +106,7 @@ export function PresetLibraryModal({ onClose, onSuccess }: PresetLibraryModalPro
 
         <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           {error && (
-            <div style={{ padding: '0.75rem', borderRadius: 'var(--radius)', background: 'rgba(239, 68, 68, 0.15)', color: 'hsl(var(--destructive))', fontSize: '0.9rem' }}>
+            <div style={{ padding: '0.75rem', borderRadius: 'var(--radius)', background: 'hsl(var(--destructive) / 0.08)', color: 'hsl(var(--destructive))', fontSize: '0.9rem' }}>
               {error}
             </div>
           )}
@@ -117,8 +117,8 @@ export function PresetLibraryModal({ onClose, onSuccess }: PresetLibraryModalPro
               style={{
                 padding: '1.25rem',
                 borderRadius: 'var(--radius)',
-                background: 'rgba(255, 255, 255, 0.04)',
-                border: '1px solid var(--glass-border)',
+                background: 'hsl(var(--background))',
+                border: '1px solid hsl(var(--border))',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',

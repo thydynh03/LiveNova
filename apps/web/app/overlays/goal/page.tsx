@@ -145,7 +145,7 @@ function GoalOverlayContent() {
 }
 
 /** Literal, not a theme token: this composites over arbitrary video. */
-const ACCENT = '#22d3ee';
+const ACCENT = '#e1274c';
 
 export default function GoalOverlay() {
   return (
