@@ -41,6 +41,15 @@ import {
   Clock,
   EyeSlash,
   Queue as QueueIcon,
+  House,
+  Gear,
+  MagnifyingGlass,
+  Lightning,
+  CaretDown,
+  CaretRight,
+  Plus,
+  DotsSixVertical,
+  Info,
 } from '@phosphor-icons/react';
 
 export const ICONS = {
@@ -83,6 +92,15 @@ export const ICONS = {
   queue: QueueIcon,
   eye: Eye,
   eyeSlash: EyeSlash,
+  home: House,
+  gear: Gear,
+  search: MagnifyingGlass,
+  rule: Lightning,
+  caretDown: CaretDown,
+  caretRight: CaretRight,
+  plus: Plus,
+  drag: DotsSixVertical,
+  info: Info,
 } as const satisfies Record<string, PhosphorIcon>;
 
 export type IconName = keyof typeof ICONS;

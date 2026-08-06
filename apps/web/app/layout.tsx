@@ -77,8 +77,8 @@ export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   themeColor: [
-    { media: '(prefers-color-scheme: light)', color: '#f8fafc' },
-    { media: '(prefers-color-scheme: dark)', color: '#0d1117' },
+    { media: '(prefers-color-scheme: light)', color: '#fdf8f6' },
+    { media: '(prefers-color-scheme: dark)', color: '#161311' },
   ],
 };
 
@@ -96,8 +96,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <ThemeProvider>
           <AuthProvider>{children}</AuthProvider>
         </ThemeProvider>
-        {/* Fixed, non-interactive: keeps the noise off every scroll repaint. */}
-        <div className="grain" aria-hidden="true" />
       </body>
     </html>
   );

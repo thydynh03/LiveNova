@@ -7,4 +7,5 @@ export const channelsNav: NavItem = {
   href: '/channels',
   order: 20,
   owner: 'B',
+  icon: 'broadcast',
 };
