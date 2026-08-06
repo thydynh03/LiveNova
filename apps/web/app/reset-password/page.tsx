@@ -21,8 +21,8 @@ const PASSWORD_COMPLEXITY_REGEX = /^(?=.*[a-zA-Z])(?=.*\d)/;
 function ResetPasswordForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const token = searchParams.get('token');
 
+  const [token, setToken] = useState<string | null>(null);
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -30,10 +30,17 @@ function ResetPasswordForm() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (!token) {
+    const rawToken = searchParams.get('token');
+    if (rawToken) {
+      setToken(rawToken);
+      // Immediately clear the sensitive token from the URL bar to prevent leakage via browser history or Referer headers
+      if (typeof window !== 'undefined') {
+        window.history.replaceState({}, document.title, window.location.pathname);
+      }
+    } else if (!token) {
       setError('Mã khôi phục mật khẩu không khả dụng hoặc đã hết hạn.');
     }
-  }, [token]);
+  }, [searchParams, token]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
