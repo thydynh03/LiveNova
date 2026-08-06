@@ -289,3 +289,7 @@ export interface OverlayDispatchEvent {
   /** Optional: restrict delivery to one overlay instead of all of the user's. */
   overlayId?: string;
 }
+
+export * from './auth';
+export * from './user-profile';
+

@@ -1,15 +1,21 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  Injectable,
+  UnauthorizedException,
+  ConflictException,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as argon2 from 'argon2';
+import { randomBytes, createHmac } from 'crypto';
 import { ProviderType } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { SessionService, RefreshContext } from './session.service';
+import { RegisterDto, ChangePasswordDto } from './dto/auth.dto';
 
 export interface OAuthProfile {
-  /** Stable, provider-issued subject id. NOT the email. */
   providerUserId: string;
   email?: string;
-  /** Whether the provider asserts the email address is verified. */
   emailVerified?: boolean;
   displayName?: string;
   avatar?: string;
@@ -21,23 +27,21 @@ export interface TokenPair {
   expiresAt: Date;
 }
 
+interface ResetTokenData {
+  userId: string;
+  expiresAt: number;
+}
+
 @Injectable()
 export class AuthService {
+  private readonly resetTokens = new Map<string, ResetTokenData>();
+
   constructor(
     private readonly jwtService: JwtService,
     private readonly prisma: PrismaService,
     private readonly sessionService: SessionService,
   ) {}
 
-  /**
-   * H-02 — resolve an OAuth login by (provider, providerUserId).
-   *
-   * The previous implementation looked the user up by email alone and ignored the
-   * provider entirely, so anyone who could obtain an account at *any* provider
-   * asserting a victim's email address inherited the victim's account. Email is
-   * now only used to merge accounts when the provider explicitly vouches that it
-   * is verified, and never to authenticate on its own.
-   */
   async validateOAuthUser(provider: ProviderType, profile: OAuthProfile) {
     if (!profile?.providerUserId) {
       throw new UnauthorizedException('OAuth provider did not return a subject id');
@@ -57,8 +61,6 @@ export class AuthService {
       return existingIdentity.user;
     }
 
-    // No identity yet. Only consider merging into an existing account when the
-    // provider asserts the email is verified — otherwise create a fresh account.
     let user =
       profile.email && profile.emailVerified
         ? await this.prisma.user.findUnique({ where: { email: profile.email } })
@@ -67,7 +69,6 @@ export class AuthService {
     if (!user) {
       user = await this.prisma.user.create({
         data: {
-          // Providers that withhold an email still need a unique placeholder.
           email:
             profile.email ??
             `${provider.toLowerCase()}_${profile.providerUserId}@placeholder.local`,
@@ -93,7 +94,47 @@ export class AuthService {
     return this.jwtService.sign({ sub: userId, type: 'access' });
   }
 
-  /** Issues a new access token plus a fresh refresh rotation family. */
+  async register(dto: RegisterDto, ctx: RefreshContext = {}): Promise<TokenPair & { user: any }> {
+    const existing = await this.prisma.user.findUnique({ where: { email: dto.email } });
+    if (existing && !existing.deletedAt) {
+      throw new ConflictException('Email này đã được sử dụng');
+    }
+
+    const passwordHash = await this.hashPassword(dto.password);
+
+    const user = await this.prisma.user.create({
+      data: {
+        email: dto.email,
+        displayName: dto.displayName,
+        passwordHash,
+      },
+    });
+
+    await this.prisma.creditBalance.create({
+      data: {
+        userId: user.id,
+        balance: 100,
+      },
+    });
+
+    await this.prisma.ttsSettings.create({
+      data: {
+        userId: user.id,
+        voiceId: 'vi-VN-Wavenet-A',
+        rate: 1.0,
+        pitch: 0.0,
+      },
+    });
+
+    const tokens = await this.login(user.id, ctx);
+    const { passwordHash: _, ...safeUser } = user;
+
+    return {
+      ...tokens,
+      user: safeUser,
+    };
+  }
+
   async login(userId: string, ctx: RefreshContext = {}): Promise<TokenPair> {
     const refresh = await this.sessionService.issue(userId, ctx);
     return {
@@ -103,7 +144,6 @@ export class AuthService {
     };
   }
 
-  /** C-06 — rotates the refresh token and detects replay of a consumed one. */
   async refresh(presentedToken: string, ctx: RefreshContext = {}): Promise<TokenPair> {
     const { userId, refresh } = await this.sessionService.rotate(presentedToken, ctx);
     return {
@@ -119,6 +159,69 @@ export class AuthService {
 
   async logoutEverywhere(userId: string): Promise<number> {
     return this.sessionService.revokeAllForUser(userId);
+  }
+
+  async forgotPassword(email: string): Promise<{ success: boolean; resetToken?: string }> {
+    const user = await this.prisma.user.findUnique({ where: { email } });
+
+    if (!user || !user.passwordHash || user.deletedAt) {
+      return { success: true };
+    }
+
+    const rawToken = randomBytes(32).toString('hex');
+    const tokenHash = createHmac('sha256', 'reset_secret').update(rawToken).digest('hex');
+    const expiresAt = Date.now() + 15 * 60 * 1000;
+
+    this.resetTokens.set(tokenHash, { userId: user.id, expiresAt });
+
+    return {
+      success: true,
+      resetToken: rawToken,
+    };
+  }
+
+  async resetPassword(rawToken: string, newPassword: string): Promise<boolean> {
+    const tokenHash = createHmac('sha256', 'reset_secret').update(rawToken).digest('hex');
+    const data = this.resetTokens.get(tokenHash);
+
+    if (!data || data.expiresAt < Date.now()) {
+      this.resetTokens.delete(tokenHash);
+      throw new BadRequestException('Token khôi phục không hợp lệ hoặc đã hết hạn');
+    }
+
+    const passwordHash = await this.hashPassword(newPassword);
+
+    await this.prisma.user.update({
+      where: { id: data.userId },
+      data: { passwordHash },
+    });
+
+    this.resetTokens.delete(tokenHash);
+
+    await this.logoutEverywhere(data.userId);
+
+    return true;
+  }
+
+  async changePassword(userId: string, dto: ChangePasswordDto): Promise<boolean> {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user || !user.passwordHash || user.deletedAt) {
+      throw new NotFoundException('User không tồn tại');
+    }
+
+    const isValid = await this.verifyPassword(user.passwordHash, dto.currentPassword);
+    if (!isValid) {
+      throw new UnauthorizedException('Mật khẩu hiện tại không chính xác');
+    }
+
+    const passwordHash = await this.hashPassword(dto.newPassword);
+
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { passwordHash },
+    });
+
+    return true;
   }
 
   async hashPassword(password: string): Promise<string> {

@@ -13,14 +13,13 @@ export interface IssuedRefreshToken {
 export interface RefreshContext {
   ip?: string;
   userAgent?: string;
+  rememberMe?: boolean;
 }
 
 /**
  * C-06 / FR-006, FR-007, FR-008 — server-side refresh token lifecycle.
  *
- * Refresh tokens are opaque 256-bit random strings, not JWTs. A JWT refresh
- * token cannot be revoked without a server-side record anyway, so the JWT bought
- * nothing and cost us the ability to log out. Only an HMAC of the token is
+ * Refresh tokens are opaque 256-bit random strings, not JWTs. Only an HMAC of the token is
  * stored, keyed with JWT_REFRESH_SECRET, so a database leak does not yield
  * usable credentials.
  */
@@ -42,9 +41,10 @@ export class SessionService {
     return timingSafeEqual(bufA, bufB);
   }
 
-  private expiryDate(): Date {
+  private expiryDate(rememberMe?: boolean): Date {
     const d = new Date();
-    d.setDate(d.getDate() + this.env.refreshTokenTtlDays);
+    const days = rememberMe ? 30 : (this.env.refreshTokenTtlDays || 7);
+    d.setDate(d.getDate() + days);
     return d;
   }
 
@@ -60,7 +60,7 @@ export class SessionService {
     ctx: RefreshContext,
   ): Promise<IssuedRefreshToken> {
     const token = randomBytes(32).toString('base64url');
-    const expiresAt = this.expiryDate();
+    const expiresAt = this.expiryDate(ctx.rememberMe);
 
     const session = await this.prisma.session.create({
       data: {
