@@ -36,6 +36,17 @@ const inputStyle: React.CSSProperties = {
   fontSize: '0.95rem',
 };
 
+function isValidAvatarUrl(url?: string | null): boolean {
+  if (!url || typeof url !== 'string') return false;
+  const trimmed = url.trim();
+  return (
+    trimmed.startsWith('/') ||
+    trimmed.startsWith('http://') ||
+    trimmed.startsWith('https://') ||
+    trimmed.startsWith('data:image/')
+  );
+}
+
 export default function ProfileSettingsPage() {
   const { user, refreshUser, signOut } = useAuth();
   const [activeTab, setActiveTab] = useState<TabId>('profile');
@@ -271,7 +282,7 @@ export default function ProfileSettingsPage() {
               <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 500 }}>Ảnh đại diện (Avatar)</label>
               
               <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '0.75rem' }}>
-                {avatar ? (
+                {isValidAvatarUrl(avatar) ? (
                   <img
                     src={avatar}
                     alt="Avatar preview"

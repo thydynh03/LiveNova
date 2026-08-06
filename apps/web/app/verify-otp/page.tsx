@@ -7,7 +7,7 @@ import { useAuth } from '../../context/AuthContext';
 import { resendOtp } from '../../lib/api-client';
 import { Icon } from '../../components/ui/Icon';
 
-export default function VerifyOtpPage() {
+function VerifyOtpForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const email = searchParams.get('email') || '';
@@ -283,5 +283,13 @@ export default function VerifyOtpPage() {
         </div>
       </div>
     </main>
+  );
+}
+
+export default function VerifyOtpPage() {
+  return (
+    <React.Suspense fallback={<div style={{ padding: '2rem', textAlign: 'center' }}>Đang tải...</div>}>
+      <VerifyOtpForm />
+    </React.Suspense>
   );
 }

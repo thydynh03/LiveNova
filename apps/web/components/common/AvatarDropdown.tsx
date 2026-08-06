@@ -5,6 +5,17 @@ import Link from 'next/link';
 import { useAuth } from '../../context/AuthContext';
 import { Icon } from '../ui/Icon';
 
+function isValidAvatarUrl(url?: string | null): boolean {
+  if (!url || typeof url !== 'string') return false;
+  const trimmed = url.trim();
+  return (
+    trimmed.startsWith('/') ||
+    trimmed.startsWith('http://') ||
+    trimmed.startsWith('https://') ||
+    trimmed.startsWith('data:image/')
+  );
+}
+
 export function AvatarDropdown() {
   const { user, signOut } = useAuth();
   const [open, setOpen] = useState(false);
@@ -55,9 +66,9 @@ export function AvatarDropdown() {
           transition: 'transform 0.15s ease',
         }}
       >
-        {user.avatar ? (
+        {isValidAvatarUrl(user.avatar) ? (
           <img
-            src={user.avatar}
+            src={user.avatar!}
             alt={displayName}
             style={{
               width: '36px',
