@@ -110,6 +110,9 @@ describe('OverlayGateway', () => {
       expect(client.emit).toHaveBeenCalledWith(OVERLAY_SOCKET.READY, {
         overlayId: 'ov-1',
         type: 'MEDIA',
+        // Config rides along with the handshake: a browser source holds no
+        // credential with which to fetch it separately.
+        config: {},
       });
       expect(client.disconnect).not.toHaveBeenCalled();
     });
@@ -147,6 +150,28 @@ describe('OverlayGateway', () => {
     });
   });
 
+  describe('state', () => {
+    it('addresses continuous state at one overlay only', () => {
+      gateway.handleState({
+        userId: 'user-1',
+        overlayId: 'ov-1',
+        state: { kind: 'goal', current: 250, target: 1000, label: 'Mục tiêu' },
+      });
+
+      // A goal bar belongs to one browser source; broadcasting it to the user
+      // room would drive every other overlay they have open.
+      expect(to).toHaveBeenCalledWith('overlay_ov-1');
+      expect(emit).toHaveBeenCalledWith(
+        'overlay.state',
+        expect.objectContaining({ kind: 'goal', current: 250 }),
+      );
+    });
+
+    it('ignores a malformed state payload without throwing', () => {
+      expect(() => gateway.handleState({ userId: 'user-1' } as never)).not.toThrow();
+      expect(emit).not.toHaveBeenCalled();
+    });
+  });
   describe('dispatch', () => {
     it('delivers to the owner room by default', () => {
       const action = makeAction();

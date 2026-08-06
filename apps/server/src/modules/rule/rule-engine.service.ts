@@ -11,6 +11,8 @@ import {
   OverlayDispatchEvent,
   OverlayEventContext,
   OVERLAY_DISPATCH_EVENT,
+  OVERLAY_CHANGED_EVENT,
+  OverlayChangedEvent,
   clampMediaDuration,
 } from '@livenova/shared';
 import { v4 as uuidv4 } from 'uuid';
@@ -73,6 +75,15 @@ export class RuleEngineService {
   /** Called by RuleService after any create/update/delete. */
   invalidateUser(userId: string): void {
     this.ruleCache.delete(userId);
+    this.alertOverlays.delete(userId);
+  }
+
+  /**
+   * A streamer who adds their alerts overlay after the engine has already
+   * looked and cached "none" would otherwise keep getting nothing.
+   */
+  @OnEvent(OVERLAY_CHANGED_EVENT)
+  onOverlaysChanged({ userId }: OverlayChangedEvent): void {
     this.alertOverlays.delete(userId);
   }
 

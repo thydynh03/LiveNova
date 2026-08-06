@@ -253,6 +253,14 @@ export const OVERLAY_SOCKET = {
   ACTION: 'overlay.action',
   READY: 'overlay.ready',
   ERROR: 'overlay.error',
+  /**
+   * Continuous state, as opposed to one-shot actions.
+   *
+   * A goal bar is not an event: it has a value that is simply true right now,
+   * and a browser source that reconnects mid-broadcast has to be told where the
+   * bar stands without replaying every gift that got it there.
+   */
+  STATE: 'overlay.state',
 } as const;
 
 export const EVENTS_SOCKET = {
@@ -281,6 +289,62 @@ export function clampMediaDuration(ms: number | undefined): number {
  * type is the entire seam between them.
  */
 export const OVERLAY_DISPATCH_EVENT = 'overlay.dispatch';
+
+/** Config an overlay of type GOAL reads from its own Overlay row. */
+export interface GoalConfig {
+  /** Coins required to fill the bar. */
+  target: number;
+  label: string;
+}
+
+export const GOAL_DEFAULTS: GoalConfig = {
+  target: 10_000,
+  label: 'Mục tiêu hôm nay',
+};
+
+export function readGoalConfig(config: unknown): GoalConfig {
+  const raw = (config ?? {}) as Partial<Record<keyof GoalConfig, unknown>>;
+  const target = typeof raw.target === 'number' && raw.target > 0
+    ? Math.floor(raw.target)
+    : GOAL_DEFAULTS.target;
+  const label = typeof raw.label === 'string' && raw.label.trim() !== ''
+    ? raw.label.trim()
+    : GOAL_DEFAULTS.label;
+  return { target, label };
+}
+
+/** Payload of an OVERLAY_SOCKET.STATE frame for a GOAL overlay. */
+export interface GoalState {
+  kind: 'goal';
+  /** Coins accumulated so far. */
+  current: number;
+  target: number;
+  label: string;
+}
+
+export type OverlayState = GoalState;
+
+/** Internal bus event name for continuous overlay state. */
+export const OVERLAY_STATE_EVENT = 'overlay.state';
+
+/**
+ * Emitted whenever a user's overlays change.
+ *
+ * Several services cache "which overlay renders what" per user. Going through
+ * the bus keeps them from having to inject one another, which would tie the
+ * overlay module to the rule module in one direction and back again.
+ */
+export const OVERLAY_CHANGED_EVENT = 'overlay.changed';
+
+export interface OverlayChangedEvent {
+  userId: string;
+}
+
+export interface OverlayStateDispatch {
+  userId: string;
+  overlayId: string;
+  state: OverlayState;
+}
 
 export interface OverlayDispatchEvent {
   /** Owner of the overlay(s) this action should reach. */
