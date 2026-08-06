@@ -72,7 +72,8 @@ Chia theo **thư mục sở hữu**, không chia theo "tính năng". Hai dev **k
 | `apps/server/src/modules/websocket/**` | **B** | Gateway `/events` + `/overlay` |
 | `apps/server/src/modules/overlay/**` | **B** | |
 | `apps/server/src/modules/user/**` | **B** | |
-| `apps/web/**` | **B** | Toàn bộ Next.js |
+| `apps/web/**` | **B** | Toàn bộ Next.js, **trừ** `app/(dashboard)/billing/**` |
+| `apps/web/app/(dashboard)/billing/**` | **A** | Giao diện thanh toán đi cùng BillingModule |
 | `packages/shared/**` | ⚠️ **HỢP ĐỒNG** | Xem §1.2 |
 | `apps/server/src/app.module.ts` | ⚠️ **HỢP ĐỒNG** | Xem §1.2 |
 | `.github/**`, `docker-compose.yml` | **A** | |
@@ -230,7 +231,7 @@ Ký hiệu: `M` = MUST · `S` = SHOULD · `C` = COULD · `⛔` = đang bị ch�
 | P6-03 | ⛔ Adapter VNPay | FR-060 | A | M | 8 | **Chặn bởi Q-02** |
 | P6-04 | ⛔ Adapter MoMo | FR-061 | A | M | 8 | **Chặn bởi Q-02** |
 | P6-05 | ⛔ Trang bảng giá công khai | FR-059 | B | M | 5 | **Chặn bởi Q-04** (chưa có giá) |
-| P6-06 | UI mua credit + lịch sử giao dịch | FR-058/65 | B | M | 8 | |
+| P6-06 | UI mua credit + lịch sử giao dịch | FR-058/65 | **A** | M | 8 | Chuyển từ B sang A — toàn bộ luồng tiền thuộc một chủ |
 | P6-07 | Hóa đơn PDF | FR-065 | A | C | 5 | |
 
 ### Giai đoạn 7 — Admin, Analytics, Vận hành

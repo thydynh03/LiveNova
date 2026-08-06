@@ -382,6 +382,7 @@ Tạo `.github/CODEOWNERS` để GitHub tự gán reviewer và chặn merge nh�
 /apps/server/src/modules/tiktok/              @dev-a
 /apps/desktop-app/                            @dev-a
 /apps/web/app/overlays/media/                 @dev-a
+/apps/web/app/(dashboard)/billing/             @dev-a
 
 # Dev B
 /packages/shared/src/types/chatbox.ts         @dev-b
