@@ -79,7 +79,13 @@ export default function DashboardLayout({
             </div>
           </nav>
         </aside>
-        <main style={{ flex: 1, padding: '2rem', background: 'hsl(var(--background))' }}>
+        {/* Target of the skip link in the root layout. tabIndex={-1} lets
+            focus actually land here instead of staying in the sidebar. */}
+        <main
+          id="main-content"
+          tabIndex={-1}
+          style={{ flex: 1, padding: '2rem', background: 'hsl(var(--background))' }}
+        >
           {children}
         </main>
       </div>
