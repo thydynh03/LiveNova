@@ -8,9 +8,9 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { LiveEvent, LiveEventType } from '@livenova/shared';
 import { randomInt } from 'crypto';
 import { v4 as uuidv4 } from 'uuid';
-async function getWebcastPushConnectionClass() {
+async function getTikTokConnectionClass() {
   const mod: any = await import('tiktok-live-connector');
-  return mod.WebcastPushConnection || mod.default?.WebcastPushConnection || mod.default;
+  return mod.TikTokLiveConnection || mod.WebcastPushConnection || mod.default?.TikTokLiveConnection || mod.default?.WebcastPushConnection || mod.default;
 }
 
 /**
@@ -103,74 +103,90 @@ export class TiktokService implements OnModuleInit, OnModuleDestroy {
     this.logger.log(`Connecting to TikTok LIVE stream for handle: @${targetHandle} (ChannelId: ${channelId})`);
 
     try {
-      const WebcastPushConnectionClass = await getWebcastPushConnectionClass();
-      const connection = new WebcastPushConnectionClass(targetHandle, {
+      const TikTokConnectionClass = await getTikTokConnectionClass();
+      const connection = new TikTokConnectionClass(targetHandle, {
         enableExtendedGiftInfo: true,
-        requestOptions: {
-          timeout: 10000,
-        },
       });
 
-      connection.on('chat', (data: { uniqueId?: string; nickname?: string; comment?: string }) => {
+      connection.on('chat', (data: any) => {
+        const displayName = data.user?.nickname || data.nickname || data.user?.uniqueId || data.uniqueId || 'Khán giả';
+        const username = data.user?.uniqueId || data.user?.displayId || data.uniqueId || 'user';
+        const content = data.content || data.comment || '';
+
         this.emitEvent({
           id: uuidv4(),
           type: LiveEventType.COMMENT,
           channelId,
-          senderUsername: data.uniqueId || data.nickname || 'anonymous',
-          senderDisplayName: data.nickname || data.uniqueId || 'Anonymous',
-          content: data.comment,
+          senderUsername: username,
+          senderDisplayName: displayName,
+          content,
           occurredAt: new Date(),
         });
       });
 
-      connection.on('gift', (data: { uniqueId?: string; nickname?: string; giftName?: string; diamondCount?: number; repeatCount?: number; giftType?: number; repeatEnd?: number }) => {
+      connection.on('gift', (data: any) => {
         if (data.giftType === 1 && data.repeatEnd === 0) {
-          // Streak in progress, wait for end
+          // Streak in progress
           return;
         }
+        const displayName = data.user?.nickname || data.nickname || data.user?.uniqueId || data.uniqueId || 'Khán giả';
+        const username = data.user?.uniqueId || data.user?.displayId || data.uniqueId || 'user';
+        const giftName = data.gift?.giftName || data.giftDetails?.giftName || data.giftName || 'Quà';
+        const giftCoinValue = data.gift?.diamondCount || data.diamondCount || data.repeatCount || 1;
+
         this.emitEvent({
           id: uuidv4(),
           type: LiveEventType.GIFT,
           channelId,
-          senderUsername: data.uniqueId || data.nickname || 'anonymous',
-          senderDisplayName: data.nickname || data.uniqueId || 'Anonymous',
-          giftName: data.giftName || 'Gift',
-          giftCoinValue: data.diamondCount || data.repeatCount || 1,
+          senderUsername: username,
+          senderDisplayName: displayName,
+          giftName,
+          giftCoinValue,
           occurredAt: new Date(),
         });
       });
 
-      connection.on('like', (data: { uniqueId?: string; nickname?: string; likeCount?: number }) => {
+      connection.on('like', (data: any) => {
+        const displayName = data.user?.nickname || data.nickname || data.user?.uniqueId || data.uniqueId || 'Khán giả';
+        const username = data.user?.uniqueId || data.user?.displayId || data.uniqueId || 'user';
+        const likeCount = data.likeCount || data.totalLikeCount || 1;
+
         this.emitEvent({
           id: uuidv4(),
           type: LiveEventType.LIKE,
           channelId,
-          senderUsername: data.uniqueId || data.nickname || 'anonymous',
-          senderDisplayName: data.nickname || data.uniqueId || 'Anonymous',
-          content: `Thả ${data.likeCount || 1} tim`,
+          senderUsername: username,
+          senderDisplayName: displayName,
+          content: `Thả ${likeCount} tim`,
           occurredAt: new Date(),
         });
       });
 
-      connection.on('member', (data: { uniqueId?: string; nickname?: string }) => {
+      connection.on('member', (data: any) => {
+        const displayName = data.user?.nickname || data.nickname || data.user?.uniqueId || data.uniqueId || 'Khán giả';
+        const username = data.user?.uniqueId || data.user?.displayId || data.uniqueId || 'user';
+
         this.emitEvent({
           id: uuidv4(),
           type: LiveEventType.JOIN,
           channelId,
-          senderUsername: data.uniqueId || data.nickname || 'anonymous',
-          senderDisplayName: data.nickname || data.uniqueId || 'Anonymous',
+          senderUsername: username,
+          senderDisplayName: displayName,
           occurredAt: new Date(),
         });
       });
 
-      connection.on('social', (data: { uniqueId?: string; nickname?: string; label?: string; displayType?: string }) => {
-        const isFollow = data.label?.includes('follow') || data.displayType?.includes('follow');
+      connection.on('social', (data: any) => {
+        const displayName = data.user?.nickname || data.nickname || data.user?.uniqueId || data.uniqueId || 'Khán giả';
+        const username = data.user?.uniqueId || data.user?.displayId || data.uniqueId || 'user';
+        const isFollow = data.common?.displayText?.key?.includes('follow') || data.label?.includes('follow');
+
         this.emitEvent({
           id: uuidv4(),
           type: isFollow ? LiveEventType.FOLLOW : LiveEventType.SHARE,
           channelId,
-          senderUsername: data.uniqueId || data.nickname || 'anonymous',
-          senderDisplayName: data.nickname || data.uniqueId || 'Anonymous',
+          senderUsername: username,
+          senderDisplayName: displayName,
           occurredAt: new Date(),
         });
       });
@@ -183,28 +199,18 @@ export class TiktokService implements OnModuleInit, OnModuleDestroy {
         this.logger.warn(`Disconnected from TikTok LIVE stream for @${targetHandle}`);
       });
 
-      connection.on('error', (err: Error) => {
-        this.logger.error(`TikTok LIVE Webcast error for @${targetHandle}: ${err?.message}`);
+      connection.on('error', (err: any) => {
+        this.logger.error(`TikTok LIVE Webcast error for @${targetHandle}: ${err?.message || err}`);
       });
 
       await connection.connect();
       this.activeSessions.set(channelId, { disconnect: () => connection.disconnect() });
-      this.logger.log(`Successfully connected to live stream for @${targetHandle}!`);
+      this.logger.log(`Successfully connected to REAL TikTok LIVE stream for @${targetHandle}!`);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
-      this.logger.warn(
-        `Could not connect to live Webcast stream for @${targetHandle} (${msg}). Starting fallback mode.`,
+      this.logger.error(
+        `Failed to connect to TikTok LIVE stream for @${targetHandle}: ${msg}`,
       );
-
-      const interval = setInterval(
-        () => {
-          const event = this.generateMockEvent(channelId);
-          this.emitEvent(event);
-        },
-        randomInt(3000, 6000),
-      );
-
-      this.activeSessions.set(channelId, { disconnect: () => clearInterval(interval) });
     }
   }
 
