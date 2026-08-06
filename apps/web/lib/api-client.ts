@@ -30,7 +30,22 @@ function cancelInFlightRefresh(): void {
 }
 
 let pendingLogins = 0;
+
+/**
+ * Bumped by anything that starts or ends a session, so an in-flight refresh can
+ * tell that its result is stale.
+ */
 let sessionGeneration = 0;
+
+/**
+ * Bumped by logout only.
+ *
+ * An auth exchange has to distinguish "the user logged out while my request was
+ * in flight" (discard the token) from "another login landed first" (also stale,
+ * but not an error the caller should see as a cancellation). Watching
+ * sessionGeneration for this made two overlapping logins cancel each other.
+ */
+let logoutGeneration = 0;
 
 export function setAccessToken(token: string | null): void {
   accessToken = token;
@@ -179,7 +194,7 @@ async function performAuthExchange(
   payload: Record<string, unknown>,
   defaultErrorMessage: string,
 ): Promise<string> {
-  const initialGeneration = sessionGeneration;
+  const initialLogoutGeneration = logoutGeneration;
   cancelInFlightRefresh();
   pendingLogins += 1;
 
@@ -204,8 +219,8 @@ async function performAuthExchange(
       throw new ApiError(data?.message ?? defaultErrorMessage, res.status);
     }
 
-    // Only discard response if logout() occurred while login request was in-flight
-    if (initialGeneration !== sessionGeneration) {
+    // Only discard the response if logout() occurred while the request was in flight.
+    if (initialLogoutGeneration !== logoutGeneration) {
       throw new ApiError('Thao tác đã bị hủy', 401);
     }
   } finally {
@@ -213,6 +228,11 @@ async function performAuthExchange(
     if (pendingLogins === 0) cancelInFlightRefresh();
   }
 
+  // A successful sign-in starts a new session, so the generation has to move.
+  // Without this, a refresh that began before the login and resolves after it
+  // still passes its own generation check and overwrites the fresh token with
+  // the previous session's. The extraction of this helper dropped the bump.
+  sessionGeneration += 1;
   accessToken = data.accessToken;
   return data.accessToken;
 }
@@ -254,6 +274,7 @@ export async function revokeSession(sessionId: string): Promise<{ success: boole
 }
 
 export async function logout(): Promise<void> {
+  logoutGeneration += 1;
   sessionGeneration += 1;
   accessToken = null;
   cancelInFlightRefresh();

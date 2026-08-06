@@ -81,7 +81,7 @@ function LoginForm() {
         }}
       >
         <h1 style={{ fontSize: '1.75rem', fontWeight: 700, marginBottom: '0.5rem' }}>
-          Đăng nhập <span className="text-gradient">LiveNova</span>
+          Đăng nhập <span className="accent">LiveNova</span>
         </h1>
         <p style={{ color: 'hsl(var(--muted-foreground))', marginBottom: '1.5rem', fontSize: '0.9rem' }}>
           Quản lý kịch bản tự động, overlay và TTS cho livestream của bạn.
@@ -94,7 +94,7 @@ function LoginForm() {
               borderRadius: 'var(--radius)',
               background: 'rgba(239, 68, 68, 0.15)',
               border: '1px solid rgba(239, 68, 68, 0.3)',
-              color: '#f87171',
+              color: 'hsl(var(--destructive))',
               fontSize: '0.875rem',
               marginBottom: '1.25rem',
             }}
@@ -127,7 +127,7 @@ function LoginForm() {
               </label>
               <Link
                 href="/forgot-password"
-                style={{ fontSize: '0.825rem', color: '#6366f1', textDecoration: 'none' }}
+                style={{ fontSize: '0.825rem', color: 'hsl(var(--primary))', textDecoration: 'none' }}
               >
                 Quên mật khẩu?
               </Link>
@@ -150,7 +150,7 @@ function LoginForm() {
               type="checkbox"
               checked={rememberMe}
               onChange={(e) => setRememberMe(e.target.checked)}
-              style={{ width: '1rem', height: '1rem', accentColor: '#6366f1', cursor: 'pointer' }}
+              style={{ width: '1rem', height: '1rem', accentColor: 'hsl(var(--primary))', cursor: 'pointer' }}
             />
             <label htmlFor="rememberMe" style={{ marginLeft: '0.5rem', fontSize: '0.875rem', cursor: 'pointer' }}>
               Ghi nhớ đăng nhập (Duy trì 30 ngày)
@@ -164,7 +164,7 @@ function LoginForm() {
               width: '100%',
               padding: '0.85rem',
               borderRadius: 'var(--radius)',
-              background: 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)',
+              background: 'hsl(var(--primary))',
               color: '#fff',
               border: 'none',
               fontWeight: 600,
@@ -180,7 +180,7 @@ function LoginForm() {
 
         <div style={{ marginTop: '1.75rem', textAlign: 'center', fontSize: '0.875rem', color: 'hsl(var(--muted-foreground))' }}>
           Chưa có tài khoản?{' '}
-          <Link href="/register" style={{ color: '#6366f1', fontWeight: 600, textDecoration: 'none' }}>
+          <Link href="/register" style={{ color: 'hsl(var(--primary))', fontWeight: 600, textDecoration: 'none' }}>
             Đăng ký ngay
           </Link>
         </div>

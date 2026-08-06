@@ -2,13 +2,27 @@
 
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../../../context/AuthContext';
+import { motion } from 'motion/react';
 import { updateProfile, changePassword, listSessions, revokeSession } from '../../../../lib/api-client';
+import { Icon, type IconName } from '../../../../components/ui/Icon';
 
+type TabId = 'profile' | 'security' | 'sessions';
+
+const TABS: { id: TabId; label: string; icon: IconName }[] = [
+  { id: 'profile', label: 'Hồ sơ', icon: 'user' },
+  { id: 'security', label: 'Mật khẩu', icon: 'lock' },
+  { id: 'sessions', label: 'Thiết bị', icon: 'device' },
+];
+
+/*
+ * These surfaces used translucent white fills, which only ever read correctly
+ * on a dark background. On the light theme they were invisible. Tokens instead.
+ */
 const cardStyle: React.CSSProperties = {
   padding: '1.75rem',
-  borderRadius: 'var(--radius)',
-  border: '1px solid var(--glass-border)',
-  background: 'rgba(255, 255, 255, 0.03)',
+  borderRadius: 'var(--radius-lg)',
+  border: '1px solid hsl(var(--border))',
+  background: 'hsl(var(--card))',
   marginBottom: '2rem',
 };
 
@@ -16,16 +30,15 @@ const inputStyle: React.CSSProperties = {
   width: '100%',
   padding: '0.75rem 1rem',
   borderRadius: 'var(--radius)',
-  border: '1px solid var(--glass-border)',
-  background: 'rgba(255, 255, 255, 0.05)',
+  border: '1px solid hsl(var(--input))',
+  background: 'hsl(var(--background))',
   color: 'inherit',
   fontSize: '0.95rem',
-  outline: 'none',
 };
 
 export default function ProfileSettingsPage() {
   const { user, refreshUser, signOut } = useAuth();
-  const [activeTab, setActiveTab] = useState<'profile' | 'security' | 'sessions'>('profile');
+  const [activeTab, setActiveTab] = useState<TabId>('profile');
 
   // Profile Form
   const [displayName, setDisplayName] = useState(user?.displayName || '');
@@ -133,56 +146,73 @@ export default function ProfileSettingsPage() {
   return (
     <div style={{ padding: '2rem', maxWidth: '850px', margin: '0 auto' }}>
       <h1 style={{ fontSize: '2rem', fontWeight: 700, marginBottom: '0.5rem' }}>
-        Trang cá nhân & <span className="text-gradient">Cài đặt bảo mật</span>
+        Trang cá nhân & <span className="accent">Cài đặt bảo mật</span>
       </h1>
       <p style={{ color: 'hsl(var(--muted-foreground))', marginBottom: '2rem' }}>
         Quản lý thông tin tài khoản, mật khẩu và phiên làm việc trên các thiết bị.
       </p>
 
-      {/* Tabs */}
-      <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.75rem', borderBottom: '1px solid var(--glass-border)', paddingBottom: '0.5rem' }}>
-        <button
-          onClick={() => setActiveTab('profile')}
-          style={{
-            padding: '0.6rem 1.2rem',
-            borderRadius: 'var(--radius)',
-            border: 'none',
-            background: activeTab === 'profile' ? '#6366f1' : 'transparent',
-            color: activeTab === 'profile' ? '#fff' : 'hsl(var(--muted-foreground))',
-            fontWeight: 600,
-            cursor: 'pointer',
-          }}
-        >
-          👤 Hồ sơ cá nhân
-        </button>
-        <button
-          onClick={() => setActiveTab('security')}
-          style={{
-            padding: '0.6rem 1.2rem',
-            borderRadius: 'var(--radius)',
-            border: 'none',
-            background: activeTab === 'security' ? '#6366f1' : 'transparent',
-            color: activeTab === 'security' ? '#fff' : 'hsl(var(--muted-foreground))',
-            fontWeight: 600,
-            cursor: 'pointer',
-          }}
-        >
-          🔒 Đổi mật khẩu
-        </button>
-        <button
-          onClick={() => setActiveTab('sessions')}
-          style={{
-            padding: '0.6rem 1.2rem',
-            borderRadius: 'var(--radius)',
-            border: 'none',
-            background: activeTab === 'sessions' ? '#6366f1' : 'transparent',
-            color: activeTab === 'sessions' ? '#fff' : 'hsl(var(--muted-foreground))',
-            fontWeight: 600,
-            cursor: 'pointer',
-          }}
-        >
-          📱 Thiết bị đăng nhập ({sessions.length})
-        </button>
+      {/*
+        Tabs, driven by a list rather than three copy-pasted buttons.
+
+        The active tab is marked by an underline that slides between tabs via a
+        shared layoutId, so the eye tracks one moving marker instead of a filled
+        pill blinking on and off in a new place.
+      */}
+      <div
+        role="tablist"
+        aria-label="Cài đặt tài khoản"
+        style={{
+          display: 'flex',
+          gap: '0.25rem',
+          marginBottom: '1.75rem',
+          borderBottom: '1px solid hsl(var(--border))',
+          flexWrap: 'wrap',
+        }}
+      >
+        {TABS.map((tab) => {
+          const active = activeTab === tab.id;
+          return (
+            <button
+              key={tab.id}
+              type="button"
+              role="tab"
+              aria-selected={active}
+              onClick={() => setActiveTab(tab.id)}
+              style={{
+                position: 'relative',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                minHeight: '44px',
+                padding: '0.6rem 1rem',
+                border: 'none',
+                background: 'transparent',
+                color: active ? 'hsl(var(--foreground))' : 'hsl(var(--muted-foreground))',
+                fontWeight: active ? 700 : 500,
+                cursor: 'pointer',
+              }}
+            >
+              <Icon name={tab.icon} size={18} />
+              {tab.label}
+              {tab.id === 'sessions' && ` (${sessions.length})`}
+              {active && (
+                <motion.span
+                  layoutId="profile-tab-underline"
+                  style={{
+                    position: 'absolute',
+                    left: 0,
+                    right: 0,
+                    bottom: '-1px',
+                    height: '2px',
+                    background: 'hsl(var(--primary))',
+                  }}
+                  transition={{ type: 'spring', stiffness: 420, damping: 34 }}
+                />
+              )}
+            </button>
+          );
+        })}
       </div>
 
       {/* TAB 1: Profile */}
@@ -197,7 +227,7 @@ export default function ProfileSettingsPage() {
                 borderRadius: 'var(--radius)',
                 background: profileMsg.type === 'success' ? 'rgba(34, 197, 94, 0.15)' : 'rgba(239, 68, 68, 0.15)',
                 border: profileMsg.type === 'success' ? '1px solid rgba(34, 197, 94, 0.3)' : '1px solid rgba(239, 68, 68, 0.3)',
-                color: profileMsg.type === 'success' ? '#4ade80' : '#f87171',
+                color: profileMsg.type === 'success' ? '#4ade80' : 'hsl(var(--destructive))',
                 marginBottom: '1.25rem',
                 fontSize: '0.9rem',
               }}
@@ -242,7 +272,7 @@ export default function ProfileSettingsPage() {
               style={{
                 padding: '0.75rem 1.5rem',
                 borderRadius: 'var(--radius)',
-                background: '#6366f1',
+                background: 'hsl(var(--primary))',
                 color: '#fff',
                 border: 'none',
                 fontWeight: 600,
@@ -267,7 +297,7 @@ export default function ProfileSettingsPage() {
                 borderRadius: 'var(--radius)',
                 background: pwdMsg.type === 'success' ? 'rgba(34, 197, 94, 0.15)' : 'rgba(239, 68, 68, 0.15)',
                 border: pwdMsg.type === 'success' ? '1px solid rgba(34, 197, 94, 0.3)' : '1px solid rgba(239, 68, 68, 0.3)',
-                color: pwdMsg.type === 'success' ? '#4ade80' : '#f87171',
+                color: pwdMsg.type === 'success' ? '#4ade80' : 'hsl(var(--destructive))',
                 marginBottom: '1.25rem',
                 fontSize: '0.9rem',
               }}
@@ -298,7 +328,7 @@ export default function ProfileSettingsPage() {
               style={{
                 padding: '0.75rem 1.5rem',
                 borderRadius: 'var(--radius)',
-                background: '#6366f1',
+                background: 'hsl(var(--primary))',
                 color: '#fff',
                 border: 'none',
                 fontWeight: 600,
@@ -321,15 +351,20 @@ export default function ProfileSettingsPage() {
               style={{
                 padding: '0.5rem 1rem',
                 borderRadius: 'var(--radius)',
-                background: 'rgba(239, 68, 68, 0.2)',
-                color: '#f87171',
-                border: '1px solid rgba(239, 68, 68, 0.4)',
+                background: 'transparent',
+                color: 'hsl(var(--destructive))',
+                border: '1px solid hsl(var(--destructive) / 0.4)',
                 fontWeight: 600,
                 fontSize: '0.85rem',
                 cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.45rem',
+                minHeight: '44px',
               }}
             >
-              🚪 Đăng xuất khỏi thiết bị này
+              <Icon name="signOut" size={16} />
+              Đăng xuất thiết bị này
             </button>
           </div>
 
@@ -345,8 +380,8 @@ export default function ProfileSettingsPage() {
                   style={{
                     padding: '1rem 1.25rem',
                     borderRadius: 'var(--radius)',
-                    background: 'rgba(255, 255, 255, 0.04)',
-                    border: '1px solid var(--glass-border)',
+                    background: 'hsl(var(--muted) / 0.5)',
+                    border: '1px solid hsl(var(--border))',
                     display: 'flex',
                     justifyContent: 'space-between',
                     alignItems: 'center',
@@ -354,9 +389,10 @@ export default function ProfileSettingsPage() {
                 >
                   <div>
                     <div style={{ fontWeight: 600, fontSize: '0.95rem', marginBottom: '0.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                      💻 {String(s.userAgent || 'Thiết bị không xác định')}
+                      <Icon name="desktop" size={16} />
+                      {String(s.userAgent || 'Thiết bị không xác định')}
                       {index === 0 && (
-                        <span style={{ fontSize: '0.75rem', background: '#6366f1', color: '#fff', padding: '0.15rem 0.5rem', borderRadius: '10px', fontWeight: 500 }}>
+                        <span style={{ fontSize: '0.75rem', background: 'hsl(var(--primary))', color: 'hsl(var(--primary-foreground))', padding: '0.15rem 0.5rem', borderRadius: 'var(--radius-sm)', fontWeight: 600 }}>
                           Thiết bị này
                         </span>
                       )}
@@ -371,7 +407,7 @@ export default function ProfileSettingsPage() {
                       padding: '0.4rem 0.85rem',
                       borderRadius: '6px',
                       background: 'rgba(239, 68, 68, 0.15)',
-                      color: '#f87171',
+                      color: 'hsl(var(--destructive))',
                       border: 'none',
                       fontSize: '0.8rem',
                       cursor: 'pointer',

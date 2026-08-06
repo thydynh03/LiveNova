@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { Icon } from '../../../components/ui/Icon';
 
 export default function TtsPage() {
   const [voice, setVoice] = useState('vi-VN-Wavenet-A');
@@ -16,25 +17,49 @@ export default function TtsPage() {
 
   return (
     <div style={{ padding: '2rem', maxWidth: '1000px', margin: '0 auto' }}>
-      <h1 style={{ fontSize: '2rem', fontWeight: 800, marginBottom: '0.5rem' }}>
-        🗣️ Giọng Đọc Trí Tuệ Nhân Tạo (TTS Config)
+      <h1
+        style={{
+          fontSize: '2rem',
+          fontWeight: 800,
+          letterSpacing: '-0.02em',
+          marginBottom: '0.5rem',
+        }}
+      >
+        Giọng đọc tự động
       </h1>
-      <p style={{ color: 'var(--muted-foreground)', marginBottom: '2rem' }}>
+      <p style={{ color: 'hsl(var(--muted-foreground))', marginBottom: '2rem' }}>
         Tùy chỉnh giọng đọc tự động cho bình luận và thông báo nhận quà trên TikTok LIVE stream.
       </p>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem' }}>
+      <div
+        style={{
+          display: 'grid',
+          // Collapses on its own instead of forcing two columns onto a phone.
+          gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
+          gap: '2rem',
+        }}
+      >
         {/* Settings Card */}
         <div
           style={{
             padding: '1.5rem',
             borderRadius: '16px',
-            background: 'var(--card)',
-            border: '1px solid var(--border)',
+            background: 'hsl(var(--card))',
+            border: '1px solid hsl(var(--border))',
           }}
         >
-          <h2 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '1.5rem' }}>
-            ⚙️ Cấu Hình Giọng Đọc
+          <h2
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem',
+              fontSize: '1.25rem',
+              fontWeight: 700,
+              marginBottom: '1.5rem',
+            }}
+          >
+            <Icon name="settings" size={20} style={{ color: 'hsl(var(--primary))' }} />
+            Cấu hình
           </h2>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
@@ -49,9 +74,9 @@ export default function TtsPage() {
                   width: '100%',
                   padding: '0.75rem',
                   borderRadius: '8px',
-                  background: 'var(--background)',
-                  color: 'var(--foreground)',
-                  border: '1px solid var(--border)',
+                  background: 'hsl(var(--background))',
+                  color: 'hsl(var(--foreground))',
+                  border: '1px solid hsl(var(--border))',
                 }}
               >
                 <option value="vi-VN-Wavenet-A">Nữ 1 — Ban Mai (Standard Wavenet)</option>
@@ -98,16 +123,26 @@ export default function TtsPage() {
           style={{
             padding: '1.5rem',
             borderRadius: '16px',
-            background: 'var(--card)',
-            border: '1px solid var(--border)',
+            background: 'hsl(var(--card))',
+            border: '1px solid hsl(var(--border))',
             display: 'flex',
             flexDirection: 'column',
             justifyContent: 'space-between',
           }}
         >
           <div>
-            <h2 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '1.5rem' }}>
-              🔊 Nghe Thử Giọng Đọc
+            <h2
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                fontSize: '1.25rem',
+                fontWeight: 700,
+                marginBottom: '1.5rem',
+              }}
+            >
+              <Icon name="audio" size={20} style={{ color: 'hsl(var(--primary))' }} />
+              Nghe thử
             </h2>
             <textarea
               rows={4}
@@ -117,9 +152,9 @@ export default function TtsPage() {
                 width: '100%',
                 padding: '0.75rem',
                 borderRadius: '8px',
-                background: 'var(--background)',
-                color: 'var(--foreground)',
-                border: '1px solid var(--border)',
+                background: 'hsl(var(--background))',
+                color: 'hsl(var(--foreground))',
+                border: '1px solid hsl(var(--border))',
                 marginBottom: '1rem',
                 resize: 'none',
               }}
@@ -127,21 +162,14 @@ export default function TtsPage() {
           </div>
 
           <button
+            type="button"
             onClick={handleTestSpeech}
             disabled={isPlaying}
-            style={{
-              width: '100%',
-              padding: '0.85rem',
-              borderRadius: '10px',
-              background: 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)',
-              color: 'white',
-              fontWeight: 700,
-              border: 'none',
-              cursor: isPlaying ? 'not-allowed' : 'pointer',
-              opacity: isPlaying ? 0.7 : 1,
-            }}
+            className="btn btn-primary"
+            style={{ width: '100%' }}
           >
-            {isPlaying ? '🔊 Đang nghe thử âm thanh...' : '▶️ Nghe Thử Giọng Đọc'}
+            <Icon name={isPlaying ? 'audio' : 'play'} size={18} weight="fill" />
+            {isPlaying ? 'Đang phát…' : 'Nghe thử'}
           </button>
         </div>
       </div>

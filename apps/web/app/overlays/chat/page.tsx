@@ -154,7 +154,7 @@ function ChatOverlay() {
               />
             )}
             <div>
-              <div style={{ fontSize: '0.85rem', fontWeight: 600, color: '#a78bfa' }}>
+              <div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'hsl(var(--primary))' }}>
                 {m.user}
               </div>
               <div style={{ fontSize: '1rem', textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}>

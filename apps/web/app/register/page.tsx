@@ -81,7 +81,7 @@ export default function RegisterPage() {
         }}
       >
         <h1 style={{ fontSize: '1.75rem', fontWeight: 700, marginBottom: '0.5rem' }}>
-          Tạo tài khoản <span className="text-gradient">LiveNova</span>
+          Tạo tài khoản <span className="accent">LiveNova</span>
         </h1>
         <p style={{ color: 'hsl(var(--muted-foreground))', marginBottom: '1.5rem', fontSize: '0.9rem' }}>
           Đăng ký miễn phí và nhận ngay 100 lượt tương tác/ngày.
@@ -94,7 +94,7 @@ export default function RegisterPage() {
               borderRadius: 'var(--radius)',
               background: 'rgba(239, 68, 68, 0.15)',
               border: '1px solid rgba(239, 68, 68, 0.3)',
-              color: '#f87171',
+              color: 'hsl(var(--destructive))',
               fontSize: '0.875rem',
               marginBottom: '1.25rem',
             }}
@@ -174,7 +174,7 @@ export default function RegisterPage() {
               width: '100%',
               padding: '0.85rem',
               borderRadius: 'var(--radius)',
-              background: 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)',
+              background: 'hsl(var(--primary))',
               color: '#fff',
               border: 'none',
               fontWeight: 600,
@@ -190,7 +190,7 @@ export default function RegisterPage() {
 
         <div style={{ marginTop: '1.75rem', textAlign: 'center', fontSize: '0.875rem', color: 'hsl(var(--muted-foreground))' }}>
           Đã có tài khoản?{' '}
-          <Link href="/login" style={{ color: '#6366f1', fontWeight: 600, textDecoration: 'none' }}>
+          <Link href="/login" style={{ color: 'hsl(var(--primary))', fontWeight: 600, textDecoration: 'none' }}>
             Đăng nhập ngay
           </Link>
         </div>

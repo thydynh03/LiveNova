@@ -4,6 +4,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useApi } from '../../../lib/use-api';
 import { api } from '../../../lib/api-client';
 import { LoadingState, ErrorState, EmptyState } from '../../../components/common/States';
+import { Icon } from '../../../components/ui/Icon';
 import type { Overlay } from '../../../lib/types';
 
 /**
@@ -191,7 +192,8 @@ export default function OverlaysPage() {
                 <div style={{ display: 'flex', gap: '0.5rem' }}>
                   {url && (
                     <button onClick={() => copy(overlay)} style={buttonStyle}>
-                      {copiedId === overlay.id ? 'Đã sao chép ✓' : 'Sao chép URL'}
+                      <Icon name={copiedId === overlay.id ? 'check' : 'copy'} size={16} />
+                      {copiedId === overlay.id ? 'Đã sao chép' : 'Sao chép URL'}
                     </button>
                   )}
                   <button
@@ -199,6 +201,7 @@ export default function OverlaysPage() {
                     disabled={rotatingId === overlay.id}
                     style={buttonStyle}
                   >
+                    <Icon name="rotate" size={16} />
                     {rotatingId === overlay.id ? 'Đang xoay…' : 'Xoay token'}
                   </button>
                 </div>
@@ -248,4 +251,7 @@ const buttonStyle: React.CSSProperties = {
   color: 'hsl(var(--foreground))',
   cursor: 'pointer',
   fontSize: '0.9rem',
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: '0.45rem',
 };
