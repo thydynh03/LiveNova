@@ -1,6 +1,7 @@
 package keysim
 
 import (
+	"errors"
 	"math"
 	"testing"
 	"time"
@@ -86,5 +87,56 @@ func TestEnforceLimitsRejectsDisallowedKey(t *testing.T) {
 
 	if _, err := enforceLimits(0x5B /* Left Windows */, 50, MinCooldownMS); err == nil {
 		t.Error("expected a key outside the allowlist to be rejected")
+	}
+}
+
+// The emergency stop is the one control a streamer reaches for mid-broadcast,
+// and until recently the desktop button behind it only wrote a log line. These
+// cover the behaviour that button now promises.
+
+func TestHaltBlocksPressKey(t *testing.T) {
+	t.Cleanup(Resume)
+
+	if IsHalted() {
+		t.Fatal("expected the emergency stop to start disengaged")
+	}
+
+	Halt()
+
+	if !IsHalted() {
+		t.Error("IsHalted should report the stop as engaged")
+	}
+	// 0x41 is on the allowlist, so anything rejecting it here is the stop and
+	// not the allowlist or the rate limiter.
+	if err := PressKey(0x41, 50, MinCooldownMS); !errors.Is(err, ErrHalted) {
+		t.Errorf("expected ErrHalted while stopped, got %v", err)
+	}
+}
+
+func TestResumeReenablesPressKey(t *testing.T) {
+	t.Cleanup(Resume)
+
+	Halt()
+	Resume()
+
+	if IsHalted() {
+		t.Error("IsHalted should report the stop as released")
+	}
+	if err := PressKey(0x42, 50, MinCooldownMS); errors.Is(err, ErrHalted) {
+		t.Error("presses should be accepted again once the stop is released")
+	}
+}
+
+// The stop has to hold for presses that arrive over the Local Bridge too, not
+// only for the button next to it in the UI — those are the ones a gift can
+// trigger while nobody is looking at the window.
+func TestHaltBlocksEveryAllowedKey(t *testing.T) {
+	t.Cleanup(Resume)
+	Halt()
+
+	for _, vk := range []uint16{0x20 /* Space */, 0x57 /* W */, 0x70 /* F1 */, 0x31 /* 1 */} {
+		if err := PressKey(vk, 50, MinCooldownMS); !errors.Is(err, ErrHalted) {
+			t.Errorf("key %#04x got through the emergency stop: %v", vk, err)
+		}
 	}
 }
