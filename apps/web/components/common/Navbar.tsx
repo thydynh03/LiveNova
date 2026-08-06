@@ -4,24 +4,14 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { ThemeToggle } from './ThemeToggle';
+import { AvatarDropdown } from './AvatarDropdown';
 import { getNavItems } from '../../config/nav';
 import { useAuth } from '../../context/AuthContext';
-import { Icon } from '../ui/Icon';
 
 export function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [signingOut, setSigningOut] = useState(false);
   const pathname = usePathname();
-  const { status, signOut } = useAuth();
-
-  async function handleSignOut() {
-    setSigningOut(true);
-    try {
-      await signOut();
-    } finally {
-      setSigningOut(false);
-    }
-  }
+  const { status } = useAuth();
 
   // Links come from the registry — adding a feature never edits this file.
   const items = getNavItems();
@@ -76,41 +66,26 @@ export function Navbar() {
 
           <ThemeToggle />
 
-          {/*
-            This used to be a decorative <div> with a "U" in it, so the only way
-            out of an authenticated session was clearing cookies by hand — the
-            logout route was unreachable from the product.
-          */}
-          {status === 'authenticated' && (
-            <button
-              type="button"
-              onClick={handleSignOut}
-              disabled={signingOut}
-              style={{
-                minHeight: '44px',
-                padding: '0.5rem 1rem',
-                borderRadius: 'var(--radius)',
-                border: '1px solid hsl(var(--border))',
-                background: 'hsl(var(--card))',
-                color: 'hsl(var(--foreground))',
-                fontWeight: 500,
-                cursor: signingOut ? 'not-allowed' : 'pointer',
-                opacity: signingOut ? 0.6 : 1,
-              }}
-            >
-              {signingOut ? 'Đang thoát…' : 'Đăng xuất'}
-            </button>
-          )}
-
-          <button
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            aria-label={mobileMenuOpen ? 'Đóng menu' : 'Mở menu'}
-            aria-expanded={mobileMenuOpen}
-            style={{ display: 'none' }}
-          >
-            <Icon name="menu" size={22} />
-          </button>
+          <div suppressHydrationWarning style={{ display: 'flex', alignItems: 'center' }}>
+            {status === 'authenticated' && <AvatarDropdown />}
+          </div>
         </div>
+
+        <button
+          type="button"
+          aria-label="Menu điều hướng"
+          aria-expanded={mobileMenuOpen}
+          onClick={() => setMobileMenuOpen((v) => !v)}
+          className="mobile-nav-toggle"
+          style={{
+            background: 'none',
+            border: 'none',
+            cursor: 'pointer',
+            fontSize: '1.5rem',
+          }}
+        >
+          {mobileMenuOpen ? '✕' : '☰'}
+        </button>
       </div>
     </nav>
   );

@@ -39,6 +39,7 @@ import {
   ArrowClockwise,
   Eye,
   Clock,
+  EyeSlash,
   Queue as QueueIcon,
 } from '@phosphor-icons/react';
 
@@ -80,6 +81,8 @@ export const ICONS = {
   preview: Eye,
   pending: Clock,
   queue: QueueIcon,
+  eye: Eye,
+  eyeSlash: EyeSlash,
 } as const satisfies Record<string, PhosphorIcon>;
 
 export type IconName = keyof typeof ICONS;

@@ -8,11 +8,12 @@ import {
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as argon2 from 'argon2';
-import { randomBytes, createHmac } from 'crypto';
-import { ProviderType } from '@prisma/client';
+import { createHmac } from 'crypto';
+import { ProviderType, OtpType } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { SessionService, RefreshContext } from './session.service';
 import { RegisterDto, ChangePasswordDto } from './dto/auth.dto';
+import { EmailService } from '../email/email.service';
 import { loadEnv } from '../../common/config/env';
 
 export interface OAuthProfile {
@@ -46,6 +47,7 @@ export class AuthService {
     private readonly jwtService: JwtService,
     private readonly prisma: PrismaService,
     private readonly sessionService: SessionService,
+    private readonly emailService: EmailService,
   ) {}
 
   async validateOAuthUser(provider: ProviderType, profile: OAuthProfile) {
@@ -100,45 +102,142 @@ export class AuthService {
     return this.jwtService.sign({ sub: userId, type: 'access' });
   }
 
-  async register(dto: RegisterDto, ctx: RefreshContext = {}): Promise<TokenPair & { user: any }> {
+  private async generateAndSendOtp(email: string, type: 'REGISTER' | 'FORGOT_PASSWORD'): Promise<string> {
+    // Generate 6-digit random OTP
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
+    // Invalidate old OTPs for this email & type
+    await this.prisma.otpCode.updateMany({
+      where: { email, type: type as OtpType, used: false },
+      data: { used: true },
+    });
+
+    await this.prisma.otpCode.create({
+      data: {
+        email,
+        code,
+        type: type as OtpType,
+        expiresAt,
+      },
+    });
+
+    await this.emailService.sendOtp(email, code, type);
+    return code;
+  }
+
+  async register(dto: RegisterDto): Promise<{ pendingVerification: boolean; email: string }> {
     const existing = await this.prisma.user.findUnique({ where: { email: dto.email } });
-    if (existing && !existing.deletedAt) {
+    if (existing && !existing.deletedAt && existing.emailVerified) {
       throw new ConflictException('Email này đã được sử dụng');
     }
 
     const passwordHash = await this.hashPassword(dto.password);
 
-    const user = await this.prisma.user.create({
-      data: {
-        email: dto.email,
-        displayName: dto.displayName,
-        passwordHash,
+    let user = existing;
+    if (!user) {
+      user = await this.prisma.user.create({
+        data: {
+          email: dto.email,
+          displayName: dto.displayName,
+          passwordHash,
+          emailVerified: false,
+        },
+      });
+
+      await this.prisma.creditBalance.create({
+        data: {
+          userId: user.id,
+          balance: 100,
+        },
+      });
+
+      await this.prisma.ttsSettings.create({
+        data: {
+          userId: user.id,
+          voiceId: 'vi-VN-Wavenet-A',
+          rate: 1.0,
+          pitch: 0.0,
+        },
+      });
+    } else {
+      user = await this.prisma.user.update({
+        where: { id: user.id },
+        data: {
+          displayName: dto.displayName,
+          passwordHash,
+        },
+      });
+    }
+
+    await this.generateAndSendOtp(dto.email, 'REGISTER');
+
+    return {
+      pendingVerification: true,
+      email: dto.email,
+    };
+  }
+
+  async verifyOtp(
+    email: string,
+    code: string,
+    type: 'REGISTER' | 'FORGOT_PASSWORD' = 'REGISTER',
+    ctx: RefreshContext = {},
+  ): Promise<TokenPair & { user: any }> {
+    const otpRecord = await this.prisma.otpCode.findFirst({
+      where: {
+        email,
+        type: type as OtpType,
+        used: false,
+        expiresAt: { gt: new Date() },
       },
+      orderBy: { createdAt: 'desc' },
     });
 
-    await this.prisma.creditBalance.create({
-      data: {
-        userId: user.id,
-        balance: 100,
-      },
+    if (!otpRecord || otpRecord.code !== code) {
+      if (otpRecord) {
+        await this.prisma.otpCode.update({
+          where: { id: otpRecord.id },
+          data: { attempts: { increment: 1 } },
+        });
+      }
+      throw new BadRequestException('Mã OTP không hợp lệ hoặc đã hết hạn');
+    }
+
+    await this.prisma.otpCode.update({
+      where: { id: otpRecord.id },
+      data: { used: true },
     });
 
-    await this.prisma.ttsSettings.create({
-      data: {
-        userId: user.id,
-        voiceId: 'vi-VN-Wavenet-A',
-        rate: 1.0,
-        pitch: 0.0,
-      },
-    });
+    const user = await this.prisma.user.findUnique({ where: { email } });
+    if (!user) {
+      throw new NotFoundException('Không tìm thấy tài khoản');
+    }
+
+    if (!user.emailVerified) {
+      await this.prisma.user.update({
+        where: { id: user.id },
+        data: { emailVerified: true },
+      });
+    }
 
     const tokens = await this.login(user.id, ctx);
     const { passwordHash: _, ...safeUser } = user;
 
     return {
       ...tokens,
-      user: safeUser,
+      user: { ...safeUser, emailVerified: true },
     };
+  }
+
+  async resendOtp(email: string, type: 'REGISTER' | 'FORGOT_PASSWORD' = 'REGISTER'): Promise<{ success: boolean; message: string }> {
+    const user = await this.prisma.user.findUnique({ where: { email } });
+    if (!user) {
+      throw new NotFoundException('Email chưa được đăng ký');
+    }
+
+    await this.generateAndSendOtp(email, type);
+    return { success: true, message: 'Đã gửi lại mã OTP thành công' };
   }
 
   async login(userId: string, ctx: RefreshContext = {}): Promise<TokenPair> {
@@ -171,51 +270,51 @@ export class AuthService {
     return createHmac('sha256', this.env.jwtRefreshSecret).update(token).digest('hex');
   }
 
-  async forgotPassword(email: string): Promise<{ success: boolean }> {
+  async forgotPassword(email: string): Promise<{ success: boolean; message: string }> {
     const user = await this.prisma.user.findUnique({ where: { email } });
 
     if (!user || !user.passwordHash || user.deletedAt) {
-      return { success: true };
+      return { success: true, message: 'Nếu email tồn tại, mã OTP đã được gửi' };
     }
 
-    const rawToken = randomBytes(32).toString('hex');
-    const tokenKey = this.computeTokenKey(rawToken);
-    const tokenHash = await argon2.hash(rawToken, { type: argon2.argon2id });
-    const expiresAt = Date.now() + 15 * 60 * 1000;
+    await this.generateAndSendOtp(email, 'FORGOT_PASSWORD');
 
-    this.resetTokens.set(tokenKey, { userId: user.id, tokenHash, expiresAt });
-
-    if (process.env.NODE_ENV !== 'production') {
-      this.logger.log(`[DEV ONLY] Password reset token for ${email}: ${rawToken}`);
-    }
-
-    return { success: true };
+    return { success: true, message: 'Mã OTP khôi phục đã được gửi tới email của bạn' };
   }
 
-  async resetPassword(rawToken: string, newPassword: string): Promise<boolean> {
-    const tokenKey = this.computeTokenKey(rawToken);
-    const data = this.resetTokens.get(tokenKey);
-
-    if (!data || data.expiresAt < Date.now()) {
-      if (tokenKey) this.resetTokens.delete(tokenKey);
-      throw new BadRequestException('Token khôi phục không hợp lệ hoặc đã hết hạn');
-    }
-
-    const validToken = await argon2.verify(data.tokenHash, rawToken);
-    if (!validToken) {
-      throw new BadRequestException('Token khôi phục không hợp lệ');
-    }
-
-    const passwordHash = await this.hashPassword(newPassword);
-
-    await this.prisma.user.update({
-      where: { id: data.userId },
-      data: { passwordHash },
+  async resetPassword(dto: { email: string; code: string; newPassword: string }): Promise<boolean> {
+    const otpRecord = await this.prisma.otpCode.findFirst({
+      where: {
+        email: dto.email,
+        type: 'FORGOT_PASSWORD',
+        used: false,
+        expiresAt: { gt: new Date() },
+      },
+      orderBy: { createdAt: 'desc' },
     });
 
-    this.resetTokens.delete(tokenKey);
+    if (!otpRecord || otpRecord.code !== dto.code) {
+      throw new BadRequestException('Mã OTP không hợp lệ hoặc đã hết hạn');
+    }
 
-    await this.logoutEverywhere(data.userId);
+    await this.prisma.otpCode.update({
+      where: { id: otpRecord.id },
+      data: { used: true },
+    });
+
+    const user = await this.prisma.user.findUnique({ where: { email: dto.email } });
+    if (!user) {
+      throw new NotFoundException('User không tồn tại');
+    }
+
+    const passwordHash = await this.hashPassword(dto.newPassword);
+
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: { passwordHash, emailVerified: true },
+    });
+
+    await this.logoutEverywhere(user.id);
 
     return true;
   }

@@ -6,11 +6,13 @@ import { AuthController } from './auth.controller';
 import { SessionService } from './session.service';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { UserModule } from '../user/user.module';
+import { EmailModule } from '../email/email.module';
 import { loadEnv } from '../../common/config/env';
 
 @Module({
   imports: [
     UserModule,
+    EmailModule,
     PassportModule,
     JwtModule.registerAsync({
       useFactory: () => {

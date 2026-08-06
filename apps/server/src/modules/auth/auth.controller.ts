@@ -22,6 +22,8 @@ import { UserService } from '../user/user.service';
 import {
   LoginDto,
   RegisterDto,
+  VerifyOtpDto,
+  ResendOtpDto,
   ForgotPasswordDto,
   ResetPasswordDto,
   ChangePasswordDto,
@@ -60,8 +62,20 @@ export class AuthController {
 
   @Post('register')
   @HttpCode(HttpStatus.CREATED)
-  async register(@Body() dto: RegisterDto, @Req() req: Request) {
-    return this.authService.register(dto, AuthController.context(req));
+  async register(@Body() dto: RegisterDto) {
+    return this.authService.register(dto);
+  }
+
+  @Post('verify-otp')
+  @HttpCode(HttpStatus.OK)
+  async verifyOtp(@Body() dto: VerifyOtpDto, @Req() req: Request) {
+    return this.authService.verifyOtp(dto.email, dto.code, dto.type || 'REGISTER', AuthController.context(req));
+  }
+
+  @Post('resend-otp')
+  @HttpCode(HttpStatus.OK)
+  async resendOtp(@Body() dto: ResendOtpDto) {
+    return this.authService.resendOtp(dto.email, dto.type || 'REGISTER');
   }
 
   @Post('login')
@@ -90,7 +104,7 @@ export class AuthController {
   @Post('reset-password')
   @HttpCode(HttpStatus.OK)
   async resetPassword(@Body() dto: ResetPasswordDto) {
-    const success = await this.authService.resetPassword(dto.token, dto.newPassword);
+    const success = await this.authService.resetPassword(dto);
     return { success, message: 'Đặt lại mật khẩu thành công' };
   }
 

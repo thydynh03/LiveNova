@@ -15,7 +15,7 @@ export async function POST(request: NextRequest) {
 
   let upstream: Response;
   try {
-    upstream = await fetch(`${apiBaseUrl()}/auth/register`, {
+    upstream = await fetch(`${apiBaseUrl()}/auth/resend-otp`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify(body),
@@ -31,15 +31,7 @@ export async function POST(request: NextRequest) {
   const data = await upstream.json().catch(() => ({}));
 
   if (!upstream.ok) {
-    const rawError = data as any;
-    const msg =
-      (typeof rawError?.message === 'string' ? rawError.message : null) ??
-      (Array.isArray(rawError?.message) ? rawError.message.join(', ') : null) ??
-      (typeof rawError?.error === 'string' ? rawError.error : null) ??
-      (typeof rawError?.error?.message === 'string' ? rawError.error.message : null) ??
-      (Array.isArray(rawError?.error?.message) ? rawError.error.message.join(', ') : null) ??
-      'Đăng ký thất bại';
-
+    const msg = data?.message ?? data?.error?.message ?? 'Gửi lại mã OTP thất bại';
     return NextResponse.json({ message: msg }, { status: upstream.status });
   }
 

@@ -16,23 +16,16 @@ import type { Overlay } from '../../../lib/types';
  * them it is not ready.
  */
 const LIVE_RENDERERS: Record<string, string> = {
+  MEDIA: '/overlays/media',
   CHAT: '/overlays/chat',
 };
 
-/**
- * Renderers that are wired to the socket but have no server-side producer yet.
- *
- * The chat overlay consumes real actions correctly; nothing dispatches CHATBOX
- * actions until F04 ships, so the URL works and stays blank. Say so rather than
- * letting a streamer conclude their OBS setup is broken.
- */
 const AWAITING_PRODUCER: Record<string, string> = {
   CHAT: 'Cần luật Chatbox (F04) mới có dữ liệu',
 };
 
 /** Types that exist in the API but have no working renderer yet. */
 const PENDING_LABEL: Record<string, string> = {
-  MEDIA: 'Đang phát triển (Dev A — F01)',
   GOAL: 'Đang phát triển (F06)',
   PK_BAR: 'Đang phát triển (F08)',
   LEADERBOARD: 'Đang phát triển (F10)',
@@ -189,12 +182,31 @@ export default function OverlaysPage() {
                   )}
                 </div>
 
-                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
                   {url && (
-                    <button onClick={() => copy(overlay)} style={buttonStyle}>
-                      <Icon name={copiedId === overlay.id ? 'check' : 'copy'} size={16} />
-                      {copiedId === overlay.id ? 'Đã sao chép' : 'Sao chép URL'}
-                    </button>
+                    <>
+                      <button onClick={() => copy(overlay)} style={buttonStyle}>
+                        <Icon name={copiedId === overlay.id ? 'check' : 'copy'} size={16} />
+                        {copiedId === overlay.id ? 'Đã sao chép' : 'Sao chép URL'}
+                      </button>
+
+                      <a
+                        href={url}
+                        target="_blank"
+                        rel="noreferrer"
+                        style={{
+                          ...buttonStyle,
+                          textDecoration: 'none',
+                          background: 'hsl(var(--primary) / 0.15)',
+                          color: 'hsl(var(--primary))',
+                          border: '1px solid hsl(var(--primary) / 0.4)',
+                          fontWeight: 600,
+                        }}
+                      >
+                        <Icon name="preview" size={16} />
+                        Mở xem thử
+                      </a>
+                    </>
                   )}
                   <button
                     onClick={() => rotate(overlay)}

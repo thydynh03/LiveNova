@@ -1,5 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { apiBaseUrl, isSameOrigin } from '../../../../lib/auth-cookie';
+import {
+  REFRESH_COOKIE,
+  refreshCookieOptions,
+  maxAgeFromExpiry,
+  apiBaseUrl,
+  isSameOrigin,
+} from '../../../../lib/auth-cookie';
+
+interface VerifyOtpPayload {
+  accessToken?: string;
+  refreshToken?: string;
+  expiresAt?: string;
+  user?: any;
+  message?: string;
+}
+
+async function readJson(res: Response): Promise<VerifyOtpPayload> {
+  const parsed = (await res.json().catch(() => null)) as VerifyOtpPayload | null;
+  return parsed ?? {};
+}
 
 export async function POST(request: NextRequest) {
   if (!isSameOrigin(request)) {
@@ -15,7 +34,7 @@ export async function POST(request: NextRequest) {
 
   let upstream: Response;
   try {
-    upstream = await fetch(`${apiBaseUrl()}/auth/register`, {
+    upstream = await fetch(`${apiBaseUrl()}/auth/verify-otp`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify(body),
@@ -28,7 +47,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const data = await upstream.json().catch(() => ({}));
+  const data = await readJson(upstream);
 
   if (!upstream.ok) {
     const rawError = data as any;
@@ -37,11 +56,26 @@ export async function POST(request: NextRequest) {
       (Array.isArray(rawError?.message) ? rawError.message.join(', ') : null) ??
       (typeof rawError?.error === 'string' ? rawError.error : null) ??
       (typeof rawError?.error?.message === 'string' ? rawError.error.message : null) ??
-      (Array.isArray(rawError?.error?.message) ? rawError.error.message.join(', ') : null) ??
-      'Đăng ký thất bại';
+      'Mã OTP không hợp lệ hoặc đã hết hạn';
 
     return NextResponse.json({ message: msg }, { status: upstream.status });
   }
 
-  return NextResponse.json(data);
+  if (!data.accessToken || !data.refreshToken) {
+    return NextResponse.json({ message: 'Phản hồi không hợp lệ' }, { status: 502 });
+  }
+
+  const response = NextResponse.json({
+    accessToken: data.accessToken,
+    expiresAt: data.expiresAt,
+    user: data.user,
+  });
+
+  response.cookies.set(
+    REFRESH_COOKIE,
+    data.refreshToken,
+    refreshCookieOptions(maxAgeFromExpiry(data.expiresAt)),
+  );
+
+  return response;
 }

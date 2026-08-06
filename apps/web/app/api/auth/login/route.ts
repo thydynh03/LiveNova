@@ -57,12 +57,16 @@ export async function POST(request: NextRequest) {
   const data = await readJson(upstream);
 
   if (!upstream.ok) {
-    // Pass the upstream status through, but never the upstream body verbatim —
-    // it may carry internal detail the browser has no business seeing.
-    return NextResponse.json(
-      { message: data.message ?? 'Đăng nhập thất bại' },
-      { status: upstream.status },
-    );
+    const rawError = data as any;
+    const msg =
+      (typeof rawError?.message === 'string' ? rawError.message : null) ??
+      (Array.isArray(rawError?.message) ? rawError.message.join(', ') : null) ??
+      (typeof rawError?.error === 'string' ? rawError.error : null) ??
+      (typeof rawError?.error?.message === 'string' ? rawError.error.message : null) ??
+      (Array.isArray(rawError?.error?.message) ? rawError.error.message.join(', ') : null) ??
+      'Đăng nhập thất bại';
+
+    return NextResponse.json({ message: msg }, { status: upstream.status });
   }
 
   if (!data.accessToken || !data.refreshToken) {

@@ -60,6 +60,11 @@ enum LiveEventType {
   FOLLOW
 }
 
+enum OtpType {
+  REGISTER
+  FORGOT_PASSWORD
+}
+
 model User {
   id           String    @id @default(uuid())
   email        String    @unique
@@ -69,10 +74,11 @@ model User {
   // L10N-07 / B.8.1 — VN-first defaults. Drives BR-06 daily quota reset.
   locale       String    @default("vi")
   timezone     String    @default("Asia/Ho_Chi_Minh")
-  passwordHash String?
-  deletedAt    DateTime?
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  passwordHash  String?
+  emailVerified Boolean   @default(false)
+  deletedAt     DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
   identities    Identity[]
   sessions      Session[]
@@ -85,6 +91,7 @@ model User {
   liveSessions  LiveSession[]
   ttsSettings   TtsSettings?
   gameProfiles  GameProfile[]
+  otpCodes      OtpCode[]
 
   @@index([deletedAt])
 }
@@ -306,4 +313,18 @@ model GameBinding {
   profile       GameProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
 
   @@index([profileId])
+}
+
+model OtpCode {
+  id        String   @id @default(uuid())
+  email     String
+  code      String
+  type      OtpType  @default(REGISTER)
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  attempts  Int      @default(0)
+  createdAt DateTime @default(now())
+  user      User?    @relation(fields: [email], references: [email], onDelete: Cascade)
+
+  @@index([email, type])
 }
