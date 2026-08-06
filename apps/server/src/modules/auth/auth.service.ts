@@ -12,6 +12,7 @@ import { ProviderType } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { SessionService, RefreshContext } from './session.service';
 import { RegisterDto, ChangePasswordDto } from './dto/auth.dto';
+import { loadEnv } from '../../common/config/env';
 
 export interface OAuthProfile {
   providerUserId: string;
@@ -35,6 +36,7 @@ interface ResetTokenData {
 @Injectable()
 export class AuthService {
   private readonly resetTokens = new Map<string, ResetTokenData>();
+  private readonly env = loadEnv();
 
   constructor(
     private readonly jwtService: JwtService,
@@ -161,6 +163,10 @@ export class AuthService {
     return this.sessionService.revokeAllForUser(userId);
   }
 
+  private computeResetTokenHash(token: string): string {
+    return createHmac('sha256', this.env.jwtRefreshSecret).update(token).digest('hex');
+  }
+
   async forgotPassword(email: string): Promise<{ success: boolean; resetToken?: string }> {
     const user = await this.prisma.user.findUnique({ where: { email } });
 
@@ -169,7 +175,7 @@ export class AuthService {
     }
 
     const rawToken = randomBytes(32).toString('hex');
-    const tokenHash = createHmac('sha256', 'reset_secret').update(rawToken).digest('hex');
+    const tokenHash = this.computeResetTokenHash(rawToken);
     const expiresAt = Date.now() + 15 * 60 * 1000;
 
     this.resetTokens.set(tokenHash, { userId: user.id, expiresAt });
@@ -181,7 +187,7 @@ export class AuthService {
   }
 
   async resetPassword(rawToken: string, newPassword: string): Promise<boolean> {
-    const tokenHash = createHmac('sha256', 'reset_secret').update(rawToken).digest('hex');
+    const tokenHash = this.computeResetTokenHash(rawToken);
     const data = this.resetTokens.get(tokenHash);
 
     if (!data || data.expiresAt < Date.now()) {
