@@ -91,7 +91,12 @@ export function useEventsSocket(options: UseEventsSocketOptions): UseEventsSocke
     setStatus('connecting');
 
     const socket: Socket = io(`${base}${EVENTS_SOCKET.NAMESPACE}`, {
-      transports: ['websocket'],
+      // Start with polling so Socket.IO can complete the initial handshake
+      // (get session ID), then upgrade to WebSocket automatically.
+      // Using ['websocket'] only causes the connection to fail because the
+      // engine.io handshake requires a polling request first.
+      transports: ['polling', 'websocket'],
+      upgrade: true,
       withCredentials: true,
       reconnection: true,
       reconnectionAttempts: Infinity,

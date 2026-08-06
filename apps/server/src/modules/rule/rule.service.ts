@@ -9,13 +9,20 @@ import {
   RuleAction,
 } from '@livenova/shared';
 import { PrismaService } from '../../prisma/prisma.service';
+import { RuleEngineService } from './rule-engine.service';
 import { CreateRuleDto, UpdateRuleDto, TestRuleEventDto } from './dto/rule.dto';
 
 @Injectable()
 export class RuleService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly ruleEngine: RuleEngineService,
+  ) {}
 
   async createRule(userId: string, dto: CreateRuleDto) {
+    // The engine caches each user's rule set for the duration of a broadcast;
+    // without this a rule edited mid-stream would not take effect for 30s.
+    this.ruleEngine.invalidateUser(userId);
     return this.prisma.rule.create({
       data: {
         userId,
@@ -73,6 +80,7 @@ export class RuleService {
 
   async deleteRule(id: string, userId: string) {
     const result = await this.prisma.rule.deleteMany({ where: { id, userId } });
+    this.ruleEngine.invalidateUser(userId);
     if (result.count === 0) {
       throw new NotFoundException('Rule not found');
     }
