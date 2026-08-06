@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { io, Socket } from 'socket.io-client';
-import { EVENTS_SOCKET, LiveEvent } from '@livenova/shared';
+import { EVENTS_SOCKET, GameInputCommand, LiveEvent } from '@livenova/shared';
 import { getAccessToken, restoreSession } from './api-client';
 
 export type EventsConnectionStatus =
@@ -17,6 +17,14 @@ export interface UseEventsSocketOptions {
   /** Channels to subscribe to. The server rejects any the user does not own. */
   channelIds: string[];
   onEvent: (event: LiveEvent) => void;
+  /**
+   * A rule asked for a key press on this machine.
+   *
+   * Delivered here rather than to an overlay because this socket is
+   * authenticated with the session JWT, where an overlay's credential is a
+   * public token that gets pasted into OBS and shown on stream.
+   */
+  onGameInput?: (command: GameInputCommand) => void;
   enabled?: boolean;
   url?: string;
 }
@@ -43,7 +51,7 @@ export interface UseEventsSocketResult {
  *    and silent — the worst kind of failure, because it looks fine.
  */
 export function useEventsSocket(options: UseEventsSocketOptions): UseEventsSocketResult {
-  const { channelIds, onEvent, enabled = true, url } = options;
+  const { channelIds, onEvent, onGameInput, enabled = true, url } = options;
 
   const [status, setStatus] = useState<EventsConnectionStatus>('idle');
   const [subscribed, setSubscribed] = useState<string[]>([]);
@@ -61,6 +69,11 @@ export function useEventsSocket(options: UseEventsSocketOptions): UseEventsSocke
   useEffect(() => {
     onEventRef.current = onEvent;
   }, [onEvent]);
+
+  const onGameInputRef = useRef(onGameInput);
+  useEffect(() => {
+    onGameInputRef.current = onGameInput;
+  }, [onGameInput]);
 
   const channelIdsRef = useRef<string[]>(channelIds);
   const channelKey = channelIds.join(',');
@@ -91,7 +104,12 @@ export function useEventsSocket(options: UseEventsSocketOptions): UseEventsSocke
     setStatus('connecting');
 
     const socket: Socket = io(`${base}${EVENTS_SOCKET.NAMESPACE}`, {
-      transports: ['websocket'],
+      // Start with polling so Socket.IO can complete the initial handshake
+      // (get session ID), then upgrade to WebSocket automatically.
+      // Using ['websocket'] only causes the connection to fail because the
+      // engine.io handshake requires a polling request first.
+      transports: ['polling', 'websocket'],
+      upgrade: true,
       withCredentials: true,
       reconnection: true,
       reconnectionAttempts: Infinity,
@@ -179,6 +197,11 @@ export function useEventsSocket(options: UseEventsSocketOptions): UseEventsSocke
     socket.on(EVENTS_SOCKET.LIVE_EVENT, (event: LiveEvent) => {
       if (!event?.id) return;
       onEventRef.current(event);
+    });
+
+    socket.on(EVENTS_SOCKET.GAME_INPUT, (command: GameInputCommand) => {
+      if (!command?.id) return;
+      onGameInputRef.current?.(command);
     });
 
     return () => {

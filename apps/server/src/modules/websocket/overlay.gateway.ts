@@ -10,7 +10,9 @@ import { OnEvent } from '@nestjs/event-emitter';
 import {
   OVERLAY_SOCKET,
   OVERLAY_DISPATCH_EVENT,
+  OVERLAY_STATE_EVENT,
   OverlayDispatchEvent,
+  OverlayStateDispatch,
 } from '@livenova/shared';
 import { OverlayService } from '../overlay/overlay.service';
 
@@ -99,10 +101,13 @@ export class OverlayGateway implements OnGatewayConnection, OnGatewayDisconnect 
     await client.join(OverlayGateway.userRoom(overlay.userId));
 
     // The overlay learns its own type so one page can render several kinds, and
-    // so it can drop actions it does not know how to display.
+    // so it can drop actions it does not know how to display. Its config comes
+    // with it: a goal bar cannot draw itself before it knows its own target,
+    // and fetching that over HTTP would need a credential it does not have.
     client.emit(OVERLAY_SOCKET.READY, {
       overlayId: overlay.id,
       type: overlay.type,
+      config: overlay.config ?? {},
     });
 
     this.logger.log(`Overlay ${overlay.id} connected (${overlay.type})`);
@@ -134,6 +139,24 @@ export class OverlayGateway implements OnGatewayConnection, OnGatewayDisconnect 
       : OverlayGateway.userRoom(payload.userId);
 
     this.server.to(room).emit(OVERLAY_SOCKET.ACTION, payload.action);
+  }
+
+  /**
+   * Continuous state, addressed to one overlay.
+   *
+   * Unlike an action this is not de-duplicated or replayed: it is the current
+   * value, and the newest frame always wins.
+   */
+  @OnEvent(OVERLAY_STATE_EVENT)
+  handleState(payload: OverlayStateDispatch) {
+    if (!payload?.overlayId || !payload.state) {
+      this.logger.warn('Ignoring malformed overlay.state payload');
+      return;
+    }
+
+    this.server
+      .to(OverlayGateway.overlayRoom(payload.overlayId))
+      .emit(OVERLAY_SOCKET.STATE, payload.state);
   }
 
   /** Test/diagnostic helper — how many browser sources a user has connected. */

@@ -71,6 +71,16 @@ export interface AppEnv {
   ttsMaxChars: number;
   /** DR-03 — TTS cache TTL in days. */
   ttsCacheTtlDays: number;
+
+  /**
+   * Public origin of the web app, used to build absolute URLs for bundled
+   * assets referenced by rule presets.
+   *
+   * Derived from the first configured CORS origin rather than a separate
+   * variable, because that origin is already required to be the real public
+   * address of the front end and a second knob would only let the two drift.
+   */
+  publicWebUrl: string;
 }
 
 let cached: AppEnv | null = null;
@@ -113,6 +123,10 @@ export function loadEnv(): AppEnv {
     ttsCharsPerCredit: optionalInt('TTS_CHARS_PER_CREDIT', 200),
     ttsMaxChars: optionalInt('TTS_MAX_CHARS', 500),
     ttsCacheTtlDays: optionalInt('TTS_CACHE_TTL_DAYS', 30),
+    publicWebUrl: (process.env.PUBLIC_WEB_URL ?? corsOrigins[0] ?? 'http://localhost:3000').replace(
+      /\/$/,
+      '',
+    ),
   };
 
   return cached;

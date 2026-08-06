@@ -34,8 +34,12 @@ export class RuleEvaluator {
     if (cond.minCoinValue != null && (event.giftCoinValue ?? 0) < cond.minCoinValue) return false;
     if (cond.maxCoinValue != null && (event.giftCoinValue ?? 0) > cond.maxCoinValue) return false;
     if (cond.senderUsername && event.senderUsername !== cond.senderUsername) return false;
-    if (cond.keywords && cond.keywords.length > 0 && event.content) {
-      const lower = event.content.toLowerCase();
+    // The `event.content` guard used to sit in this condition, which inverted
+    // the meaning: a rule requiring the keyword "quà" matched every gift, like
+    // and follow, because those events carry no text for it to look in.
+    if (cond.keywords && cond.keywords.length > 0) {
+      const lower = (event.content ?? '').toLowerCase();
+      if (lower === '') return false;
       if (!cond.keywords.some(k => lower.includes(k.toLowerCase()))) return false;
     }
     return true;

@@ -18,16 +18,18 @@ import type { Overlay } from '../../../lib/types';
 const LIVE_RENDERERS: Record<string, string> = {
   MEDIA: '/overlays/media',
   CHAT: '/overlays/chat',
+  GOAL: '/overlays/goal',
+  PK_BAR: '/overlays/pk',
 };
 
 const AWAITING_PRODUCER: Record<string, string> = {
   CHAT: 'Cần luật Chatbox (F04) mới có dữ liệu',
+  GOAL: 'Hiện lên khi có quà đầu tiên',
+  PK_BAR: 'Hiện lên khi vào trận PK',
 };
 
 /** Types that exist in the API but have no working renderer yet. */
 const PENDING_LABEL: Record<string, string> = {
-  GOAL: 'Đang phát triển (F06)',
-  PK_BAR: 'Đang phát triển (F08)',
   LEADERBOARD: 'Đang phát triển (F10)',
   ROOM_ENTRY: 'Đang phát triển (F18)',
   ALERTS: 'Đang phát triển',

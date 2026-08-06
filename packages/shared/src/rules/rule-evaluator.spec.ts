@@ -98,6 +98,18 @@ describe('RuleEvaluator', () => {
       ).toHaveLength(1);
     });
 
+    it('does not match a keyword rule against an event with no text', () => {
+      // A gift, like or follow carries no content. The guard used to sit inside
+      // the condition, so a rule requiring "quà" matched every one of them.
+      const rule = makeRule({ conditions: { keywords: ['quà'] } });
+      expect(
+        new RuleEvaluator().evaluate(
+          makeEvent({ type: LiveEventType.GIFT, content: undefined }),
+          [rule],
+        ),
+      ).toHaveLength(0);
+    });
+
     it('filters by sender', () => {
       const rule = makeRule({ conditions: { senderUsername: 'someone_else' } });
       expect(new RuleEvaluator().evaluate(makeEvent(), [rule])).toHaveLength(0);

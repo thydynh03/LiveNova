@@ -2,7 +2,12 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { io, Socket } from 'socket.io-client';
-import { OVERLAY_SOCKET, OverlayAction, OverlayType } from '@livenova/shared';
+import {
+  OVERLAY_SOCKET,
+  OverlayAction,
+  OverlayState,
+  OverlayType,
+} from '@livenova/shared';
 
 /**
  * `error` was in this union but nothing ever set it, so every consumer carried a
@@ -19,11 +24,25 @@ export type OverlayConnectionStatus =
 export interface OverlayReadyInfo {
   overlayId: string;
   type: OverlayType;
+  /**
+   * The overlay's own render config, delivered with the handshake.
+   *
+   * A browser source has no credential with which to fetch this separately, and
+   * a goal bar cannot draw itself before it knows its own target.
+   */
+  config?: Record<string, unknown>;
 }
 
 export interface UseOverlaySocketOptions {
   /** Called once per unique action. Duplicates are filtered before this runs. */
   onAction: (action: OverlayAction) => void;
+  /**
+   * Called with continuous state, such as goal progress.
+   *
+   * Deliberately not de-duplicated: unlike an action this is a current value,
+   * and the newest frame always wins.
+   */
+  onState?: (state: OverlayState) => void;
   /** Override the API origin. Defaults to NEXT_PUBLIC_WS_URL. */
   url?: string;
   enabled?: boolean;
@@ -62,7 +81,7 @@ export function useOverlaySocket(
   token: string | null | undefined,
   options: UseOverlaySocketOptions,
 ): UseOverlaySocketResult {
-  const { onAction, url, enabled = true } = options;
+  const { onAction, onState, url, enabled = true } = options;
 
   const [status, setStatus] = useState<OverlayConnectionStatus>('idle');
   const [ready, setReady] = useState<OverlayReadyInfo | null>(null);
@@ -73,6 +92,11 @@ export function useOverlaySocket(
   useEffect(() => {
     onActionRef.current = onAction;
   }, [onAction]);
+
+  const onStateRef = useRef(onState);
+  useEffect(() => {
+    onStateRef.current = onState;
+  }, [onState]);
 
   const seenRef = useRef<Set<string>>(new Set());
   const seenOrderRef = useRef<string[]>([]);
@@ -142,6 +166,10 @@ export function useOverlaySocket(
     socket.on(OVERLAY_SOCKET.ACTION, (action: OverlayAction) => {
       if (!action?.id || isDuplicate(action.id)) return;
       onActionRef.current(action);
+    });
+
+    socket.on(OVERLAY_SOCKET.STATE, (state: OverlayState) => {
+      if (state) onStateRef.current?.(state);
     });
 
     return () => {
