@@ -4,7 +4,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useApi } from '../../../lib/use-api';
 import { api } from '../../../lib/api-client';
 import { LoadingState, ErrorState, EmptyState } from '../../../components/common/States';
-import { Icon } from '../../../components/ui/Icon';
+import { Icon, type IconName } from '../../../components/ui/Icon';
 import type { Overlay } from '../../../lib/types';
 
 /**
@@ -22,18 +22,87 @@ const LIVE_RENDERERS: Record<string, string> = {
   PK_BAR: '/overlays/pk',
 };
 
-const AWAITING_PRODUCER: Record<string, string> = {
-  CHAT: 'Cần luật Chatbox (F04) mới có dữ liệu',
-  GOAL: 'Hiện lên khi có quà đầu tiên',
-  PK_BAR: 'Hiện lên khi vào trận PK',
+/** Type codes are database values. Nobody streaming has to see PK_BAR. */
+const DISPLAY: Record<string, { name: string; blurb: string; icon: IconName }> = {
+  MEDIA: {
+    name: 'Hiệu ứng quà tặng',
+    blurb: 'Hiện video hoặc ảnh lên màn hình khi có người tặng quà.',
+    icon: 'gift',
+  },
+  CHAT: {
+    name: 'Khung bình luận',
+    blurb: 'Bình luận của khán giả chạy trên màn hình live.',
+    icon: 'comment',
+  },
+  GOAL: {
+    name: 'Thanh mục tiêu quà',
+    blurb: 'Thanh chạy dần tới mục tiêu bạn đặt cho buổi live.',
+    icon: 'goal',
+  },
+  PK_BAR: {
+    name: 'Thanh đấu PK',
+    blurb: 'So kè điểm giữa hai bên khi bạn vào trận PK.',
+    icon: 'versus',
+  },
+  LEADERBOARD: { name: 'Bảng xếp hạng', blurb: 'Đang được phát triển.', icon: 'goal' },
+  ROOM_ENTRY: { name: 'Chào người vào phòng', blurb: 'Đang được phát triển.', icon: 'follow' },
+  ALERTS: { name: 'Thông báo trên màn hình', blurb: 'Đang được phát triển.', icon: 'spark' },
 };
 
-/** Types that exist in the API but have no working renderer yet. */
-const PENDING_LABEL: Record<string, string> = {
-  LEADERBOARD: 'Đang phát triển (F10)',
-  ROOM_ENTRY: 'Đang phát triển (F18)',
-  ALERTS: 'Đang phát triển',
+const AWAITING_PRODUCER: Record<string, string> = {
+  CHAT: 'Cần một kịch bản khung bình luận thì mới có nội dung chạy.',
+  GOAL: 'Hiện lên khi có món quà đầu tiên.',
+  PK_BAR: 'Hiện lên khi bạn vào trận PK.',
 };
+
+function ObsGuide() {
+  const [open, setOpen] = useState(false);
+  return (
+    <section className="card">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.5rem',
+          background: 'none',
+          border: 'none',
+          padding: 0,
+          font: 'inherit',
+          fontWeight: 600,
+          cursor: 'pointer',
+          color: 'inherit',
+        }}
+      >
+        <Icon name={open ? 'caretDown' : 'caretRight'} size={18} />
+        Cách đưa hiệu ứng vào OBS — 3 bước
+      </button>
+      {open && (
+        <ol
+          style={{
+            margin: '0.875rem 0 0',
+            paddingLeft: '1.25rem',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '0.5rem',
+            color: 'hsl(var(--muted-foreground))',
+          }}
+        >
+          <li>Bấm “Thêm vào OBS” ở hiệu ứng bạn muốn — đường dẫn được chép vào bộ nhớ tạm.</li>
+          <li>
+            Trong OBS, ở khung <strong>Nguồn</strong> bấm dấu <strong>+</strong> rồi chọn{' '}
+            <strong>Browser</strong> (Trình duyệt).
+          </li>
+          <li>
+            Dán đường dẫn vào ô <strong>URL</strong>, đặt rộng 1920 cao 1080, bấm OK. Xong.
+          </li>
+        </ol>
+      )}
+    </section>
+  );
+}
 
 export default function OverlaysPage() {
   const { data, loading, error, reload } = useApi<Overlay[]>('/overlays');
@@ -62,9 +131,6 @@ export default function OverlaysPage() {
   // to refetch, a token rotated in another tab would stay stale on this screen
   // indefinitely. Revalidate when the tab becomes visible again — the moment a
   // user is most likely to come back and copy a URL.
-  //
-  // Only `visibilitychange`: returning to a tab fires `focus` as well, and
-  // listening to both issued two identical GETs per switch.
   useEffect(() => {
     function revalidate() {
       if (document.visibilityState === 'visible') reload();
@@ -92,11 +158,19 @@ export default function OverlaysPage() {
       if (copyTimer.current) clearTimeout(copyTimer.current);
       copyTimer.current = setTimeout(() => setCopiedId(null), 2000);
     } catch {
-      setActionError('Trình duyệt chặn truy cập clipboard — hãy sao chép thủ công.');
+      setActionError('Trình duyệt không cho chép tự động — bạn mở “Xem thử” rồi chép từ thanh địa chỉ nhé.');
     }
   }
 
   async function rotate(overlay: Overlay) {
+    const label = DISPLAY[overlay.type]?.name ?? overlay.type;
+    if (
+      !confirm(
+        `Tạo đường dẫn mới cho "${label}"?\n\nĐường dẫn cũ sẽ ngừng hoạt động, bạn phải dán lại vào OBS.`,
+      )
+    )
+      return;
+
     setActionError(null);
     setRotatingId(overlay.id);
     try {
@@ -113,25 +187,37 @@ export default function OverlaysPage() {
       setCopiedId((current) => (current === overlay.id ? null : current));
       reload();
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : 'Xoay token thất bại');
+      setActionError(err instanceof Error ? err.message : 'Không tạo được đường dẫn mới');
     } finally {
       setRotatingId(null);
     }
   }
 
   return (
-    <div style={{ maxWidth: '900px', margin: '0 auto' }}>
-      <h1 style={{ fontSize: '2rem', fontWeight: 700, marginBottom: '0.5rem' }}>Overlay</h1>
-      <p style={{ color: 'hsl(var(--muted-foreground))', marginBottom: '2rem' }}>
-        Sao chép URL và dán vào <strong>Browser Source</strong> trong OBS. Ai có URL
-        là xem được overlay — xoay token nếu bạn lỡ để lộ trên sóng.
-      </p>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+      <div>
+        <h1 className="page-title">Hiệu ứng màn hình</h1>
+        <p style={{ color: 'hsl(var(--muted-foreground))', marginTop: '0.25rem' }}>
+          Những thứ khán giả nhìn thấy trên màn hình live của bạn. Ai có đường dẫn là xem được, nên
+          đừng để lộ nó trên sóng.
+        </p>
+      </div>
 
       {actionError && (
-        <p role="alert" style={{ color: 'hsl(var(--destructive))', marginBottom: '1rem' }}>
+        <div
+          role="alert"
+          className="card"
+          style={{
+            padding: '0.875rem 1.25rem',
+            borderColor: 'hsl(var(--destructive) / 0.35)',
+            color: 'hsl(var(--destructive))',
+          }}
+        >
           {actionError}
-        </p>
+        </div>
       )}
+
+      <ObsGuide />
 
       {/*
         The spinner is for the first load only. Showing it on every background
@@ -139,133 +225,134 @@ export default function OverlaysPage() {
         switched back to the tab — jarring on a screen meant to stay open beside
         OBS. A revalidation keeps the current list on screen.
       */}
-      {loading && !data && <LoadingState />}
+      {loading && !data && <LoadingState label="Đang tải hiệu ứng…" />}
       {error && <ErrorState message={error} onRetry={reload} />}
 
       {!loading && !error && (data?.length ?? 0) === 0 && (
-        <EmptyState
-          title="Chưa có overlay nào"
-          description="Overlay là trang mà OBS mở để hiển thị hiệu ứng quà tặng, chatbox hoặc thanh mục tiêu."
-        />
+        <div className="card">
+          <EmptyState
+            title="Chưa có hiệu ứng nào"
+            description="Hiệu ứng là trang mà OBS mở ra để hiện quà tặng, bình luận hay thanh mục tiêu lên màn hình live."
+          />
+        </div>
       )}
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
+          gap: '1rem',
+        }}
+      >
         {data?.map((overlay) => {
           const url = overlayUrl(overlay);
-          const pending = PENDING_LABEL[overlay.type] ?? 'Chưa hỗ trợ';
+          const meta = DISPLAY[overlay.type] ?? {
+            name: overlay.type,
+            blurb: '',
+            icon: 'spark' as IconName,
+          };
+          const copied = copiedId === overlay.id;
 
           return (
-            <div
+            <article
               key={overlay.id}
-              className="glass"
-              style={{
-                padding: '1.25rem',
-                borderRadius: 'var(--radius)',
-                border: '1px solid var(--glass-border)',
-              }}
+              className="card"
+              style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}
             >
-              <div
-                style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  gap: '1rem',
-                  flexWrap: 'wrap',
-                }}
-              >
-                <div>
-                  <strong style={{ fontSize: '1.1rem' }}>{overlay.type}</strong>
-                  {!overlay.enabled && (
-                    <span style={mutedNote}>(đang tắt)</span>
-                  )}
-                  {!url && <span style={mutedNote}>{pending}</span>}
-                  {url && AWAITING_PRODUCER[overlay.type] && (
-                    <span style={mutedNote}>{AWAITING_PRODUCER[overlay.type]}</span>
-                  )}
-                </div>
-
-                <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                  {url && (
-                    <>
-                      <button onClick={() => copy(overlay)} style={buttonStyle}>
-                        <Icon name={copiedId === overlay.id ? 'check' : 'copy'} size={16} />
-                        {copiedId === overlay.id ? 'Đã sao chép' : 'Sao chép URL'}
-                      </button>
-
-                      <a
-                        href={url}
-                        target="_blank"
-                        rel="noreferrer"
-                        style={{
-                          ...buttonStyle,
-                          textDecoration: 'none',
-                          background: 'hsl(var(--primary) / 0.15)',
-                          color: 'hsl(var(--primary))',
-                          border: '1px solid hsl(var(--primary) / 0.4)',
-                          fontWeight: 600,
-                        }}
-                      >
-                        <Icon name="preview" size={16} />
-                        Mở xem thử
-                      </a>
-                    </>
-                  )}
-                  <button
-                    onClick={() => rotate(overlay)}
-                    disabled={rotatingId === overlay.id}
-                    style={buttonStyle}
-                  >
-                    <Icon name="rotate" size={16} />
-                    {rotatingId === overlay.id ? 'Đang xoay…' : 'Xoay token'}
-                  </button>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem' }}>
+                <span
+                  aria-hidden="true"
+                  style={{
+                    width: 40,
+                    height: 40,
+                    flex: 'none',
+                    display: 'grid',
+                    placeItems: 'center',
+                    borderRadius: 'var(--radius)',
+                    background: 'hsl(var(--accent-surface))',
+                    color: 'hsl(var(--primary))',
+                  }}
+                >
+                  <Icon name={meta.icon} size={22} />
+                </span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <h2 style={{ fontSize: '1.0625rem', fontWeight: 600, letterSpacing: 0 }}>
+                    {meta.name}
+                  </h2>
+                  <p style={{ fontSize: '0.875rem', color: 'hsl(var(--muted-foreground))' }}>
+                    {meta.blurb}
+                  </p>
                 </div>
               </div>
 
+              <div style={{ display: 'flex', gap: '0.375rem', flexWrap: 'wrap' }}>
+                <span className={overlay.enabled ? 'pill pill-ok' : 'pill'}>
+                  <span
+                    className={`dot ${overlay.enabled ? 'dot-ok' : 'dot-warn'}`}
+                    aria-hidden="true"
+                  />
+                  {overlay.enabled ? 'Đang bật' : 'Đang tắt'}
+                </span>
+                {url && AWAITING_PRODUCER[overlay.type] && (
+                  <span className="pill" title={AWAITING_PRODUCER[overlay.type]}>
+                    Chờ dữ liệu
+                  </span>
+                )}
+                {!url && <span className="pill">Đang phát triển</span>}
+              </div>
+
               {url ? (
-                <code
-                  style={{
-                    display: 'block',
-                    marginTop: '0.75rem',
-                    padding: '0.6rem 0.8rem',
-                    borderRadius: 'var(--radius)',
-                    background: 'hsl(var(--muted) / 0.4)',
-                    fontSize: '0.8rem',
-                    overflowX: 'auto',
-                    whiteSpace: 'nowrap',
-                  }}
-                >
-                  {url}
-                </code>
+                <>
+                  {/* The raw URL is deliberately not printed. It is 80 characters
+                      of token nobody needs to read, and printing it on screen is
+                      exactly how it ends up visible on a broadcast. */}
+                  <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginTop: 'auto' }}>
+                    <button
+                      type="button"
+                      className="btn btn-primary"
+                      style={{ flex: 1, minWidth: '150px' }}
+                      onClick={() => copy(overlay)}
+                    >
+                      <Icon name={copied ? 'check' : 'copy'} size={18} />
+                      {copied ? 'Đã chép, dán vào OBS' : 'Thêm vào OBS'}
+                    </button>
+                    <a href={url} target="_blank" rel="noreferrer" className="btn btn-secondary">
+                      <Icon name="preview" size={18} />
+                      Xem thử
+                    </a>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => rotate(overlay)}
+                    disabled={rotatingId === overlay.id}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      padding: '0.25rem 0',
+                      minHeight: '32px',
+                      textAlign: 'left',
+                      cursor: 'pointer',
+                      font: 'inherit',
+                      fontSize: '0.8125rem',
+                      color: 'hsl(var(--muted-foreground))',
+                      textDecoration: 'underline',
+                      textUnderlineOffset: '3px',
+                    }}
+                  >
+                    {rotatingId === overlay.id
+                      ? 'Đang tạo đường dẫn mới…'
+                      : 'Lỡ để lộ đường dẫn? Tạo cái mới'}
+                  </button>
+                </>
               ) : (
-                <p style={{ marginTop: '0.75rem', fontSize: '0.85rem', color: 'hsl(var(--muted-foreground))' }}>
-                  Chưa có URL vì trang hiển thị của loại này chưa đọc dữ liệu thật.
-                  Xoay token vẫn dùng được để thu hồi quyền truy cập.
+                <p style={{ fontSize: '0.875rem', color: 'hsl(var(--muted-foreground))', marginTop: 'auto' }}>
+                  Hiệu ứng này chưa dùng được. Chúng tôi sẽ báo bạn khi xong.
                 </p>
               )}
-            </div>
+            </article>
           );
         })}
       </div>
     </div>
   );
 }
-
-const mutedNote: React.CSSProperties = {
-  marginLeft: '0.5rem',
-  fontSize: '0.75rem',
-  color: 'hsl(var(--muted-foreground))',
-};
-
-const buttonStyle: React.CSSProperties = {
-  padding: '0.5rem 1rem',
-  minHeight: '44px',
-  borderRadius: 'var(--radius)',
-  border: '1px solid hsl(var(--border))',
-  background: 'hsl(var(--card))',
-  color: 'hsl(var(--foreground))',
-  cursor: 'pointer',
-  fontSize: '0.9rem',
-  display: 'inline-flex',
-  alignItems: 'center',
-  gap: '0.45rem',
-};

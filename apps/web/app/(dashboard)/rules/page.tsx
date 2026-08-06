@@ -1,26 +1,198 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useApi } from '../../../lib/use-api';
 import { api } from '../../../lib/api-client';
-import { LoadingState, ErrorState, EmptyState } from '../../../components/common/States';
+import { LoadingState, ErrorState } from '../../../components/common/States';
 import { Icon } from '../../../components/ui/Icon';
 import { RuleModal } from '../../../components/rules/RuleModal';
 import { RuleDryRunModal } from '../../../components/rules/RuleDryRunModal';
 import { PresetLibraryModal } from '../../../components/rules/PresetLibraryModal';
+
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
+const EVENT_PHRASE: Record<string, string> = {
+  gift: 'ai đó tặng quà',
+  comment: 'ai đó bình luận',
+  like: 'ai đó thả tim',
+  follow: 'ai đó theo dõi bạn',
+  share: 'ai đó chia sẻ live',
+  join: 'ai đó vào phòng',
+};
+
+const ACTION_PHRASE: Record<string, string> = {
+  tts_read: 'đọc thành tiếng',
+  media_popup: 'hiện video/ảnh lên màn hình',
+};
+
+/** "30 giây" reads; "30000ms" does not. */
+function cooldownPhrase(ms: number): string {
+  const s = Math.round(ms / 1000);
+  if (s < 60) return `${s} giây`;
+  const m = Math.round(s / 60);
+  return `${m} phút`;
+}
+
+/**
+ * A chip is an editable fragment of the sentence. Rendering conditions this way
+ * — rather than as `gift_value > 100` in a table cell — is the entire point of
+ * this screen: the audience are creators, and a rule they cannot read is a rule
+ * they will not trust enough to switch on.
+ */
+function Chip({ children }: { children: React.ReactNode }) {
+  return <span className="chip">{children}</span>;
+}
+
+function RuleSentence({ rule }: { rule: any }) {
+  const conditions = rule.conditions ?? {};
+  const actions: any[] = rule.actions ?? [];
+  const eventType: string | undefined = conditions.eventType?.[0];
+
+  return (
+    <p style={{ fontSize: '1rem', lineHeight: 2.1 }}>
+      <span style={{ color: 'hsl(var(--muted-foreground))' }}>Khi </span>
+      <Chip>{EVENT_PHRASE[eventType ?? ''] ?? 'có sự kiện trên live'}</Chip>
+
+      {conditions.giftName ? (
+        <>
+          <span style={{ color: 'hsl(var(--muted-foreground))' }}> là </span>
+          <Chip>{conditions.giftName}</Chip>
+        </>
+      ) : null}
+
+      {conditions.minCoinValue ? (
+        <>
+          <span style={{ color: 'hsl(var(--muted-foreground))' }}> từ </span>
+          <Chip>{Number(conditions.minCoinValue).toLocaleString('vi-VN')} xu trở lên</Chip>
+        </>
+      ) : null}
+
+      {conditions.keywords?.length ? (
+        <>
+          <span style={{ color: 'hsl(var(--muted-foreground))' }}> có chứa </span>
+          <Chip>{conditions.keywords.join(', ')}</Chip>
+        </>
+      ) : null}
+
+      <span style={{ color: 'hsl(var(--muted-foreground))' }}> thì </span>
+      {actions.length === 0 ? (
+        <Chip>chưa chọn việc gì</Chip>
+      ) : (
+        actions.map((act, i) => (
+          <React.Fragment key={i}>
+            {i > 0 ? <span style={{ color: 'hsl(var(--muted-foreground))' }}> và </span> : null}
+            <Chip>{ACTION_PHRASE[act.type] ?? act.type}</Chip>
+          </React.Fragment>
+        ))
+      )}
+
+      {rule.cooldownMs > 0 ? (
+        <>
+          <span style={{ color: 'hsl(var(--muted-foreground))' }}> — tối đa </span>
+          <Chip>1 lần mỗi {cooldownPhrase(rule.cooldownMs)}</Chip>
+        </>
+      ) : null}
+    </p>
+  );
+}
+
+/** A real switch, not a button labelled "Đang BẬT". */
+function Toggle({
+  on,
+  busy,
+  disabled,
+  onChange,
+  label,
+}: {
+  on: boolean;
+  busy: boolean;
+  disabled: boolean;
+  onChange: () => void;
+  label: string;
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={on}
+      aria-label={label}
+      disabled={disabled}
+      onClick={onChange}
+      style={{
+        width: '52px',
+        minHeight: '30px',
+        height: '30px',
+        padding: 0,
+        borderRadius: 999,
+        border: '1px solid hsl(var(--border))',
+        background: on ? 'hsl(var(--primary))' : 'hsl(var(--muted))',
+        cursor: disabled ? 'not-allowed' : 'pointer',
+        opacity: busy ? 0.6 : 1,
+        position: 'relative',
+        transition: 'background 0.18s ease',
+      }}
+    >
+      <span
+        aria-hidden="true"
+        style={{
+          position: 'absolute',
+          top: '3px',
+          left: on ? '25px' : '3px',
+          width: '22px',
+          height: '22px',
+          borderRadius: 999,
+          background: '#fff',
+          boxShadow: 'var(--shadow-sm)',
+          transition: 'left 0.18s ease',
+        }}
+      />
+    </button>
+  );
+}
+
+function TextButton({
+  children,
+  onClick,
+  tone = 'normal',
+}: {
+  children: React.ReactNode;
+  onClick: () => void;
+  tone?: 'normal' | 'danger';
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      style={{
+        background: 'none',
+        border: 'none',
+        padding: '0.25rem 0.375rem',
+        minHeight: '32px',
+        cursor: 'pointer',
+        font: 'inherit',
+        fontSize: '0.875rem',
+        fontWeight: 500,
+        color:
+          tone === 'danger' ? 'hsl(var(--destructive))' : 'hsl(var(--muted-foreground))',
+        textDecoration: 'underline',
+        textUnderlineOffset: '3px',
+      }}
+    >
+      {children}
+    </button>
+  );
+}
 
 export default function RulesPage() {
   const { data: rules, loading, error, reload } = useApi<any[]>('/rules');
   const [togglingId, setTogglingId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
-  // Modals
   const [showModal, setShowModal] = useState(false);
   const [selectedRule, setSelectedRule] = useState<any | null>(null);
   const [dryRunRule, setDryRunRule] = useState<any | null>(null);
   const [showPresets, setShowPresets] = useState(false);
 
-  // Filters & Search
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<'all' | 'enabled' | 'disabled'>('all');
 
@@ -46,35 +218,42 @@ export default function RulesPage() {
       await api.post(`/rules/${rule.id}/duplicate`);
       reload();
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : 'Sao chép luật thất bại');
+      setActionError(err instanceof Error ? err.message : 'Không nhân bản được');
     }
   }
 
   async function handleDelete(rule: any) {
-    if (!confirm(`Bạn có chắc chắn muốn xóa luật "${rule.name}"?`)) return;
+    if (!confirm(`Xoá kịch bản "${rule.name}"? Thao tác này không hoàn tác được.`)) return;
     setActionError(null);
     try {
       await api.delete(`/rules/${rule.id}`);
       reload();
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : 'Xóa luật thất bại');
+      setActionError(err instanceof Error ? err.message : 'Không xoá được');
     }
   }
 
-  const filteredRules = (rules || []).filter((rule) => {
-    const matchesSearch = rule.name.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus =
-      filterStatus === 'all'
-        ? true
-        : filterStatus === 'enabled'
-        ? rule.enabled
-        : !rule.enabled;
-    return matchesSearch && matchesStatus;
-  });
+  const filteredRules = useMemo(
+    () =>
+      (rules ?? []).filter((rule) => {
+        const matchesSearch = rule.name
+          .toLowerCase()
+          .includes(searchTerm.trim().toLowerCase());
+        const matchesStatus =
+          filterStatus === 'all'
+            ? true
+            : filterStatus === 'enabled'
+              ? rule.enabled
+              : !rule.enabled;
+        return matchesSearch && matchesStatus;
+      }),
+    [rules, searchTerm, filterStatus],
+  );
+
+  const hasAnyRule = (rules?.length ?? 0) > 0;
 
   return (
-    <div style={{ maxWidth: '1050px', margin: '0 auto', paddingBottom: '3rem' }}>
-      {/* Top Header & Actions */}
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
       <div
         style={{
           display: 'flex',
@@ -82,348 +261,216 @@ export default function RulesPage() {
           alignItems: 'flex-start',
           gap: '1rem',
           flexWrap: 'wrap',
-          marginBottom: '2rem',
         }}
       >
         <div>
-          <h1 style={{ fontSize: '2rem', fontWeight: 700, marginBottom: '0.4rem', display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-            <Icon name="goal" size={30} />
-            Luật Tự động <span className="accent">(Auto Rules Engine)</span>
-          </h1>
-          <p style={{ color: 'hsl(var(--muted-foreground))', fontSize: '0.95rem' }}>
-            Quyết định các sự kiện livestream (Quà tặng, Bình luận, Thả tim, Follow) sẽ tự động kích hoạt hiệu ứng Video/Ảnh Popup trên OBS, Đọc giọng nói TTS.
+          <h1 className="page-title">Kịch bản tự động</h1>
+          <p style={{ color: 'hsl(var(--muted-foreground))', marginTop: '0.25rem' }}>
+            Quy định cách LiveNova phản hồi khán giả khi bạn đang lên sóng.
           </p>
         </div>
 
-        <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
-          <button
-            onClick={() => setShowPresets(true)}
-            style={{
-              padding: '0.65rem 1.1rem',
-              borderRadius: 'var(--radius)',
-              background: 'rgba(255, 255, 255, 0.08)',
-              color: 'hsl(var(--foreground))',
-              border: '1px solid var(--glass-border)',
-              fontWeight: 600,
-              fontSize: '0.9rem',
-              cursor: 'pointer',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '0.45rem',
-              minHeight: '44px',
-            }}
-          >
-            <Icon name="spark" size={18} />
-            Kho Luật Mẫu Sẵn
-          </button>
-
-          <button
-            onClick={() => {
-              setSelectedRule(null);
-              setShowModal(true);
-            }}
-            style={{
-              padding: '0.65rem 1.25rem',
-              borderRadius: 'var(--radius)',
-              background: 'hsl(var(--primary))',
-              color: '#fff',
-              border: 'none',
-              fontWeight: 700,
-              fontSize: '0.95rem',
-              cursor: 'pointer',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '0.45rem',
-              boxShadow: '0 4px 14px rgba(6, 182, 212, 0.35)',
-              minHeight: '44px',
-            }}
-          >
-            + Tạo Luật Mới
-          </button>
-        </div>
+        {/* One primary action on the screen. "Kho mẫu" is deliberately the
+            quieter of the two even though it is the easier path — it is offered
+            prominently in the banner below instead. */}
+        <button type="button" className="btn btn-primary" onClick={() => { setSelectedRule(null); setShowModal(true); }}>
+          <Icon name="plus" size={18} />
+          Tạo kịch bản mới
+        </button>
       </div>
 
       {actionError && (
         <div
           role="alert"
+          className="card"
           style={{
-            padding: '0.85rem 1.25rem',
-            borderRadius: 'var(--radius)',
-            background: 'rgba(239, 68, 68, 0.15)',
-            border: '1px solid rgba(239, 68, 68, 0.3)',
+            padding: '0.875rem 1.25rem',
+            borderColor: 'hsl(var(--destructive) / 0.35)',
             color: 'hsl(var(--destructive))',
-            marginBottom: '1.5rem',
-            fontWeight: 500,
           }}
         >
           {actionError}
         </div>
       )}
 
-      {/* Filter and Search Bar */}
-      <div
-        style={{
-          display: 'flex',
-          gap: '1rem',
-          marginBottom: '1.5rem',
-          flexWrap: 'wrap',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-        }}
+      {/* Templates come first. Somebody who has never built an automation rule
+          should not have to face an empty canvas and a "Tạo mới" button. */}
+      <section
+        className="card"
+        style={{ background: 'hsl(var(--accent-surface))', borderColor: 'hsl(var(--primary) / 0.18)' }}
       >
-        <div style={{ flex: 1, minWidth: '260px' }}>
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '1rem',
+            flexWrap: 'wrap',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <Icon name="spark" size={22} weight="fill" style={{ color: 'hsl(var(--primary))' }} />
+            <span>
+              <strong style={{ display: 'block' }}>Chưa biết bắt đầu từ đâu?</strong>
+              <span style={{ color: 'hsl(var(--muted-foreground))', fontSize: '0.9375rem' }}>
+                Chọn một mẫu có sẵn — cảm ơn khi nhận quà, chào người mới theo dõi, lọc bình luận xấu…
+              </span>
+            </span>
+          </div>
+          <button type="button" className="btn btn-secondary" onClick={() => setShowPresets(true)}>
+            Xem mẫu có sẵn
+          </button>
+        </div>
+      </section>
+
+      {/* Search and filter only earn their space once there is enough to sift. */}
+      {hasAnyRule && (
+        <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', alignItems: 'center' }}>
           <input
-            type="text"
-            placeholder="🔍 Tìm kiếm luật theo tên..."
+            type="search"
+            placeholder="Tìm kịch bản theo tên…"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
+            aria-label="Tìm kịch bản theo tên"
             style={{
-              width: '100%',
-              padding: '0.65rem 1rem',
+              flex: 1,
+              minWidth: '240px',
+              minHeight: '44px',
+              padding: '0.6rem 0.875rem',
               borderRadius: 'var(--radius)',
-              border: '1px solid var(--glass-border)',
-              background: 'rgba(255, 255, 255, 0.04)',
+              border: '1px solid hsl(var(--border))',
+              background: 'hsl(var(--card))',
               color: 'inherit',
-              fontSize: '0.9rem',
+              font: 'inherit',
+              fontSize: '0.9375rem',
             }}
           />
+          <div
+            role="group"
+            aria-label="Lọc theo trạng thái"
+            style={{
+              display: 'flex',
+              gap: '0.25rem',
+              padding: '4px',
+              borderRadius: 'var(--radius)',
+              background: 'hsl(var(--muted))',
+            }}
+          >
+            {([
+              { id: 'all', label: 'Tất cả' },
+              { id: 'enabled', label: 'Đang bật' },
+              { id: 'disabled', label: 'Đang tắt' },
+            ] as const).map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                aria-pressed={filterStatus === tab.id}
+                onClick={() => setFilterStatus(tab.id)}
+                style={{
+                  minHeight: '36px',
+                  padding: '0.35rem 0.85rem',
+                  borderRadius: 'calc(var(--radius) - 2px)',
+                  border: 'none',
+                  background: filterStatus === tab.id ? 'hsl(var(--card))' : 'transparent',
+                  color:
+                    filterStatus === tab.id
+                      ? 'hsl(var(--foreground))'
+                      : 'hsl(var(--muted-foreground))',
+                  fontWeight: filterStatus === tab.id ? 600 : 500,
+                  fontSize: '0.875rem',
+                  cursor: 'pointer',
+                  boxShadow: filterStatus === tab.id ? 'var(--shadow-sm)' : 'none',
+                }}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
         </div>
-
-        <div style={{ display: 'flex', gap: '0.5rem', background: 'rgba(0,0,0,0.2)', padding: '4px', borderRadius: 'var(--radius)' }}>
-          {[
-            { id: 'all', label: 'Tất cả' },
-            { id: 'enabled', label: 'Đang bật' },
-            { id: 'disabled', label: 'Đang tắt' },
-          ].map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setFilterStatus(tab.id as any)}
-              style={{
-                padding: '0.4rem 0.85rem',
-                borderRadius: 'calc(var(--radius) - 2px)',
-                border: 'none',
-                background: filterStatus === tab.id ? 'hsl(var(--primary))' : 'transparent',
-                color: filterStatus === tab.id ? '#fff' : 'hsl(var(--muted-foreground))',
-                fontWeight: filterStatus === tab.id ? 700 : 500,
-                fontSize: '0.85rem',
-                cursor: 'pointer',
-              }}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Loading / Error States */}
-      {loading && <LoadingState label="Đang tải danh sách luật tự động..." />}
-      {error && <ErrorState message={error} onRetry={reload} />}
-
-      {/* Empty State */}
-      {!loading && !error && filteredRules.length === 0 && (
-        <EmptyState
-          title="Chưa có luật tự động nào"
-          description="Tạo luật đầu tiên để tự động phát Video/Ảnh Popup hoặc Đọc giọng nói TTS mỗi khi viewer tặng quà hoặc bình luận trên livestream!"
-        />
       )}
 
-      {/* Rules List */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-        {filteredRules.map((rule) => {
-          const conditions = rule.conditions || {};
-          const actions = rule.actions || [];
-          const eventTypeLabel =
-            conditions.eventType?.[0] === 'gift'
-              ? '🎁 Quà tặng'
-              : conditions.eventType?.[0] === 'comment'
-              ? '💬 Bình luận'
-              : conditions.eventType?.[0] === 'like'
-              ? '❤️ Thả tim'
-              : conditions.eventType?.[0] === 'follow'
-              ? '➕ Follow'
-              : '⚡ Sự kiện';
+      {loading && <LoadingState label="Đang tải kịch bản…" />}
+      {error && <ErrorState message={error} onRetry={reload} />}
 
-          return (
-            <div
-              key={rule.id}
-              className="glass"
-              style={{
-                padding: '1.25rem 1.5rem',
-                borderRadius: 'var(--radius-lg)',
-                border: rule.enabled ? '1px solid hsl(var(--primary) / 0.4)' : '1px solid var(--glass-border)',
-                background: rule.enabled ? 'rgba(6, 182, 212, 0.03)' : 'rgba(255, 255, 255, 0.02)',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                gap: '1.25rem',
-                flexWrap: 'wrap',
-                transition: 'all 0.2s ease',
-              }}
-            >
-              <div style={{ flex: 1, minWidth: '280px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.4rem' }}>
-                  <span
-                    style={{
-                      fontSize: '0.75rem',
-                      fontWeight: 700,
-                      padding: '0.15rem 0.5rem',
-                      borderRadius: 'var(--radius-sm)',
-                      background: 'hsl(var(--primary) / 0.15)',
-                      color: 'hsl(var(--primary))',
-                    }}
-                  >
-                    Ưu tiên #{rule.priority}
-                  </span>
+      {!loading && !error && filteredRules.length === 0 && (
+        <section className="card" style={{ textAlign: 'center', padding: '2.5rem 1.5rem' }}>
+          <h2 className="section-title">
+            {hasAnyRule ? 'Không có kịch bản nào khớp' : 'Bạn chưa có kịch bản nào'}
+          </h2>
+          <p style={{ color: 'hsl(var(--muted-foreground))', margin: '0.5rem 0 1.25rem' }}>
+            {hasAnyRule
+              ? 'Thử đổi từ khoá hoặc bỏ bộ lọc.'
+              : 'Cách nhanh nhất là chọn một mẫu có sẵn rồi sửa lại câu chữ cho giống giọng bạn.'}
+          </p>
+          {!hasAnyRule && (
+            <button type="button" className="btn btn-primary" onClick={() => setShowPresets(true)}>
+              Chọn mẫu có sẵn
+            </button>
+          )}
+        </section>
+      )}
 
-                  <strong style={{ fontSize: '1.1rem' }}>{rule.name}</strong>
-                </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.875rem' }}>
+        {filteredRules.map((rule) => (
+          <article
+            key={rule.id}
+            className="card"
+            style={{
+              display: 'flex',
+              gap: '1.25rem',
+              alignItems: 'flex-start',
+              opacity: rule.enabled ? 1 : 0.72,
+            }}
+          >
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <h2
+                style={{
+                  fontSize: '1rem',
+                  fontWeight: 600,
+                  marginBottom: '0.25rem',
+                  letterSpacing: 0,
+                }}
+              >
+                {rule.name}
+              </h2>
+              <RuleSentence rule={rule} />
 
-                {/* Details Badges */}
-                <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center', marginTop: '0.5rem' }}>
-                  <span
-                    style={{
-                      fontSize: '0.8rem',
-                      padding: '0.2rem 0.6rem',
-                      borderRadius: 'var(--radius-sm)',
-                      background: 'rgba(255,255,255,0.06)',
-                      color: 'hsl(var(--foreground))',
-                    }}
-                  >
-                    {eventTypeLabel}
-                    {conditions.giftName ? `: ${conditions.giftName}` : ''}
-                    {conditions.minCoinValue ? ` (≥ ${conditions.minCoinValue} Xu)` : ''}
-                    {conditions.keywords?.length ? `: "${conditions.keywords.join(', ')}"` : ''}
-                  </span>
-
-                  <span style={{ color: 'hsl(var(--muted-foreground))', fontSize: '0.8rem' }}>→</span>
-
-                  {actions.map((act: any, i: number) => (
-                    <span
-                      key={i}
-                      style={{
-                        fontSize: '0.8rem',
-                        padding: '0.2rem 0.6rem',
-                        borderRadius: 'var(--radius-sm)',
-                        background: act.type === 'media_popup' ? 'rgba(168, 85, 247, 0.15)' : 'rgba(59, 130, 246, 0.15)',
-                        color: act.type === 'media_popup' ? '#c084fc' : '#60a5fa',
-                        fontWeight: 600,
-                      }}
-                    >
-                      {act.type === 'media_popup' ? '🎥 Video/Ảnh Popup' : act.type === 'tts_read' ? '🗣️ Đọc TTS' : act.type}
-                    </span>
-                  ))}
-
-                  {rule.cooldownMs > 0 && (
-                    <span style={{ fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))' }}>
-                      ⏱️ Chờ {rule.cooldownMs / 1000}s
-                    </span>
-                  )}
-                </div>
-              </div>
-
-              {/* Action Buttons Toolbar */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
-                <button
-                  onClick={() => setDryRunRule(rule)}
-                  title="Chạy thử nghiệm & xem hiệu ứng trực tiếp trên OBS"
-                  style={{
-                    padding: '0.45rem 0.85rem',
-                    borderRadius: 'var(--radius)',
-                    background: 'rgba(34, 197, 94, 0.15)',
-                    color: '#4ade80',
-                    border: '1px solid rgba(34, 197, 94, 0.3)',
-                    fontWeight: 600,
-                    fontSize: '0.85rem',
-                    cursor: 'pointer',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '0.3rem',
-                  }}
-                >
-                  <Icon name="device" size={15} />
-                  Test
-                </button>
-
-                <button
-                  onClick={() => {
-                    setSelectedRule(rule);
-                    setShowModal(true);
-                  }}
-                  title="Chỉnh sửa luật"
-                  style={{
-                    padding: '0.45rem 0.85rem',
-                    borderRadius: 'var(--radius)',
-                    background: 'rgba(255, 255, 255, 0.06)',
-                    color: 'inherit',
-                    border: '1px solid var(--glass-border)',
-                    fontWeight: 500,
-                    fontSize: '0.85rem',
-                    cursor: 'pointer',
-                  }}
-                >
+              <div
+                style={{
+                  display: 'flex',
+                  gap: '0.5rem',
+                  flexWrap: 'wrap',
+                  marginTop: '0.5rem',
+                  alignItems: 'center',
+                }}
+              >
+                <TextButton onClick={() => { setSelectedRule(rule); setShowModal(true); }}>
                   Sửa
-                </button>
-
-                <button
-                  onClick={() => handleDuplicate(rule)}
-                  title="Tạo bản sao luật này"
-                  style={{
-                    padding: '0.45rem 0.85rem',
-                    borderRadius: 'var(--radius)',
-                    background: 'rgba(255, 255, 255, 0.06)',
-                    color: 'inherit',
-                    border: '1px solid var(--glass-border)',
-                    fontWeight: 500,
-                    fontSize: '0.85rem',
-                    cursor: 'pointer',
-                  }}
-                >
-                  Nhân bản
-                </button>
-
-                <button
-                  onClick={() => handleDelete(rule)}
-                  title="Xóa luật"
-                  style={{
-                    padding: '0.45rem 0.85rem',
-                    borderRadius: 'var(--radius)',
-                    background: 'rgba(239, 68, 68, 0.12)',
-                    color: 'hsl(var(--destructive))',
-                    border: 'none',
-                    fontWeight: 500,
-                    fontSize: '0.85rem',
-                    cursor: 'pointer',
-                  }}
-                >
-                  Xóa
-                </button>
-
-                <button
-                  onClick={() => toggleRule(rule)}
-                  disabled={togglingId !== null}
-                  aria-pressed={rule.enabled}
-                  style={{
-                    minHeight: '36px',
-                    padding: '0.45rem 1rem',
-                    borderRadius: 'var(--radius)',
-                    border: '1px solid hsl(var(--border))',
-                    background: rule.enabled ? 'hsl(var(--primary))' : 'rgba(255,255,255,0.05)',
-                    color: rule.enabled ? '#fff' : 'hsl(var(--muted-foreground))',
-                    fontWeight: 700,
-                    fontSize: '0.85rem',
-                    cursor: togglingId !== null ? 'not-allowed' : 'pointer',
-                    opacity: togglingId !== null && togglingId !== rule.id ? 0.6 : 1,
-                  }}
-                >
-                  {togglingId === rule.id ? '…' : rule.enabled ? 'Đang BẬT' : 'Đang TẮT'}
-                </button>
+                </TextButton>
+                <TextButton onClick={() => setDryRunRule(rule)}>Thử trước</TextButton>
+                <TextButton onClick={() => handleDuplicate(rule)}>Nhân bản</TextButton>
+                <TextButton tone="danger" onClick={() => handleDelete(rule)}>
+                  Xoá
+                </TextButton>
               </div>
             </div>
-          );
-        })}
+
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.375rem' }}>
+              <Toggle
+                on={rule.enabled}
+                busy={togglingId === rule.id}
+                disabled={togglingId !== null}
+                onChange={() => toggleRule(rule)}
+                label={`${rule.enabled ? 'Tắt' : 'Bật'} kịch bản ${rule.name}`}
+              />
+              <span style={{ fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))' }}>
+                {togglingId === rule.id ? 'Đang lưu…' : rule.enabled ? 'Đang bật' : 'Đang tắt'}
+              </span>
+            </div>
+          </article>
+        ))}
       </div>
 
-      {/* MODALS */}
       {showModal && (
         <RuleModal
           rule={selectedRule}
@@ -439,12 +486,7 @@ export default function RulesPage() {
         />
       )}
 
-      {dryRunRule && (
-        <RuleDryRunModal
-          rule={dryRunRule}
-          onClose={() => setDryRunRule(null)}
-        />
-      )}
+      {dryRunRule && <RuleDryRunModal rule={dryRunRule} onClose={() => setDryRunRule(null)} />}
 
       {showPresets && (
         <PresetLibraryModal

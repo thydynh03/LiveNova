@@ -21,7 +21,7 @@ interface MediaPopupItem {
   durationMs: number;
 }
 
-const ACCENT = '#22d3ee';
+const ACCENT = '#e1274c';
 
 function MediaOverlayContent() {
   const token = useSearchParams().get('token');
@@ -172,7 +172,7 @@ function MediaOverlayContent() {
             borderRadius: '20px',
             background: 'rgba(10, 15, 20, 0.9)',
             border: `2px solid ${ACCENT}`,
-            boxShadow: `0 0 40px rgba(34, 211, 238, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.15)`,
+            boxShadow: `0 0 40px rgba(225, 39, 76, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.15)`,
             backdropFilter: 'blur(16px)',
             color: 'white',
             textAlign: 'center',

@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { ThemeToggle } from './ThemeToggle';
 import { AvatarDropdown } from './AvatarDropdown';
-import { getNavItems } from '../../config/nav';
+import { getPrimaryNavItems } from '../../config/nav';
 import { useAuth } from '../../context/AuthContext';
 
 export function Navbar() {
@@ -14,7 +14,12 @@ export function Navbar() {
   const { status } = useAuth();
 
   // Links come from the registry — adding a feature never edits this file.
-  const items = getNavItems();
+  //
+  // Only for signed-in visitors. Every one of these destinations is behind the
+  // auth guard, so showing them on the marketing site offered a row of links
+  // that all bounce to /login. Settings is excluded as well: it belongs in the
+  // sidebar footer, not the marketing header.
+  const items = status === 'authenticated' ? getPrimaryNavItems() : [];
 
   return (
     <nav
@@ -66,8 +71,19 @@ export function Navbar() {
 
           <ThemeToggle />
 
-          <div suppressHydrationWarning style={{ display: 'flex', alignItems: 'center' }}>
-            {status === 'authenticated' && <AvatarDropdown />}
+          <div suppressHydrationWarning style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            {status === 'authenticated' ? (
+              <AvatarDropdown />
+            ) : status === 'anonymous' ? (
+              <>
+                <Link href="/login" style={{ fontWeight: 500 }}>
+                  Đăng nhập
+                </Link>
+                <Link href="/register" className="btn btn-primary" style={{ minHeight: '40px', padding: '0.5rem 1rem' }}>
+                  Dùng thử miễn phí
+                </Link>
+              </>
+            ) : null}
           </div>
         </div>
 
