@@ -11,7 +11,12 @@ import { Server, Socket } from 'socket.io';
 import { Logger } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { OnEvent } from '@nestjs/event-emitter';
-import { LiveEvent } from '@livenova/shared';
+import {
+  LiveEvent,
+  EVENTS_SOCKET,
+  GAME_INPUT_EVENT,
+  GameInputDispatch,
+} from '@livenova/shared';
 import { ChannelService } from '../channel/channel.service';
 import { loadEnv } from '../../common/config/env';
 
@@ -152,6 +157,22 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @OnEvent('live.any')
   broadcastLiveEvent(event: LiveEvent) {
     this.server.to(`channel_${event.channelId}`).emit('live_event', event);
+  }
+
+  /**
+   * Relay a key press to the user's signed-in dashboard.
+   *
+   * Addressed to the per-user room, which is joined from the verified JWT — a
+   * client cannot join another user's room by asking. The dashboard forwards it
+   * to the Local Bridge on the same machine; the server never executes it.
+   */
+  @OnEvent(GAME_INPUT_EVENT)
+  relayGameInput(payload: GameInputDispatch) {
+    if (!payload?.userId || !payload.command) {
+      this.logger.warn('Ignoring malformed game.input payload');
+      return;
+    }
+    this.server.to(`user_${payload.userId}`).emit(EVENTS_SOCKET.GAME_INPUT, payload.command);
   }
 
   /** Server-initiated pushes used by other services. */

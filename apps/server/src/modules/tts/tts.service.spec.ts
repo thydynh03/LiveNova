@@ -1,6 +1,19 @@
 import { BadRequestException } from '@nestjs/common';
 import { LedgerReason } from '@prisma/client';
-import { TtsService } from './tts.service';
+import { TtsService, chunkText } from './tts.service';
+
+/*
+ * The provider is an unauthenticated public endpoint. Left unmocked these
+ * specs would make real network calls to Google on every CI run, so a
+ * rate-limit or an outage there would show up as a failure here.
+ */
+jest.mock('google-tts-api', () => ({
+  getAudioBase64: jest.fn(async () => Buffer.from('fake-mp3').toString('base64')),
+}));
+
+import * as googleTTSModule from 'google-tts-api';
+
+const googleTTS = googleTTSModule as unknown as { getAudioBase64: jest.Mock };
 import { CreditService } from '../credit/credit.service';
 import { PrismaService } from '../../prisma/prisma.service';
 
@@ -51,6 +64,7 @@ describe('TtsService', () => {
   const past = () => new Date(Date.now() - 1_000);
 
   beforeEach(() => {
+    googleTTS.getAudioBase64.mockClear();
     prisma = makePrisma();
     credits = makeCredits();
     service = new TtsService(
@@ -220,6 +234,59 @@ describe('TtsService', () => {
 
       const stats = await service.getCacheStats();
       expect(stats.hitRate).toBe(0);
+    });
+  });
+  describe('chunkText', () => {
+    it('leaves text under the limit untouched', () => {
+      expect(chunkText('xin chào', 200)).toEqual(['xin chào']);
+    });
+
+    it('returns nothing for whitespace', () => {
+      expect(chunkText('   ', 200)).toEqual([]);
+    });
+
+    it('breaks on punctuation and keeps the delimiter with its clause', () => {
+      const chunks = chunkText('Một hai ba. Bốn năm sáu.', 12);
+      expect(chunks.every((c) => [...c].length <= 12)).toBe(true);
+      expect(chunks.join(' ')).toBe('Một hai ba. Bốn năm sáu.');
+    });
+
+    it('slices a single over-long run rather than throwing', () => {
+      // A viewer holding a key down. The library's own splitter throws here.
+      const chunks = chunkText('a'.repeat(450), 200);
+      expect(chunks).toHaveLength(3);
+      expect(chunks.every((c) => c.length <= 200)).toBe(true);
+      expect(chunks.join('')).toBe('a'.repeat(450));
+    });
+
+    it('never severs a Vietnamese diacritic from its base letter', () => {
+      const chunks = chunkText('ế'.repeat(300), 200);
+      expect(chunks.join('')).toBe('ế'.repeat(300));
+      expect(chunks.every((c) => [...c].length <= 200)).toBe(true);
+    });
+  });
+
+  describe('provider chunking', () => {
+    it('splits a long utterance into several provider calls (200-char cap)', async () => {
+      prisma.ttsCache.findUnique.mockResolvedValue(null);
+
+      // Previously this threw: the library rejects >200 chars, and the
+      // getAudioUrl fallback enforced the same limit.
+      const result = await service.synthesize({ text: 'a'.repeat(450), voice: 'vi-VN-A' }, 'u1');
+
+      expect(googleTTS.getAudioBase64).toHaveBeenCalledTimes(3);
+      expect(result.url.startsWith('data:audio/mpeg;base64,')).toBe(true);
+    });
+
+    it('maps a slow rate onto the only speed control the provider has', async () => {
+      prisma.ttsCache.findUnique.mockResolvedValue(null);
+
+      await service.synthesize({ text: 'xin chào', voice: 'vi-VN-A', rate: 0.5 }, 'u1');
+
+      expect(googleTTS.getAudioBase64).toHaveBeenCalledWith(
+        'xin chào',
+        expect.objectContaining({ lang: 'vi', slow: true }),
+      );
     });
   });
 });

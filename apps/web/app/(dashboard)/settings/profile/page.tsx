@@ -191,7 +191,7 @@ export default function ProfileSettingsPage() {
 
   return (
     <div style={{ padding: '2rem', maxWidth: '850px', margin: '0 auto' }}>
-      <h1 style={{ fontSize: '2rem', fontWeight: 700, marginBottom: '0.5rem' }}>
+      <h1 className="page-title">
         Trang cá nhân & <span className="accent">Cài đặt bảo mật</span>
       </h1>
       <p style={{ color: 'hsl(var(--muted-foreground))', marginBottom: '2rem' }}>
@@ -271,8 +271,8 @@ export default function ProfileSettingsPage() {
               style={{
                 padding: '0.75rem 1rem',
                 borderRadius: 'var(--radius)',
-                background: profileMsg.type === 'success' ? 'rgba(34, 197, 94, 0.15)' : 'rgba(239, 68, 68, 0.15)',
-                border: profileMsg.type === 'success' ? '1px solid rgba(34, 197, 94, 0.3)' : '1px solid rgba(239, 68, 68, 0.3)',
+                background: profileMsg.type === 'success' ? 'hsl(var(--success) / 0.08)' : 'hsl(var(--destructive) / 0.08)',
+                border: profileMsg.type === 'success' ? '1px solid hsl(var(--success) / 0.3)' : '1px solid hsl(var(--destructive) / 0.3)',
                 color: profileMsg.type === 'success' ? '#4ade80' : 'hsl(var(--destructive))',
                 marginBottom: '1.25rem',
                 fontSize: '0.9rem',
@@ -409,8 +409,8 @@ export default function ProfileSettingsPage() {
               style={{
                 padding: '0.75rem 1rem',
                 borderRadius: 'var(--radius)',
-                background: pwdMsg.type === 'success' ? 'rgba(34, 197, 94, 0.15)' : 'rgba(239, 68, 68, 0.15)',
-                border: pwdMsg.type === 'success' ? '1px solid rgba(34, 197, 94, 0.3)' : '1px solid rgba(239, 68, 68, 0.3)',
+                background: pwdMsg.type === 'success' ? 'hsl(var(--success) / 0.08)' : 'hsl(var(--destructive) / 0.08)',
+                border: pwdMsg.type === 'success' ? '1px solid hsl(var(--success) / 0.3)' : '1px solid hsl(var(--destructive) / 0.3)',
                 color: pwdMsg.type === 'success' ? '#4ade80' : 'hsl(var(--destructive))',
                 marginBottom: '1.25rem',
                 fontSize: '0.9rem',
@@ -520,7 +520,7 @@ export default function ProfileSettingsPage() {
                     style={{
                       padding: '0.4rem 0.85rem',
                       borderRadius: '6px',
-                      background: 'rgba(239, 68, 68, 0.15)',
+                      background: 'hsl(var(--destructive) / 0.08)',
                       color: 'hsl(var(--destructive))',
                       border: 'none',
                       fontSize: '0.8rem',

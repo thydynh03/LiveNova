@@ -326,6 +326,23 @@ export async function revokeSession(sessionId: string): Promise<{ success: boole
   return api.delete<{ success: boolean }>(`/auth/sessions/${sessionId}`);
 }
 
+/**
+ * Free voice preview.
+ *
+ * This goes to the API rather than a Next route handler. A route handler that
+ * called the speech provider directly would sit outside the API's auth guard,
+ * length validation and per-route throttle — an unauthenticated endpoint
+ * anyone could drive as a free speech proxy.
+ */
+export async function previewTts(req: {
+  text: string;
+  voice: string;
+  pitch?: number;
+  rate?: number;
+}): Promise<{ url: string }> {
+  return api.post<{ url: string }>('/tts/preview', req);
+}
+
 export async function logout(): Promise<void> {
   logoutGeneration += 1;
   sessionGeneration += 1;

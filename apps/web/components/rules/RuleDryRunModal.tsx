@@ -4,28 +4,131 @@ import React, { useState } from 'react';
 import { Icon } from '../ui/Icon';
 import { api } from '../../lib/api-client';
 
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
 export interface RuleDryRunModalProps {
   rule: any;
   onClose: () => void;
 }
 
+const labelStyle: React.CSSProperties = {
+  display: 'block',
+  marginBottom: '0.375rem',
+  fontWeight: 600,
+  fontSize: '0.875rem',
+};
+
 const inputStyle: React.CSSProperties = {
   width: '100%',
-  padding: '0.75rem 1rem',
+  minHeight: '44px',
+  padding: '0.625rem 0.875rem',
   borderRadius: 'var(--radius)',
-  border: '1px solid var(--glass-border)',
-  background: 'rgba(255, 255, 255, 0.05)',
+  border: '1px solid hsl(var(--border))',
+  background: 'hsl(var(--background))',
   color: 'inherit',
-  fontSize: '0.95rem',
-  outline: 'none',
+  font: 'inherit',
+  fontSize: '0.9375rem',
 };
+
+const EVENT_OPTIONS = [
+  { value: 'gift', label: 'Có người tặng quà' },
+  { value: 'comment', label: 'Có người bình luận' },
+  { value: 'like', label: 'Có người thả tim' },
+  { value: 'follow', label: 'Có người theo dõi mới' },
+];
+
+/**
+ * What the viewer would actually get.
+ *
+ * The previous version printed `JSON.stringify(act.payload)`, which is a
+ * developer's answer to "did it work?". A creator needs to see the sentence
+ * that will be read aloud and the media that will appear — those are the things
+ * they are checking before they go live.
+ */
+function ActionPreview({ action }: { action: any }) {
+  const payload = action?.payload ?? {};
+
+  if (action?.type === 'tts_read') {
+    const text = payload.text ?? payload.content ?? '';
+    return (
+      <div style={{ display: 'flex', gap: '0.625rem', alignItems: 'flex-start' }}>
+        <span
+          aria-hidden="true"
+          style={{
+            width: 32,
+            height: 32,
+            flex: 'none',
+            display: 'grid',
+            placeItems: 'center',
+            borderRadius: 999,
+            background: 'hsl(var(--accent-surface))',
+            color: 'hsl(var(--primary))',
+          }}
+        >
+          <Icon name="audio" size={18} />
+        </span>
+        <span>
+          <span style={{ display: 'block', fontSize: '0.8125rem', color: 'hsl(var(--muted-foreground))' }}>
+            Sẽ đọc thành tiếng:
+          </span>
+          <span
+            style={{
+              display: 'inline-block',
+              marginTop: '0.25rem',
+              padding: '0.5rem 0.875rem',
+              borderRadius: '14px 14px 14px 4px',
+              background: 'hsl(var(--card))',
+              border: '1px solid hsl(var(--border))',
+            }}
+          >
+            {text || <em style={{ color: 'hsl(var(--muted-foreground))' }}>(câu đọc đang để trống)</em>}
+          </span>
+        </span>
+      </div>
+    );
+  }
+
+  if (action?.type === 'media_popup') {
+    return (
+      <div style={{ display: 'flex', gap: '0.625rem', alignItems: 'center' }}>
+        <span
+          aria-hidden="true"
+          style={{
+            width: 32,
+            height: 32,
+            flex: 'none',
+            display: 'grid',
+            placeItems: 'center',
+            borderRadius: 999,
+            background: 'hsl(var(--accent-surface))',
+            color: 'hsl(var(--primary))',
+          }}
+        >
+          <Icon name="preview" size={18} />
+        </span>
+        <span>
+          <span style={{ display: 'block', fontSize: '0.8125rem', color: 'hsl(var(--muted-foreground))' }}>
+            Sẽ hiện lên màn hình live:
+          </span>
+          <strong>{payload.name ?? payload.url ?? 'Video/ảnh đã chọn'}</strong>
+        </span>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ fontSize: '0.9375rem' }}>
+      <strong>{action?.type}</strong>
+    </div>
+  );
+}
 
 export function RuleDryRunModal({ rule, onClose }: RuleDryRunModalProps) {
   const [eventType, setEventType] = useState<string>(rule?.conditions?.eventType?.[0] || 'gift');
-  const [senderUsername, setSenderUsername] = useState('nguoidung123');
-  const [giftName, setGiftName] = useState(rule?.conditions?.giftName || 'Rose');
+  const [senderUsername, setSenderUsername] = useState('');
+  const [giftName, setGiftName] = useState(rule?.conditions?.giftName || '');
   const [giftCoinValue, setGiftCoinValue] = useState<number>(rule?.conditions?.minCoinValue || 1);
-  const [content, setContent] = useState('Xin chào bạn, chúc livestream vui vẻ!');
+  const [content, setContent] = useState('');
   const [testing, setTesting] = useState(false);
   const [result, setResult] = useState<any | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -46,7 +149,7 @@ export function RuleDryRunModal({ rule, onClose }: RuleDryRunModalProps) {
       });
       setResult(res);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Chạy thử nghiệm thất bại');
+      setError(err instanceof Error ? err.message : 'Không chạy thử được, thử lại nhé');
     } finally {
       setTesting(false);
     }
@@ -54,157 +157,227 @@ export function RuleDryRunModal({ rule, onClose }: RuleDryRunModalProps) {
 
   return (
     <div
+      role="dialog"
+      aria-modal="true"
+      aria-label={`Thử trước kịch bản ${rule.name}`}
       style={{
         position: 'fixed',
         inset: 0,
-        background: 'rgba(0, 0, 0, 0.75)',
-        backdropFilter: 'blur(8px)',
-        zIndex: 999,
+        background: 'hsl(20 8% 11% / 0.45)',
+        zIndex: 300,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
         padding: '1.5rem',
+        overflowY: 'auto',
       }}
     >
       <div
-        className="glass"
+        className="card"
         style={{
           width: '100%',
           maxWidth: '560px',
-          borderRadius: 'var(--radius-lg)',
-          border: '1px solid var(--glass-border)',
-          display: 'flex',
-          flexDirection: 'column',
-          boxShadow: '0 25px 50px rgba(0,0,0,0.5)',
+          padding: 0,
+          boxShadow: 'var(--shadow-lg)',
           overflow: 'hidden',
         }}
       >
-        {/* Header */}
         <div
           style={{
             padding: '1.25rem 1.5rem',
-            borderBottom: '1px solid var(--glass-border)',
+            borderBottom: '1px solid hsl(var(--border))',
             display: 'flex',
-            alignItems: 'center',
+            alignItems: 'flex-start',
             justifyContent: 'space-between',
+            gap: '1rem',
           }}
         >
           <div>
-            <h2 style={{ fontSize: '1.2rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <Icon name="device" size={20} />
-              Giả lập & Chạy thử Luật: {rule.name}
-            </h2>
-            <p style={{ fontSize: '0.8rem', color: 'hsl(var(--muted-foreground))', marginTop: '0.2rem' }}>
-              Kết quả sẽ hiển thị ngay lập tức trên OBS Overlay nếu đang mở!
+            <h2 className="section-title">Thử trước: {rule.name}</h2>
+            <p style={{ fontSize: '0.875rem', color: 'hsl(var(--muted-foreground))', marginTop: '0.125rem' }}>
+              Giả vờ có một khán giả vừa làm điều gì đó, xem kịch bản có chạy không. Không tốn lượt đọc.
             </p>
           </div>
           <button
+            type="button"
             onClick={onClose}
-            style={{ background: 'none', border: 'none', color: 'hsl(var(--muted-foreground))', fontSize: '1.5rem', cursor: 'pointer' }}
+            aria-label="Đóng"
+            style={{
+              background: 'none',
+              border: 'none',
+              color: 'hsl(var(--muted-foreground))',
+              cursor: 'pointer',
+              padding: '0.25rem',
+              display: 'flex',
+            }}
           >
-            ✕
+            <Icon name="close" size={20} />
           </button>
         </div>
 
-        <form onSubmit={handleRunTest} style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+        <form
+          onSubmit={handleRunTest}
+          style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}
+        >
           {error && (
-            <div style={{ padding: '0.75rem', borderRadius: 'var(--radius)', background: 'rgba(239, 68, 68, 0.15)', color: 'hsl(var(--destructive))', fontSize: '0.9rem' }}>
+            <div
+              role="alert"
+              style={{
+                padding: '0.75rem 0.875rem',
+                borderRadius: 'var(--radius)',
+                background: 'hsl(var(--destructive) / 0.08)',
+                border: '1px solid hsl(var(--destructive) / 0.3)',
+                color: 'hsl(var(--destructive))',
+                fontSize: '0.9375rem',
+              }}
+            >
               {error}
             </div>
           )}
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-            <div>
-              <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 600, fontSize: '0.85rem' }}>Loại sự kiện giả lập</label>
-              <select value={eventType} onChange={(e) => setEventType(e.target.value)} style={{ ...inputStyle, background: '#18181b' }}>
-                <option value="gift">🎁 Quà tặng (Gift)</option>
-                <option value="comment">💬 Bình luận (Comment)</option>
-                <option value="like">❤️ Thả tim (Like)</option>
-                <option value="follow">➕ Follow mới</option>
-              </select>
-            </div>
+          <div>
+            <label htmlFor="dryrun-event" style={labelStyle}>
+              Chuyện gì vừa xảy ra?
+            </label>
+            <select
+              id="dryrun-event"
+              value={eventType}
+              onChange={(e) => setEventType(e.target.value)}
+              style={inputStyle}
+            >
+              {EVENT_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+          </div>
 
-            <div>
-              <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 600, fontSize: '0.85rem' }}>Tên người gửi (Username)</label>
-              <input type="text" value={senderUsername} onChange={(e) => setSenderUsername(e.target.value)} style={inputStyle} required />
-            </div>
+          <div>
+            <label htmlFor="dryrun-sender" style={labelStyle}>
+              Tên người xem
+            </label>
+            <input
+              id="dryrun-sender"
+              type="text"
+              value={senderUsername}
+              onChange={(e) => setSenderUsername(e.target.value)}
+              placeholder="Ví dụ: Minh Anh"
+              style={inputStyle}
+              required
+            />
           </div>
 
           {eventType === 'gift' && (
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
               <div>
-                <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 600, fontSize: '0.85rem' }}>Tên quà tặng</label>
-                <input type="text" value={giftName} onChange={(e) => setGiftName(e.target.value)} style={inputStyle} required />
+                <label htmlFor="dryrun-gift" style={labelStyle}>
+                  Tặng quà gì
+                </label>
+                <input
+                  id="dryrun-gift"
+                  type="text"
+                  value={giftName}
+                  onChange={(e) => setGiftName(e.target.value)}
+                  placeholder="Ví dụ: Hoa hồng"
+                  style={inputStyle}
+                  required
+                />
               </div>
               <div>
-                <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 600, fontSize: '0.85rem' }}>Số lượng Xu</label>
-                <input type="number" min={1} value={giftCoinValue} onChange={(e) => setGiftCoinValue(parseInt(e.target.value, 10) || 1)} style={inputStyle} required />
+                <label htmlFor="dryrun-coins" style={labelStyle}>
+                  Trị giá bao nhiêu xu
+                </label>
+                <input
+                  id="dryrun-coins"
+                  type="number"
+                  min={1}
+                  value={giftCoinValue}
+                  onChange={(e) => setGiftCoinValue(parseInt(e.target.value, 10) || 1)}
+                  style={inputStyle}
+                  required
+                />
               </div>
             </div>
           )}
 
           {eventType === 'comment' && (
             <div>
-              <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 600, fontSize: '0.85rem' }}>Nội dung bình luận</label>
-              <input type="text" value={content} onChange={(e) => setContent(e.target.value)} style={inputStyle} required />
+              <label htmlFor="dryrun-content" style={labelStyle}>
+                Họ bình luận gì
+              </label>
+              <input
+                id="dryrun-content"
+                type="text"
+                value={content}
+                onChange={(e) => setContent(e.target.value)}
+                placeholder="Ví dụ: Chị ơi cái này còn hàng không ạ"
+                style={inputStyle}
+                required
+              />
             </div>
           )}
 
-          <button
-            type="submit"
-            disabled={testing}
-            style={{
-              padding: '0.75rem',
-              borderRadius: 'var(--radius)',
-              background: 'hsl(var(--primary))',
-              color: '#fff',
-              border: 'none',
-              fontWeight: 700,
-              cursor: testing ? 'not-allowed' : 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '0.5rem',
-            }}
-          >
-            <Icon name="device" size={18} />
-            {testing ? 'Đang kiểm tra kết quả...' : 'Bắt đầu Chạy thử (Dry-Run)'}
+          <button type="submit" className="btn btn-primary" disabled={testing}>
+            {testing ? 'Đang thử…' : 'Thử ngay'}
           </button>
 
-          {/* Test Results Output */}
           {result && (
             <div
+              aria-live="polite"
               style={{
-                marginTop: '0.5rem',
-                padding: '1.25rem',
+                padding: '1.125rem',
                 borderRadius: 'var(--radius)',
-                background: result.match ? 'rgba(34, 197, 94, 0.12)' : 'rgba(239, 68, 68, 0.12)',
-                border: result.match ? '1px solid rgba(34, 197, 94, 0.3)' : '1px solid rgba(239, 68, 68, 0.3)',
+                background: result.match
+                  ? 'hsl(var(--success) / 0.07)'
+                  : 'hsl(var(--muted) / 0.6)',
+                border: `1px solid ${
+                  result.match ? 'hsl(var(--success) / 0.3)' : 'hsl(var(--border))'
+                }`,
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-                <span style={{ fontWeight: 700, color: result.match ? '#4ade80' : 'hsl(var(--destructive))', fontSize: '1rem' }}>
-                  {result.match ? '✅ KHỚP ĐIỀU KIỆN! (SUCCESS)' : '❌ KHÔNG KHỚP ĐIỀU KIỆN'}
-                </span>
-                <span style={{ fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))' }}>
-                  Độ trễ: {result.latencyMs} ms · 0 Credit
-                </span>
-              </div>
+              <p
+                style={{
+                  fontWeight: 600,
+                  color: result.match ? 'hsl(var(--success))' : 'hsl(var(--foreground))',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.5rem',
+                }}
+              >
+                <Icon name={result.match ? 'check' : 'info'} size={18} weight="bold" />
+                {result.match
+                  ? 'Kịch bản có chạy với tình huống này'
+                  : 'Kịch bản sẽ không chạy với tình huống này'}
+              </p>
 
-              {result.match && (
-                <div style={{ fontSize: '0.85rem', color: 'hsl(var(--foreground))' }}>
-                  <p style={{ fontWeight: '600', marginBottom: '0.3rem' }}>Đã kích hoạt {result.actionsTriggered?.length || 0} hành động:</p>
-                  <ul style={{ paddingLeft: '1.25rem', margin: 0 }}>
-                    {result.actionsTriggered?.map((act: any, i: number) => (
-                      <li key={i} style={{ marginBottom: '0.2rem' }}>
-                        <strong>{act.type}</strong>: {JSON.stringify(act.payload)}
-                      </li>
-                    ))}
-                  </ul>
-                  <p style={{ fontSize: '0.8rem', color: '#4ade80', marginTop: '0.6rem', fontStyle: 'italic' }}>
-                    💡 Đã phát tín hiệu hiển thị lên OBS Overlay!
+              {result.match ? (
+                <div
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '0.875rem',
+                    marginTop: '0.875rem',
+                  }}
+                >
+                  {(result.actionsTriggered ?? []).map((act: any, i: number) => (
+                    <ActionPreview key={i} action={act} />
+                  ))}
+                  <p style={{ fontSize: '0.8125rem', color: 'hsl(var(--muted-foreground))' }}>
+                    Nếu OBS đang mở, hiệu ứng vừa hiện lên đó luôn.
                   </p>
                 </div>
+              ) : (
+                <p
+                  style={{
+                    fontSize: '0.9375rem',
+                    color: 'hsl(var(--muted-foreground))',
+                    marginTop: '0.5rem',
+                  }}
+                >
+                  Tình huống bạn vừa thử không thoả điều kiện của kịch bản. Bấm “Sửa” để nới điều
+                  kiện, hoặc thử lại với giá trị khác.
+                </p>
               )}
             </div>
           )}

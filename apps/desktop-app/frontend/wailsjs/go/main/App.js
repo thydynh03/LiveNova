@@ -6,8 +6,20 @@ export function ConnectOBS(arg1, arg2, arg3) {
   return window['go']['main']['App']['ConnectOBS'](arg1, arg2, arg3);
 }
 
+export function EmergencyStop() {
+  return window['go']['main']['App']['EmergencyStop']();
+}
+
 export function GetBridgeStatus() {
   return window['go']['main']['App']['GetBridgeStatus']();
+}
+
+export function IsHalted() {
+  return window['go']['main']['App']['IsHalted']();
+}
+
+export function ResumeAfterStop() {
+  return window['go']['main']['App']['ResumeAfterStop']();
 }
 
 export function SendRconCommand(arg1, arg2, arg3, arg4) {

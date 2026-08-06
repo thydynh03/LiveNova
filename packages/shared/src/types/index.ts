@@ -253,6 +253,14 @@ export const OVERLAY_SOCKET = {
   ACTION: 'overlay.action',
   READY: 'overlay.ready',
   ERROR: 'overlay.error',
+  /**
+   * Continuous state, as opposed to one-shot actions.
+   *
+   * A goal bar is not an event: it has a value that is simply true right now,
+   * and a browser source that reconnects mid-broadcast has to be told where the
+   * bar stands without replaying every gift that got it there.
+   */
+  STATE: 'overlay.state',
 } as const;
 
 export const EVENTS_SOCKET = {
@@ -261,7 +269,63 @@ export const EVENTS_SOCKET = {
   SUBSCRIBE_CHANNEL: 'subscribe_channel',
   UNSUBSCRIBE_CHANNEL: 'unsubscribe_channel',
   LIVE_EVENT: 'live_event',
+  /**
+   * A rule asked for a key press on the streamer's machine.
+   *
+   * This rides the authenticated dashboard socket rather than the overlay one.
+   * An overlay authenticates with a public token that gets pasted into OBS and
+   * is routinely visible on stream; anything that can move the streamer's
+   * keyboard must never travel on a credential like that.
+   */
+  GAME_INPUT: 'game_input',
 } as const;
+
+/**
+ * A key press for the desktop Local Bridge to perform.
+ *
+ * The server does not execute this — it cannot reach the streamer's keyboard.
+ * It relays the request to the signed-in dashboard, which forwards it to the
+ * bridge running on the same machine. Every safety limit is enforced there,
+ * because that is the only side that can guarantee it.
+ */
+export interface GameInputCommand {
+  /** Unique per dispatch, so the bridge can ignore a repeat after a reconnect. */
+  id: string;
+  ruleName: string;
+  /** Win32 virtual-key code. */
+  vkCode: number;
+  holdMs: number;
+  cooldownMs: number;
+}
+
+/** Internal bus event carrying a GameInputCommand to the dashboard gateway. */
+export const GAME_INPUT_EVENT = 'game.input';
+
+export interface GameInputDispatch {
+  userId: string;
+  command: GameInputCommand;
+}
+
+/**
+ * Read a GAME_INPUT action payload written by a rule author.
+ *
+ * Returns null when the payload cannot describe a key press at all. The bridge
+ * re-checks everything against its own allowlist, but a rule that can never
+ * work should not be relayed across the network on every matching gift.
+ */
+export function readGameInput(payload: unknown): Omit<GameInputCommand, 'id' | 'ruleName'> | null {
+  const raw = (payload ?? {}) as Record<string, unknown>;
+  const vkCode = typeof raw.vkCode === 'number' ? Math.floor(raw.vkCode) : NaN;
+
+  // Win32 virtual-key codes are a single byte.
+  if (!Number.isFinite(vkCode) || vkCode < 1 || vkCode > 0xff) return null;
+
+  const holdMs = typeof raw.holdMs === 'number' && raw.holdMs > 0 ? Math.floor(raw.holdMs) : 50;
+  const cooldownMs =
+    typeof raw.cooldownMs === 'number' && raw.cooldownMs > 0 ? Math.floor(raw.cooldownMs) : 1000;
+
+  return { vkCode, holdMs, cooldownMs };
+}
 
 export function clampMediaDuration(ms: number | undefined): number {
   const value = typeof ms === 'number' && Number.isFinite(ms)
@@ -281,6 +345,105 @@ export function clampMediaDuration(ms: number | undefined): number {
  * type is the entire seam between them.
  */
 export const OVERLAY_DISPATCH_EVENT = 'overlay.dispatch';
+
+/** Config an overlay of type GOAL reads from its own Overlay row. */
+export interface GoalConfig {
+  /** Coins required to fill the bar. */
+  target: number;
+  label: string;
+}
+
+export const GOAL_DEFAULTS: GoalConfig = {
+  target: 10_000,
+  label: 'Mục tiêu hôm nay',
+};
+
+export function readGoalConfig(config: unknown): GoalConfig {
+  const raw = (config ?? {}) as Partial<Record<keyof GoalConfig, unknown>>;
+  const target = typeof raw.target === 'number' && raw.target > 0
+    ? Math.floor(raw.target)
+    : GOAL_DEFAULTS.target;
+  const label = typeof raw.label === 'string' && raw.label.trim() !== ''
+    ? raw.label.trim()
+    : GOAL_DEFAULTS.label;
+  return { target, label };
+}
+
+/** Payload of an OVERLAY_SOCKET.STATE frame for a GOAL overlay. */
+export interface GoalState {
+  kind: 'goal';
+  /** Coins accumulated so far. */
+  current: number;
+  target: number;
+  label: string;
+}
+
+/** One side of a PK battle. */
+export interface PkSide {
+  hostDisplayName: string;
+  score: number;
+  /** Highest single contributor on this side, if the platform reported one. */
+  mvpDisplayName?: string;
+}
+
+/** Payload of an OVERLAY_SOCKET.STATE frame for a PK_BAR overlay. */
+export interface PkState {
+  kind: 'pk';
+  battleId: string;
+  /** Exactly two sides; a multi-guest battle is reduced to the two teams. */
+  sides: [PkSide, PkSide];
+  /**
+   * Absolute end time in epoch milliseconds.
+   *
+   * The overlay counts down from this rather than from a seconds-remaining
+   * figure: a browser source that reconnects thirty seconds later would
+   * otherwise restart the clock from a stale number.
+   */
+  endsAtMs: number;
+  /** False once the platform reports the round has finished. */
+  active: boolean;
+}
+
+export type OverlayState = GoalState | PkState;
+
+/**
+ * Internal bus event carrying a PK battle scoreboard.
+ *
+ * Separate from `live.*` because a battle is not something a viewer did: it has
+ * no sender, and it describes a standing score rather than an occurrence.
+ */
+export const BATTLE_EVENT = 'live.battle';
+
+export interface BattleUpdate {
+  channelId: string;
+  battleId: string;
+  /** Platform status code; a finished round stops being active. */
+  status: number;
+  endsAtMs: number;
+  teams: { hostDisplayName: string; score: number; mvpDisplayName?: string }[];
+}
+
+/** Internal bus event name for continuous overlay state. */
+export const OVERLAY_STATE_EVENT = 'overlay.state';
+
+/**
+ * Emitted whenever a user's overlays change.
+ *
+ * Several services cache "which overlay renders what" per user. Going through
+ * the bus keeps them from having to inject one another, which would tie the
+ * overlay module to the rule module in one direction and back again.
+ */
+export const OVERLAY_CHANGED_EVENT = 'overlay.changed';
+
+export interface OverlayChangedEvent {
+  userId: string;
+}
+
+export interface OverlayStateDispatch {
+  userId: string;
+  overlayId: string;
+  state: OverlayState;
+}
 
 export interface OverlayDispatchEvent {
   /** Owner of the overlay(s) this action should reach. */

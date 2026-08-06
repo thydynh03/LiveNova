@@ -34,6 +34,10 @@ var allowedOrigins = []string{
 // DefaultPort is the loopback port the bridge listens on.
 const DefaultPort = 4000
 
+// maxCommandBytes bounds a single incoming frame. Commands are a few dozen
+// bytes; anything near this is a client that has lost the plot.
+const maxCommandBytes = 4096
+
 // Status is the snapshot the desktop UI polls.
 type Status struct {
 	IsRunning        bool   `json:"is_running"`
@@ -181,8 +185,24 @@ func (s *State) handler(w http.ResponseWriter, r *http.Request) {
 			slog.Debug("Local Bridge socket closed", "err", err)
 			return
 		}
-		if msgType == websocket.TextMessage {
-			slog.Debug("Local Bridge received", "bytes", len(msg))
+		if msgType != websocket.TextMessage {
+			continue
+		}
+
+		// Bounded before parsing: an unbounded frame would let one client hold
+		// an arbitrary amount of memory on the streamer's machine.
+		if len(msg) > maxCommandBytes {
+			_ = conn.WriteJSON(Reply{Type: "error", OK: false, Error: "lệnh quá dài"})
+			continue
+		}
+
+		reply := handleCommand(msg)
+		if !reply.OK {
+			slog.Warn("Local Bridge command refused", "type", reply.Type, "err", reply.Error)
+		}
+		if err := conn.WriteJSON(reply); err != nil {
+			slog.Debug("Local Bridge write failed", "err", err)
+			return
 		}
 	}
 }

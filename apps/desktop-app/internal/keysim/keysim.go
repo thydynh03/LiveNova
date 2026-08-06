@@ -8,8 +8,10 @@
 package keysim
 
 import (
+	"errors"
 	"fmt"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -121,14 +123,48 @@ func enforceLimits(vk uint16, holdMS, cooldownMS uint64) (uint64, error) {
 	return hold, nil
 }
 
+// halted is the emergency stop.
+//
+// The desktop UI has always had a "Dừng khẩn cấp" button, but it only appended
+// a line to the log — nothing stopped. A control that promises to cut input to
+// a live game and does not is worse than no control at all, because it is
+// trusted in exactly the moment it matters.
+//
+// Checked here rather than in the UI so it holds for every caller, including
+// gift-triggered presses arriving over the Local Bridge.
+var halted atomic.Bool
+
+// Halt blocks all further key presses until Resume is called.
+func Halt() { halted.Store(true) }
+
+// Resume lifts the emergency stop.
+func Resume() { halted.Store(false) }
+
+// IsHalted reports whether the emergency stop is engaged.
+func IsHalted() bool { return halted.Load() }
+
+// ErrHalted is returned by PressKey while the emergency stop is engaged.
+var ErrHalted = errors.New("đã bấm dừng khẩn cấp — bật lại để tiếp tục")
+
 // PressKey holds keyCode down for holdMS, subject to the safety limits.
 //
 // The caller must state the cooldown it expects to honour; anything below
 // MinCooldownMS is raised to it.
 func PressKey(keyCode uint16, holdMS, cooldownMS uint64) error {
+	if halted.Load() {
+		return ErrHalted
+	}
+
 	hold, err := enforceLimits(keyCode, holdMS, cooldownMS)
 	if err != nil {
 		return err
+	}
+
+	// Re-check after the limit gate: the stop may have been pressed while this
+	// call was waiting, and the point of the button is that nothing already in
+	// flight gets through.
+	if halted.Load() {
+		return ErrHalted
 	}
 
 	sendKey(keyCode, false)

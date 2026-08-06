@@ -1,5 +1,6 @@
 import { Injectable, Logger, BadRequestException } from '@nestjs/common';
 import { createHash } from 'crypto';
+import * as googleTTS from 'google-tts-api';
 import { LedgerReason } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreditService } from '../credit/credit.service';
@@ -12,6 +13,58 @@ export interface TtsRequest {
   rate?: number;
 }
 
+/**
+ * Split text into pieces no longer than `limit`, preferring natural breaks.
+ *
+ * Tries sentence punctuation first, then whitespace, and only slices mid-word
+ * when a single run of characters is itself over the limit. That last case is
+ * not hypothetical: a viewer holding down a key produces exactly it, and a
+ * splitter that throws instead would fail the whole utterance.
+ *
+ * Length is measured in code points, matching the service's own validation, so
+ * Vietnamese combining marks are never severed from their base letter.
+ */
+export function chunkText(text: string, limit: number): string[] {
+  const trimmed = text.trim();
+  if (trimmed === '') return [];
+  if ([...trimmed].length <= limit) return [trimmed];
+
+  const chunks: string[] = [];
+  let current = '';
+
+  const push = () => {
+    const value = current.trim();
+    if (value !== '') chunks.push(value);
+    current = '';
+  };
+
+  // Keep the delimiter attached to the piece it ends, so the pause lands where
+  // the speaker would put it.
+  for (const segment of trimmed.split(/(?<=[.!?,;:])\s+|\s+/)) {
+    if (segment === '') continue;
+
+    const units = [...segment];
+    if (units.length > limit) {
+      push();
+      for (let i = 0; i < units.length; i += limit) {
+        chunks.push(units.slice(i, i + limit).join(''));
+      }
+      continue;
+    }
+
+    const candidate = current === '' ? segment : `${current} ${segment}`;
+    if ([...candidate].length > limit) {
+      push();
+      current = segment;
+    } else {
+      current = candidate;
+    }
+  }
+
+  push();
+  return chunks;
+}
+
 export interface TtsResult {
   url: string;
   cached: boolean;
@@ -22,6 +75,9 @@ export interface TtsResult {
 export class TtsService {
   private readonly logger = new Logger(TtsService.name);
   private readonly env = loadEnv();
+
+  /** Google Translate TTS rejects any single request longer than this. */
+  private static readonly PROVIDER_CHAR_LIMIT = 200;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -154,17 +210,67 @@ export class TtsService {
   }
 
   /**
-   * ⚠️ Q-21 UNRESOLVED — no TTS provider has been chosen or contracted.
+   * Google Translate TTS.
    *
-   * This is deliberately not wired to Google Cloud TTS yet: provider choice,
-   * Vietnamese voice quality, and per-character pricing are open questions that
-   * directly determine the credit formula in BR-03. Everything around this
-   * method (caching, metering, refunds) is real and tested; only the outbound
-   * call is pending.
+   * This endpoint is not a contracted provider and offers no SLA, so the credit
+   * formula in BR-03 stays provisional (Q-21). It does produce usable
+   * Vietnamese, which is enough to run the product end to end.
+   *
+   * Two of its constraints shape this method:
+   *
+   * 1. It rejects anything over 200 characters. `TTS_MAX_CHARS` defaults to 500,
+   *    so every utterance in the 201..500 range has to be split. The previous
+   *    version called `getAudioBase64` directly and fell back to `getAudioUrl`,
+   *    which enforces the same 200-character limit — so the fallback threw too
+   *    and every long utterance failed outright.
+   * 2. It exposes only language and a slow/normal flag. Pitch and arbitrary
+   *    voice ids cannot be honoured; see `providerParams`.
    */
-  private async callProvider(_req: TtsRequest, cacheKey: string): Promise<string> {
-    this.logger.warn('Q-21 UNRESOLVED: no TTS provider configured; returning placeholder URL');
-    return `https://cdn.placeholder.invalid/tts/${cacheKey}.mp3`;
+  private async callProvider(req: TtsRequest, _cacheKey: string): Promise<string> {
+    const { lang, slow } = this.providerParams(req);
+
+    // The library's own splitter is not used: it throws outright when a segment
+    // has no punctuation to break on, and unpunctuated 200+ character comments
+    // are exactly what a live chat produces.
+    const chunks = chunkText(req.text, TtsService.PROVIDER_CHAR_LIMIT);
+    if (chunks.length === 0) {
+      throw new Error('TTS provider received no speakable text');
+    }
+
+    const parts: string[] = [];
+    for (const chunk of chunks) {
+      // Sequential rather than parallel: the endpoint is unauthenticated and
+      // rate-limits aggressively, and the pieces have to keep their order.
+      parts.push(
+        await googleTTS.getAudioBase64(chunk, {
+          lang,
+          slow,
+          host: 'https://translate.google.com',
+          timeout: 10_000,
+        }),
+      );
+    }
+
+    // MPEG frames are self-delimiting, so concatenating the chunks yields a
+    // single stream every browser decoder plays back in order.
+    const audio = Buffer.concat(parts.map((part) => Buffer.from(part, 'base64')));
+    return `data:audio/mpeg;base64,${audio.toString('base64')}`;
+  }
+
+  /**
+   * Map a request onto what this provider can actually do.
+   *
+   * The voice id is the product's own (`vi-VN-Wavenet-A`); only its language
+   * prefix survives. Rate is collapsed to the slow flag, and pitch is dropped.
+   * The cache key still covers all three, so switching voice re-synthesises
+   * rather than silently serving audio recorded under different settings.
+   */
+  private providerParams(req: TtsRequest): { lang: string; slow: boolean } {
+    const langMatch = /^([a-z]{2})(?:-[A-Z]{2})?/.exec(req.voice ?? '');
+    return {
+      lang: langMatch ? langMatch[1] : 'vi',
+      slow: (req.rate ?? 1) < 0.85,
+    };
   }
 
   async getCacheStats() {

@@ -1,11 +1,31 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { randomBytes } from 'crypto';
 import { OverlayType, Prisma } from '@prisma/client';
+import {
+  OVERLAY_CHANGED_EVENT,
+  OverlayChangedEvent,
+} from '@livenova/shared';
 import { PrismaService } from '../../prisma/prisma.service';
 
 @Injectable()
 export class OverlayService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly eventEmitter: EventEmitter2,
+  ) {}
+
+  /**
+   * Tell the services that cache a user's overlay layout to re-read it.
+   *
+   * Without this, a streamer who adds their alerts overlay after the engine has
+   * already looked and found none keeps getting nothing until the process
+   * restarts.
+   */
+  private announceChange(userId: string): void {
+    const payload: OverlayChangedEvent = { userId };
+    this.eventEmitter.emit(OVERLAY_CHANGED_EVENT, payload);
+  }
 
   /**
    * M-08 — 256 bits of entropy, per SRS §B.8.1.
@@ -19,6 +39,7 @@ export class OverlayService {
   }
 
   async createOverlay(userId: string, type: OverlayType, config: Prisma.InputJsonObject) {
+    this.announceChange(userId);
     return this.prisma.overlay.create({
       data: {
         userId,
@@ -96,7 +117,9 @@ export class OverlayService {
 
     const overlay = await this.prisma.overlay.findUnique({
       where: { publicToken: token },
-      select: { id: true, userId: true, type: true, enabled: true },
+      // `config` travels with the handshake so a browser source can draw itself
+      // straight away; it has no credential with which to fetch it separately.
+      select: { id: true, userId: true, type: true, enabled: true, config: true },
     });
 
     if (!overlay || !overlay.enabled) return null;
@@ -109,6 +132,7 @@ export class OverlayService {
       data: { config },
     });
     if (result.count === 0) throw new NotFoundException('Overlay not found');
+    this.announceChange(userId);
     return this.prisma.overlay.findUnique({ where: { id } });
   }
 
@@ -127,6 +151,7 @@ export class OverlayService {
   async deleteOverlay(id: string, userId: string) {
     const result = await this.prisma.overlay.deleteMany({ where: { id, userId } });
     if (result.count === 0) throw new NotFoundException('Overlay not found');
+    this.announceChange(userId);
     return { success: true };
   }
 }

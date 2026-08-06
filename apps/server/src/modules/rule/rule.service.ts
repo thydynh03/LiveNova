@@ -13,16 +13,24 @@ import {
   OverlayDispatchEvent,
 } from '@livenova/shared';
 import { PrismaService } from '../../prisma/prisma.service';
+import { loadEnv } from '../../common/config/env';
+import { RuleEngineService } from './rule-engine.service';
 import { CreateRuleDto, UpdateRuleDto, TestRuleEventDto } from './dto/rule.dto';
 
 @Injectable()
 export class RuleService {
+  private readonly env = loadEnv();
+
   constructor(
     private readonly prisma: PrismaService,
+    private readonly ruleEngine: RuleEngineService,
     private readonly eventEmitter: EventEmitter2,
   ) {}
 
   async createRule(userId: string, dto: CreateRuleDto) {
+    // The engine caches each user's rule set for the duration of a broadcast;
+    // without this a rule edited mid-stream would not take effect for 30s.
+    this.ruleEngine.invalidateUser(userId);
     return this.prisma.rule.create({
       data: {
         userId,
@@ -87,6 +95,7 @@ export class RuleService {
     const existing = await this.prisma.rule.findFirst({ where: { id, userId } });
     if (!existing) throw new NotFoundException('Rule not found');
 
+    this.ruleEngine.invalidateUser(userId);
     return this.prisma.rule.create({
       data: {
         userId,
@@ -124,11 +133,14 @@ export class RuleService {
       throw new NotFoundException('Rule not found');
     }
 
+    this.ruleEngine.invalidateUser(userId);
+
     return this.prisma.rule.findUnique({ where: { id } });
   }
 
   async deleteRule(id: string, userId: string) {
     const result = await this.prisma.rule.deleteMany({ where: { id, userId } });
+    this.ruleEngine.invalidateUser(userId);
     if (result.count === 0) {
       throw new NotFoundException('Rule not found');
     }
@@ -205,6 +217,11 @@ export class RuleService {
   }
 
   async applyPreset(userId: string, presetId: string) {
+    // Assets bundled with the web app. Hard-coding http://localhost:3000 here
+    // meant every rule created from a preset in production pointed at the
+    // streamer's own machine, so the overlay silently rendered nothing.
+    const assets = this.env.publicWebUrl;
+
     const PRESETS: Record<string, CreateRuleDto> = {
       'rose-popup': {
         name: '🌹 Popup Video Cảm ơn Hoa Hồng',
@@ -240,7 +257,7 @@ export class RuleService {
             type: RuleActionType.MEDIA_POPUP,
             payload: {
               mediaType: 'video',
-              url: 'http://localhost:3000/dragon_phoenix.mp4',
+              url: `${assets}/dragon_phoenix.mp4`,
               durationMs: 8000,
               position: 'center',
               caption: '💥 SIÊU VIP {sender} ĐÃ TẶNG {gift} ({coins} Xu)! 💥',

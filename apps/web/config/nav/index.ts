@@ -10,6 +10,7 @@ import { channelsNav } from './channels.nav';
 import { dashboardNav } from './dashboard.nav';
 import { overlaysNav } from './overlays.nav';
 import { rulesNav } from './rules.nav';
+import { settingsNav } from './settings.nav';
 import { ttsNav } from './tts.nav';
 
 const registry: NavItem[] = [
@@ -18,6 +19,7 @@ const registry: NavItem[] = [
   dashboardNav,
   overlaysNav,
   rulesNav,
+  settingsNav,
   ttsNav,
 ];
 
@@ -28,4 +30,14 @@ export function getNavItems(): NavItem[] {
   return registry
     .filter((item) => item.enabled !== false)
     .sort((a, b) => a.order - b.order);
+}
+
+/** Daily destinations — the main body of the sidebar. */
+export function getPrimaryNavItems(): NavItem[] {
+  return getNavItems().filter((item) => item.placement !== 'bottom');
+}
+
+/** Pinned to the foot of the sidebar. */
+export function getBottomNavItems(): NavItem[] {
+  return getNavItems().filter((item) => item.placement === 'bottom');
 }

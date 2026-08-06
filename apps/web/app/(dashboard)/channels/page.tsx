@@ -8,6 +8,9 @@ import { useEventsSocket } from '../../../lib/use-events-socket';
 import { LoadingState, ErrorState, EmptyState } from '../../../components/common/States';
 import { LiveFeed, LIVE_FEED_LIMIT } from '../../../components/live-feed/LiveFeed';
 import { Icon } from '../../../components/ui/Icon';
+import { BridgePanel } from '../../../components/bridge/BridgePanel';
+import { readStoredBridgeToken, useLocalBridge } from '../../../lib/use-local-bridge';
+import type { GameInputCommand } from '@livenova/shared';
 import type { Channel } from '../../../lib/types';
 
 const STATUS_LABEL: Record<string, string> = {
@@ -49,9 +52,26 @@ export default function ChannelsPage() {
     // array itself would re-run on every render.
   }, [activeKey]);
 
+  // The bridge token lives only in this browser. Read once on mount, because
+  // localStorage does not exist during server rendering.
+  const [bridgeToken, setBridgeToken] = useState('');
+  useEffect(() => {
+    setBridgeToken(readStoredBridgeToken());
+  }, []);
+
+  const bridge = useLocalBridge({ token: bridgeToken });
+
+  const handleGameInput = useCallback(
+    (command: GameInputCommand) => {
+      bridge.send(command);
+    },
+    [bridge],
+  );
+
   const { status, subscribed } = useEventsSocket({
     channelIds,
     onEvent: handleEvent,
+    onGameInput: handleGameInput,
     enabled: channelIds.length > 0,
   });
 
@@ -122,6 +142,15 @@ export default function ChannelsPage() {
   }
 
   async function unlink(channel: Channel) {
+    // Confirmed because it is not obviously reversible from the user's side:
+    // re-linking needs the bio verification code published again.
+    if (
+      !confirm(
+        `Ngắt kênh @${channel.handle}?\n\nLiveNova sẽ ngừng nhận bình luận và quà tặng từ kênh này. Nối lại thì phải xác minh lại từ đầu.`,
+      )
+    )
+      return;
+
     setActionError(null);
     setBusyId(channel.id);
     try {
@@ -140,15 +169,18 @@ export default function ChannelsPage() {
   }
 
   return (
-    <div style={{ maxWidth: '1000px', margin: '0 auto' }}>
-      <h1 style={{ fontSize: '2rem', fontWeight: 700, marginBottom: '0.5rem' }}>Kênh</h1>
-      <p style={{ color: 'hsl(var(--muted-foreground))', marginBottom: '2rem' }}>
-        Liên kết kênh TikTok để nhận bình luận, quà tặng và lượt theo dõi theo thời gian thực.
-      </p>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+      <div>
+        <h1 className="page-title">Kênh TikTok</h1>
+        <p style={{ color: 'hsl(var(--muted-foreground))', marginTop: '0.25rem' }}>
+          Nối kênh của bạn vào LiveNova để nhận bình luận, quà tặng và lượt theo dõi ngay khi lên sóng.
+        </p>
+      </div>
 
       <form
         onSubmit={linkChannel}
-        style={{ display: 'flex', gap: '0.75rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}
+        className="card"
+        style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', alignItems: 'flex-end' }}
       >
         {/*
           The label is visually hidden rather than omitted: a placeholder is not
@@ -188,50 +220,48 @@ export default function ChannelsPage() {
         />
         <button
           type="submit"
+          className="btn btn-primary"
           disabled={linking || handle.trim() === ''}
-          style={{
-            minHeight: '44px',
-            padding: '0.5rem 1.5rem',
-            borderRadius: 'var(--radius)',
-            border: 'none',
-            background: 'hsl(var(--primary))',
-            color: 'hsl(var(--primary-foreground))',
-            fontWeight: 600,
-            cursor: linking || handle.trim() === '' ? 'not-allowed' : 'pointer',
-            opacity: linking || handle.trim() === '' ? 0.6 : 1,
-          }}
         >
-          {linking ? 'Đang liên kết…' : 'Liên kết kênh'}
+          {linking ? 'Đang nối…' : 'Nối kênh'}
         </button>
       </form>
 
+      <BridgePanel
+        status={bridge.status}
+        lastError={bridge.lastError}
+        onTokenChange={setBridgeToken}
+      />
+
       {actionError && (
-        <p role="alert" style={{ color: 'hsl(var(--destructive))', marginBottom: '1rem' }}>
+        <div
+          role="alert"
+          className="card"
+          style={{
+            padding: '0.875rem 1.25rem',
+            borderColor: 'hsl(var(--destructive) / 0.35)',
+            color: 'hsl(var(--destructive))',
+          }}
+        >
           {actionError}
-        </p>
+        </div>
       )}
 
-      {loading && !data && <LoadingState />}
+      {loading && !data && <LoadingState label="Đang tải kênh…" />}
       {error && <ErrorState message={error} onRetry={reload} />}
 
       {!loading && !error && (data?.length ?? 0) === 0 && (
-        <EmptyState
-          title="Chưa liên kết kênh nào"
-          description="Nhập tên kênh TikTok ở trên để bắt đầu."
-        />
+        <div className="card" style={{ textAlign: 'center', padding: '2.5rem 1.5rem' }}>
+          <EmptyState
+            title="Kết nối kênh TikTok của bạn để bắt đầu"
+            description="Chúng tôi chỉ đọc bình luận và quà tặng công khai trong buổi live — không đăng gì lên kênh bạn, không đọc tin nhắn riêng."
+          />
+        </div>
       )}
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
         {data?.map((channel) => (
-          <div
-            key={channel.id}
-            className="glass"
-            style={{
-              padding: '1.25rem',
-              borderRadius: 'var(--radius)',
-              border: '1px solid var(--glass-border)',
-            }}
-          >
+          <div key={channel.id} className="card">
             <div
               style={{
                 display: 'flex',
@@ -278,28 +308,16 @@ export default function ChannelsPage() {
                       @{channel.handle}
                     </strong>
                     {channel.verified && (
-                      <span
-                        style={{
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '0.25rem',
-                          padding: '0.15rem 0.5rem',
-                          borderRadius: '9999px',
-                          background: 'hsl(var(--success, 142 71% 45%) / 0.15)',
-                          color: 'hsl(var(--success, 142 71% 45%))',
-                          fontSize: '0.75rem',
-                          fontWeight: 600,
-                        }}
-                      >
+                      <span className="pill pill-ok">
                         <Icon name="check" size={13} weight="bold" />
                         Đã xác minh
                       </span>
                     )}
                   </div>
                   <div
-                    style={{ fontSize: '0.85rem', color: 'hsl(var(--muted-foreground))', marginTop: '0.15rem' }}
+                    style={{ fontSize: '0.875rem', color: 'hsl(var(--muted-foreground))', marginTop: '0.15rem' }}
                   >
-                    {channel.platform}
+                    {channel.platform === 'TIKTOK' ? 'TikTok' : channel.platform}
                     {!channel.verified && ' · Chưa xác minh'}
                     {channel.isLive && (
                       <>
@@ -357,9 +375,9 @@ export default function ChannelsPage() {
                 <button
                   onClick={() => unlink(channel)}
                   disabled={busyId === channel.id}
-                  style={buttonStyle}
+                  style={{ ...buttonStyle, color: 'hsl(var(--destructive))' }}
                 >
-                  Hủy liên kết
+                  Ngắt kênh
                 </button>
               </div>
             </div>
@@ -393,29 +411,27 @@ export default function ChannelsPage() {
       </div>
 
       {channelIds.length > 0 && (
-        <section style={{ marginTop: '2.5rem' }}>
+        <section className="card">
           <div
             style={{
               display: 'flex',
               justifyContent: 'space-between',
-              alignItems: 'baseline',
+              alignItems: 'center',
               marginBottom: '0.75rem',
               gap: '1rem',
               flexWrap: 'wrap',
             }}
           >
-            <h2 style={{ fontSize: '1.25rem', fontWeight: 700 }}>Sự kiện trực tiếp</h2>
+            <h2 className="section-title">Đang diễn ra trên live</h2>
             <span
               role="status"
-              style={{
-                fontSize: '0.85rem',
-                color:
-                  status === 'connected'
-                    ? 'hsl(var(--success, 142 71% 45%))'
-                    : status === 'unauthorized'
-                      ? 'hsl(var(--destructive))'
-                      : 'hsl(var(--muted-foreground))',
-              }}
+              className={
+                status === 'connected'
+                  ? 'pill pill-ok'
+                  : status === 'unauthorized'
+                    ? 'pill'
+                    : 'pill pill-warn'
+              }
             >
               {STATUS_LABEL[status] ?? status}
             </span>

@@ -18,6 +18,8 @@ import {
   Monitor,
   SpeakerHigh,
   Play,
+  Stop,
+  X as CloseIcon,
   SlidersHorizontal,
   Copy,
   Check,
@@ -36,22 +38,20 @@ import {
   Trash,
   ArrowClockwise,
   Eye,
+  Clock,
   EyeSlash,
+  Queue as QueueIcon,
+  House,
+  Gear,
+  MagnifyingGlass,
+  Lightning,
+  CaretDown,
+  CaretRight,
+  Plus,
+  DotsSixVertical,
+  Info,
 } from '@phosphor-icons/react';
 
-/**
- * One icon family, one stroke weight, one import site.
- *
- * Before this, the interface used 29 hard-coded emoji as icons, including
- * inside headings (`💳 Nạp Credit`, `🗣️ Giọng Đọc`). Emoji-as-icon has three
- * concrete problems beyond looking unserious: every platform renders them
- * differently so the UI is inconsistent across a streamer's devices, screen
- * readers announce them as full sentences ("credit card" mid-heading), and they
- * cannot inherit color, so they never match the theme.
- *
- * Phosphor rather than Lucide: Lucide is the default every AI-built interface
- * reaches for, and its geometry is thinner than this UI wants at small sizes.
- */
 export const ICONS = {
   broadcast: Broadcast,
   billing: CreditCard,
@@ -68,6 +68,8 @@ export const ICONS = {
   desktop: Monitor,
   audio: SpeakerHigh,
   play: Play,
+  stop: Stop,
+  close: CloseIcon,
   settings: SlidersHorizontal,
   copy: Copy,
   check: Check,
@@ -86,8 +88,19 @@ export const ICONS = {
   trash: Trash,
   rotate: ArrowClockwise,
   preview: Eye,
+  pending: Clock,
+  queue: QueueIcon,
   eye: Eye,
   eyeSlash: EyeSlash,
+  home: House,
+  gear: Gear,
+  search: MagnifyingGlass,
+  rule: Lightning,
+  caretDown: CaretDown,
+  caretRight: CaretRight,
+  plus: Plus,
+  drag: DotsSixVertical,
+  info: Info,
 } as const satisfies Record<string, PhosphorIcon>;
 
 export type IconName = keyof typeof ICONS;
@@ -98,11 +111,6 @@ export interface IconProps {
   weight?: 'regular' | 'bold' | 'fill' | 'duotone';
   className?: string;
   style?: React.CSSProperties;
-  /**
-   * Give a label only when the icon carries meaning on its own. Beside visible
-   * text it is decorative, and a label would make a screen reader read the same
-   * thing twice.
-   */
   label?: string;
 }
 
@@ -115,6 +123,9 @@ export function Icon({
   label,
 }: IconProps) {
   const Glyph = ICONS[name];
+  if (!Glyph) {
+    return null;
+  }
   return (
     <Glyph
       size={size}
