@@ -45,13 +45,18 @@ function MediaOverlayContent() {
       .replace(/\{gift\}/g, event.giftName || 'Món quà')
       .replace(/\{coins\}/g, String(event.giftCoinValue || 1));
 
+    const isVideoUrl =
+      payload.url?.endsWith('.mp4') ||
+      payload.url?.endsWith('.webm') ||
+      payload.mediaType === 'video';
+
     const item: MediaPopupItem = {
       id: action.id,
       senderDisplayName: event.senderDisplayName,
       giftName: event.giftName,
       giftCoinValue: event.giftCoinValue,
       content: event.content,
-      mediaType: payload.mediaType || 'image',
+      mediaType: isVideoUrl ? 'video' : 'image',
       url: payload.url || '',
       position: payload.position || 'center',
       volume: payload.volume ?? 0.8,
@@ -168,14 +173,21 @@ function MediaOverlayContent() {
               <video
                 src={activePopup.url}
                 autoPlay
+                playsInline
                 style={{
                   width: '100%',
-                  maxHeight: '320px',
+                  maxHeight: '340px',
                   borderRadius: '14px',
                   objectFit: 'contain',
                 }}
                 ref={(el) => {
-                  if (el) el.volume = activePopup.volume;
+                  if (el) {
+                    el.volume = activePopup.volume;
+                    el.play().catch(() => {
+                      el.muted = true;
+                      el.play().catch(() => {});
+                    });
+                  }
                 }}
               />
             ) : (

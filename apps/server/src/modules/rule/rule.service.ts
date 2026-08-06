@@ -38,10 +38,49 @@ export class RuleService {
   }
 
   async getRules(userId: string) {
-    return this.prisma.rule.findMany({
+    const rules = await this.prisma.rule.findMany({
       where: { userId },
       orderBy: { priority: 'asc' },
     });
+
+    for (const rule of rules) {
+      if (rule.name.includes('Rồng') || rule.name.includes('dragon')) {
+        let actions = rule.actions as any[];
+        if (Array.isArray(actions) && actions.length > 0) {
+          let updated = false;
+          actions = actions.map((act) => {
+            if (act.type === RuleActionType.MEDIA_POPUP && act.payload) {
+              if (
+                act.payload.url?.includes('giphy.gif') ||
+                act.payload.url?.includes('dragon_phoenix.png') ||
+                act.payload.mediaType === 'image'
+              ) {
+                updated = true;
+                return {
+                  ...act,
+                  payload: {
+                    ...act.payload,
+                    mediaType: 'video',
+                    url: 'http://localhost:3000/dragon_phoenix.mp4',
+                  },
+                };
+              }
+            }
+            return act;
+          });
+
+          if (updated) {
+            await this.prisma.rule.update({
+              where: { id: rule.id },
+              data: { actions: actions as unknown as Prisma.InputJsonValue },
+            });
+            rule.actions = actions as unknown as Prisma.JsonValue;
+          }
+        }
+      }
+    }
+
+    return rules;
   }
 
   async duplicateRule(id: string, userId: string) {
