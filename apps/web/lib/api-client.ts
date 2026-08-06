@@ -216,7 +216,11 @@ async function performAuthExchange(
     data = (await res.json().catch(() => null)) as typeof data;
 
     if (!res.ok || !data?.accessToken) {
-      throw new ApiError(data?.message ?? defaultErrorMessage, res.status);
+      const rawMsg = (data as any)?.message;
+      const msg = Array.isArray(rawMsg)
+        ? rawMsg.join(', ')
+        : (typeof rawMsg === 'string' ? rawMsg : null) ?? defaultErrorMessage;
+      throw new ApiError(msg, res.status);
     }
 
     // Only discard the response if logout() occurred while the request was in flight.
@@ -241,16 +245,43 @@ export async function login(email: string, password: string, rememberMe?: boolea
   return performAuthExchange('/api/auth/login', { email, password, rememberMe }, 'Đăng nhập thất bại');
 }
 
-export async function register(email: string, password: string, displayName: string): Promise<string> {
-  return performAuthExchange('/api/auth/register', { email, password, displayName }, 'Đăng ký thất bại');
+export async function register(email: string, password: string, displayName: string): Promise<{ pendingVerification: boolean; email: string }> {
+  const res = await fetch('/api/auth/register', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ email, password, displayName }),
+  });
+
+  const data = await res.json().catch(() => null);
+  if (!res.ok) {
+    throw new ApiError(data?.message ?? 'Đăng ký thất bại', res.status);
+  }
+  return data;
 }
 
-export async function forgotPassword(email: string): Promise<{ success: boolean }> {
-  return api.post<{ success: boolean }>('/auth/forgot-password', { email });
+export async function verifyOtp(email: string, code: string, type: 'REGISTER' | 'FORGOT_PASSWORD' = 'REGISTER'): Promise<string> {
+  return performAuthExchange('/api/auth/verify-otp', { email, code, type }, 'Mã OTP không hợp lệ hoặc đã hết hạn');
 }
 
-export async function resetPassword(token: string, newPassword: string): Promise<{ success: boolean }> {
-  return api.post<{ success: boolean }>('/auth/reset-password', { token, newPassword });
+export async function resendOtp(email: string, type: 'REGISTER' | 'FORGOT_PASSWORD' = 'REGISTER'): Promise<{ success: boolean; message: string }> {
+  const res = await fetch('/api/auth/resend-otp', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ email, type }),
+  });
+  const data = await res.json().catch(() => null);
+  if (!res.ok) {
+    throw new ApiError(data?.message ?? 'Gửi lại mã OTP thất bại', res.status);
+  }
+  return data;
+}
+
+export async function forgotPassword(email: string): Promise<{ success: boolean; message?: string }> {
+  return api.post<{ success: boolean; message?: string }>('/auth/forgot-password', { email });
+}
+
+export async function resetPassword(email: string, code: string, newPassword: string): Promise<{ success: boolean }> {
+  return api.post<{ success: boolean }>('/auth/reset-password', { email, code, newPassword });
 }
 
 export async function changePassword(currentPassword: string, newPassword: string): Promise<{ success: boolean }> {
@@ -259,6 +290,28 @@ export async function changePassword(currentPassword: string, newPassword: strin
 
 export async function updateProfile(data: { displayName?: string; avatar?: string; locale?: string; timezone?: string }): Promise<any> {
   return api.patch<any>('/users/me', data);
+}
+
+export async function uploadImage(file: File): Promise<{ url: string; publicId: string }> {
+  const formData = new FormData();
+  formData.append('file', file);
+
+  const token = getAccessToken();
+  const res = await fetch(`${apiBase()}/upload/image`, {
+    method: 'POST',
+    headers: {
+      ...(token ? { authorization: `Bearer ${token}` } : {}),
+    },
+    body: formData,
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    const message = Array.isArray(err?.message) ? err.message.join(', ') : (err?.message || 'Tải ảnh lên thất bại');
+    throw new ApiError(message, res.status);
+  }
+
+  return res.json();
 }
 
 export async function getProfile(): Promise<any> {

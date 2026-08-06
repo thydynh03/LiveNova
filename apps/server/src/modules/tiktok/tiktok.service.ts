@@ -8,7 +8,10 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { LiveEvent, LiveEventType } from '@livenova/shared';
 import { randomInt } from 'crypto';
 import { v4 as uuidv4 } from 'uuid';
-import { TikTokLiveConnection } from 'tiktok-live-connector';
+async function getTikTokConnectionClass() {
+  const mod: any = await import('tiktok-live-connector');
+  return mod.TikTokLiveConnection || mod.WebcastPushConnection || mod.default?.TikTokLiveConnection || mod.default?.WebcastPushConnection || mod.default;
+}
 
 /**
  * Picks a random element using a CSPRNG.
@@ -100,7 +103,8 @@ export class TiktokService implements OnModuleInit, OnModuleDestroy {
     this.logger.log(`Connecting to TikTok LIVE stream for handle: @${targetHandle} (ChannelId: ${channelId})`);
 
     try {
-      const connection = new TikTokLiveConnection(targetHandle, {
+      const TikTokConnectionClass = await getTikTokConnectionClass();
+      const connection = new TikTokConnectionClass(targetHandle, {
         enableExtendedGiftInfo: true,
       });
 

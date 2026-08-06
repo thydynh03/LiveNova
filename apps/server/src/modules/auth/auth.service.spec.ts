@@ -4,6 +4,7 @@ import { ConflictException } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { SessionService } from './session.service';
 import { PrismaService } from '../../prisma/prisma.service';
+import { EmailService } from '../email/email.service';
 
 describe('AuthService', () => {
   let service: AuthService;
@@ -24,6 +25,12 @@ describe('AuthService', () => {
     ttsSettings: {
       create: jest.fn(),
     },
+    otpCode: {
+      updateMany: jest.fn(),
+      create: jest.fn(),
+      findFirst: jest.fn(),
+      update: jest.fn(),
+    },
   };
 
   const mockSessionService = {
@@ -42,6 +49,10 @@ describe('AuthService', () => {
     sign: jest.fn().mockReturnValue('mock-access-token'),
   };
 
+  const mockEmailService = {
+    sendOtp: jest.fn().mockResolvedValue(true),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -49,6 +60,7 @@ describe('AuthService', () => {
         { provide: PrismaService, useValue: mockPrismaService },
         { provide: SessionService, useValue: mockSessionService },
         { provide: JwtService, useValue: mockJwtService },
+        { provide: EmailService, useValue: mockEmailService },
       ],
     }).compile();
 
@@ -62,21 +74,26 @@ describe('AuthService', () => {
   });
 
   describe('register', () => {
-    it('should throw ConflictException if email is already registered', async () => {
-      mockPrismaService.user.findUnique.mockResolvedValueOnce({ id: 'user-1', email: 'test@example.com' });
+    it('should throw ConflictException if email is already registered and verified', async () => {
+      mockPrismaService.user.findUnique.mockResolvedValueOnce({
+        id: 'user-1',
+        email: 'test@example.com',
+        emailVerified: true,
+      });
 
       await expect(
         service.register({ email: 'test@example.com', password: 'Password123', displayName: 'Test' }),
       ).rejects.toThrow(ConflictException);
     });
 
-    it('should successfully create user, credit balance, tts settings and return tokens', async () => {
+    it('should successfully create user, credit balance, tts settings and send OTP', async () => {
       mockPrismaService.user.findUnique.mockResolvedValueOnce(null);
       mockPrismaService.user.create.mockResolvedValueOnce({
         id: 'user-new',
         email: 'new@example.com',
         displayName: 'New User',
         passwordHash: 'hashed',
+        emailVerified: false,
       });
 
       const res = await service.register({
@@ -85,17 +102,18 @@ describe('AuthService', () => {
         displayName: 'New User',
       });
 
-      expect(res.accessToken).toBe('mock-access-token');
-      expect(res.refreshToken).toBe('mock-refresh-token');
+      expect(res.pendingVerification).toBe(true);
+      expect(res.email).toBe('new@example.com');
       expect(mockPrismaService.creditBalance.create).toHaveBeenCalledWith({
         data: { userId: 'user-new', balance: 100 },
       });
       expect(mockPrismaService.ttsSettings.create).toHaveBeenCalled();
+      expect(mockEmailService.sendOtp).toHaveBeenCalled();
     });
   });
 
   describe('forgotPassword', () => {
-    it('should return success true for email', async () => {
+    it('should return success true for email and send OTP', async () => {
       mockPrismaService.user.findUnique.mockResolvedValueOnce({
         id: 'user-1',
         email: 'user@example.com',
@@ -104,6 +122,7 @@ describe('AuthService', () => {
 
       const res = await service.forgotPassword('user@example.com');
       expect(res.success).toBe(true);
+      expect(mockEmailService.sendOtp).toHaveBeenCalled();
     });
   });
 });

@@ -23,32 +23,28 @@ function ResetPasswordForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const [token, setToken] = useState<string | null>(null);
+  const email = searchParams.get('email') || '';
+  const code = searchParams.get('code') || '';
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    const rawToken = searchParams.get('token');
-    if (rawToken) {
-      setToken(rawToken);
-      // Immediately clear the sensitive token from the URL bar to prevent leakage via browser history or Referer headers
-      if (typeof window !== 'undefined') {
-        window.history.replaceState({}, document.title, window.location.pathname);
-      }
-    } else if (!token) {
+    if (!email || !code) {
       setError('Mã khôi phục mật khẩu không khả dụng hoặc đã hết hạn.');
     }
-  }, [searchParams, token]);
+  }, [email, code]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
 
-    if (!token) {
-      setError('Mã khôi phục mật khẩu không khả dụng.');
+    if (!email || !code) {
+      setError('Thông tin khôi phục không hợp lệ.');
       return;
     }
 
@@ -70,7 +66,7 @@ function ResetPasswordForm() {
     setLoading(true);
 
     try {
-      await resetPassword(token, newPassword);
+      await resetPassword(email, code, newPassword);
       setSuccess(true);
       setTimeout(() => {
         router.push('/login');
@@ -156,35 +152,81 @@ function ResetPasswordForm() {
               <label htmlFor="newPassword" style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 500, fontSize: '0.9rem' }}>
                 Mật khẩu mới (Tối thiểu 8 ký tự, gồm chữ và số)
               </label>
-              <input
-                id="newPassword"
-                type="password"
-                required
-                placeholder="••••••••"
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                style={inputStyle}
-              />
+              <div style={{ position: 'relative' }}>
+                <input
+                  id="newPassword"
+                  type={showNewPassword ? 'text' : 'password'}
+                  required
+                  placeholder="••••••••"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  style={{ ...inputStyle, paddingRight: '2.5rem' }}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowNewPassword((v) => !v)}
+                  aria-label={showNewPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
+                  style={{
+                    position: 'absolute',
+                    right: '0.75rem',
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    background: 'none',
+                    border: 'none',
+                    color: 'hsl(var(--muted-foreground))',
+                    cursor: 'pointer',
+                    padding: '4px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <Icon name={showNewPassword ? 'eyeSlash' : 'eye'} size={18} />
+                </button>
+              </div>
             </div>
 
             <div style={{ marginBottom: '1.5rem' }}>
               <label htmlFor="confirmPassword" style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 500, fontSize: '0.9rem' }}>
                 Nhập lại mật khẩu mới
               </label>
-              <input
-                id="confirmPassword"
-                type="password"
-                required
-                placeholder="••••••••"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                style={inputStyle}
-              />
+              <div style={{ position: 'relative' }}>
+                <input
+                  id="confirmPassword"
+                  type={showConfirmPassword ? 'text' : 'password'}
+                  required
+                  placeholder="••••••••"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  style={{ ...inputStyle, paddingRight: '2.5rem' }}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword((v) => !v)}
+                  aria-label={showConfirmPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
+                  style={{
+                    position: 'absolute',
+                    right: '0.75rem',
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    background: 'none',
+                    border: 'none',
+                    color: 'hsl(var(--muted-foreground))',
+                    cursor: 'pointer',
+                    padding: '4px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <Icon name={showConfirmPassword ? 'eyeSlash' : 'eye'} size={18} />
+                </button>
+              </div>
             </div>
 
             <button
               type="submit"
-              disabled={loading || !token}
+              disabled={loading || !email || !code}
               style={{
                 width: '100%',
                 padding: '0.85rem',

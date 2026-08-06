@@ -39,7 +39,7 @@ export default function MarketingLayout({
             color: 'hsl(var(--muted-foreground))',
           }}
         >
-          <p style={{ margin: 0 }}>
+          <p style={{ margin: 0 }} suppressHydrationWarning>
             © {new Date().getFullYear()} {SITE_NAME}
           </p>
 

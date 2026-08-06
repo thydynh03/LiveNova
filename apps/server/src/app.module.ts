@@ -12,6 +12,7 @@ import { RuleModule } from './modules/rule/rule.module';
 import { OverlayModule } from './modules/overlay/overlay.module';
 import { TiktokModule } from './modules/tiktok/tiktok.module';
 import { WebsocketModule } from './modules/websocket/websocket.module';
+import { UploadModule } from './modules/upload/upload.module';
 
 @Module({
   imports: [
@@ -27,11 +28,9 @@ import { WebsocketModule } from './modules/websocket/websocket.module';
     TtsModule,
     RuleModule,
     OverlayModule,
-    // H-10 — TiktokModule was missing from this list, so tiktok.service.ts and its
-    // controller were dead code: no routes registered, no ingest running. Build
-    // and lint stayed green, which is why it went unnoticed.
     TiktokModule,
     WebsocketModule,
+    UploadModule,
   ],
   providers: [
     {

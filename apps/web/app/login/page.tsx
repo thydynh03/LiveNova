@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '../../context/AuthContext';
+import { Icon } from '../../components/ui/Icon';
 
 const ALLOWED_REDIRECTS = new Set([
   '/dashboard',
@@ -32,6 +33,7 @@ function LoginForm() {
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -132,16 +134,39 @@ function LoginForm() {
                 Quên mật khẩu?
               </Link>
             </div>
-            <input
-              id="password"
-              type="password"
-              autoComplete="current-password"
-              placeholder="••••••••"
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              style={inputStyle}
-            />
+            <div style={{ position: 'relative' }}>
+              <input
+                id="password"
+                type={showPassword ? 'text' : 'password'}
+                autoComplete="current-password"
+                placeholder="••••••••"
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                style={{ ...inputStyle, paddingRight: '2.5rem' }}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((v) => !v)}
+                aria-label={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
+                style={{
+                  position: 'absolute',
+                  right: '0.75rem',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  background: 'none',
+                  border: 'none',
+                  color: 'hsl(var(--muted-foreground))',
+                  cursor: 'pointer',
+                  padding: '4px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <Icon name={showPassword ? 'eyeSlash' : 'eye'} size={18} />
+              </button>
+            </div>
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', marginBottom: '1.5rem' }}>
