@@ -78,3 +78,23 @@ func (a *App) SendRconCommand(host string, port uint16, password, command string
 func (a *App) SimulateKeyPress(keyCode uint16, holdMS uint64, cooldownMS uint64) error {
 	return keysim.PressKey(keyCode, holdMS, cooldownMS)
 }
+
+// EmergencyStop blocks every further simulated key press until ResumeAfterStop.
+//
+// Previously the button in the UI only wrote a log line, so the one control a
+// streamer would reach for mid-broadcast did nothing at all.
+func (a *App) EmergencyStop() {
+	keysim.Halt()
+	slog.Warn("Emergency stop engaged — key simulation blocked")
+}
+
+// ResumeAfterStop lifts the emergency stop.
+func (a *App) ResumeAfterStop() {
+	keysim.Resume()
+	slog.Info("Emergency stop released")
+}
+
+// IsHalted reports whether the emergency stop is currently engaged.
+func (a *App) IsHalted() bool {
+	return keysim.IsHalted()
+}
