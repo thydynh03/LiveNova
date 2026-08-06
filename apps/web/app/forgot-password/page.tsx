@@ -20,6 +20,7 @@ const inputStyle: React.CSSProperties = {
 export default function ForgotPasswordPage() {
   const router = useRouter();
   const [email, setEmail] = useState('');
+  const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -30,6 +31,7 @@ export default function ForgotPasswordPage() {
 
     try {
       await forgotPassword(email);
+      setSubmitted(true);
       router.push(`/verify-otp?email=${encodeURIComponent(email)}&type=FORGOT_PASSWORD`);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Yêu cầu thất bại');
