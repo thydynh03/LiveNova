@@ -201,7 +201,7 @@ export class RuleService {
             type: RuleActionType.MEDIA_POPUP,
             payload: {
               mediaType: 'image',
-              url: 'https://media.giphy.com/media/3o7TKrEzvLbsVAud8I/giphy.gif',
+              url: 'http://localhost:3000/dragon_phoenix.png',
               durationMs: 8000,
               position: 'center',
               caption: '💥 SIÊU VIP {sender} ĐÃ TẶNG {gift} ({coins} Xu)! 💥',
