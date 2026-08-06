@@ -391,7 +391,10 @@ Tạo `.github/CODEOWNERS` để GitHub tự gán reviewer và chặn merge nh�
 /apps/server/src/modules/admin/               @dev-b
 /apps/server/src/modules/overlay/             @dev-b
 /apps/web/                                    @dev-b
+# Overrides must come AFTER the broad /apps/web/ rule: CODEOWNERS applies the
+# LAST matching pattern, so a narrower rule placed earlier is silently ignored.
 /apps/web/app/overlays/media/                 @dev-a
+/apps/web/app/(dashboard)/billing/            @dev-a
 ```
 
 *(Dòng cuối đặt sau `/apps/web/` để giành lại thư mục media cho A — CODEOWNERS lấy quy tắc khớp cuối cùng.)*

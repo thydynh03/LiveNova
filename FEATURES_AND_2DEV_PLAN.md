@@ -72,7 +72,8 @@ Chia theo **thư mục sở hữu**, không chia theo "tính năng". Hai dev **k
 | `apps/server/src/modules/websocket/**` | **B** | Gateway `/events` + `/overlay` |
 | `apps/server/src/modules/overlay/**` | **B** | |
 | `apps/server/src/modules/user/**` | **B** | |
-| `apps/web/**` | **B** | Toàn bộ Next.js |
+| `apps/web/**` | **B** | Toàn bộ Next.js, **trừ** `app/(dashboard)/billing/**` |
+| `apps/web/app/(dashboard)/billing/**` | **A** | Giao diện thanh toán đi cùng BillingModule |
 | `packages/shared/**` | ⚠️ **HỢP ĐỒNG** | Xem §1.2 |
 | `apps/server/src/app.module.ts` | ⚠️ **HỢP ĐỒNG** | Xem §1.2 |
 | `.github/**`, `docker-compose.yml` | **A** | |
@@ -230,7 +231,7 @@ Ký hiệu: `M` = MUST · `S` = SHOULD · `C` = COULD · `⛔` = đang bị ch�
 | P6-03 | ⛔ Adapter VNPay | FR-060 | A | M | 8 | **Chặn bởi Q-02** |
 | P6-04 | ⛔ Adapter MoMo | FR-061 | A | M | 8 | **Chặn bởi Q-02** |
 | P6-05 | ⛔ Trang bảng giá công khai | FR-059 | B | M | 5 | **Chặn bởi Q-04** (chưa có giá) |
-| P6-06 | UI mua credit + lịch sử giao dịch | FR-058/65 | B | M | 8 | |
+| P6-06 | UI mua credit + lịch sử giao dịch | FR-058/65 | **A** | M | 8 | Chuyển từ B sang A — toàn bộ luồng tiền thuộc một chủ |
 | P6-07 | Hóa đơn PDF | FR-065 | A | C | 5 | |
 
 ### Giai đoạn 7 — Admin, Analytics, Vận hành
@@ -272,12 +273,12 @@ Ký hiệu: `M` = MUST · `S` = SHOULD · `C` = COULD · `⛔` = đang bị ch�
 | 3 — TTS | 36 | 5 | 41 | 3 tuần |
 | 4 — Overlay mở rộng | 12 | 36 | 48 | 3–4 tuần |
 | 5 — Game & OBS | 28 | 5 | 33 | 3 tuần |
-| 6 — Thanh toán | 34 | 13 | 47 | 3–4 tuần |
+| 6 — Thanh toán | 42 | 5 | 47 | 3–4 tuần |
 | 7 — Admin & Analytics | 29 | 16 | 45 | 3 tuần |
 | 8 — Chất lượng & Phát hành | 22 | 36 | 58 | 4 tuần |
-| **TỔNG** | **208** | **145** | **356 SP** | **~26 tuần (6 tháng)** |
+| **TỔNG** | **216** | **137** | **356 SP** | **~26 tuần (6 tháng)** |
 
-Dev A nặng hơn (208 vs 145). Cân bằng bằng cách chuyển sang B: P4-07 (upload media, 8 SP), P5-05 (UI game profile, 8 SP), P7-05 (thống kê, 8 SP) → còn 184 vs 169. Hợp lý.
+Dev A nặng hơn (216 vs 137) sau khi P6-06 chuyển sang A. Cân bằng bằng cách chuyển sang B: P4-07 (upload media, 8 SP), P5-05 (UI game profile, 8 SP), P7-05 (thống kê, 8 SP) → còn **192 vs 161**. Chấp nhận được: Dev A gánh cả luồng tiền, vốn là phần cần một chủ duy nhất.
 
 **1 SP ≈ 4 giờ tập trung.** Không tính thời gian giải quyết Q-01…Q-21.
 
