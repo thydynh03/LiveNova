@@ -200,8 +200,8 @@ export class RuleService {
           {
             type: RuleActionType.MEDIA_POPUP,
             payload: {
-              mediaType: 'image',
-              url: 'http://localhost:3000/dragon_phoenix.png',
+              mediaType: 'video',
+              url: 'http://localhost:3000/dragon_phoenix.mp4',
               durationMs: 8000,
               position: 'center',
               caption: '💥 SIÊU VIP {sender} ĐÃ TẶNG {gift} ({coins} Xu)! 💥',
