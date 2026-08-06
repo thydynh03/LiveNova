@@ -361,7 +361,7 @@ export default function ProfileSettingsPage() {
                         </span>
                       )}
                     </div>
-                    <div style={{ fontSize: '0.8rem', color: 'hsl(var(--muted-foreground))' }}>
+                    <div style={{ fontSize: '0.8rem', color: 'hsl(var(--muted-foreground))' }} suppressHydrationWarning>
                       IP: {String(s.ip || 'Không xác định')} • Đăng nhập: {new Date(String(s.createdAt)).toLocaleString('vi-VN')}
                     </div>
                   </div>

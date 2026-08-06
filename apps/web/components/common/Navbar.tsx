@@ -73,41 +73,45 @@ export function Navbar() {
 
           <ThemeToggle />
 
-          {/*
-            This used to be a decorative <div> with a "U" in it, so the only way
-            out of an authenticated session was clearing cookies by hand — the
-            logout route was unreachable from the product.
-          */}
-          {status === 'authenticated' && (
-            <button
-              type="button"
-              onClick={handleSignOut}
-              disabled={signingOut}
-              style={{
-                minHeight: '44px',
-                padding: '0.5rem 1rem',
-                borderRadius: 'var(--radius)',
-                border: '1px solid hsl(var(--border))',
-                background: 'hsl(var(--card))',
-                color: 'hsl(var(--foreground))',
-                fontWeight: 500,
-                cursor: signingOut ? 'not-allowed' : 'pointer',
-                opacity: signingOut ? 0.6 : 1,
-              }}
-            >
-              {signingOut ? 'Đang thoát…' : 'Đăng xuất'}
-            </button>
-          )}
-
-          <button
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            aria-label="Toggle Menu"
-            aria-expanded={mobileMenuOpen}
-            style={{ display: 'none' }}
-          >
-            ☰
-          </button>
+          <div suppressHydrationWarning>
+            {status === 'authenticated' && (
+              <button
+                type="button"
+                onClick={handleSignOut}
+                disabled={signingOut}
+                style={{
+                  minHeight: '44px',
+                  padding: '0.5rem 1rem',
+                  borderRadius: 'var(--radius)',
+                  border: '1px solid hsl(var(--border))',
+                  background: 'hsl(var(--card))',
+                  color: 'hsl(var(--foreground))',
+                  fontWeight: 500,
+                  cursor: signingOut ? 'not-allowed' : 'pointer',
+                  opacity: signingOut ? 0.6 : 1,
+                }}
+              >
+                {signingOut ? 'Đang thoát…' : 'Đăng xuất'}
+              </button>
+            )}
+          </div>
         </div>
+
+        <button
+          type="button"
+          aria-label="Menu điều hướng"
+          aria-expanded={mobileMenuOpen}
+          onClick={() => setMobileMenuOpen((v) => !v)}
+          className="mobile-nav-toggle"
+          style={{
+            background: 'none',
+            border: 'none',
+            cursor: 'pointer',
+            fontSize: '1.5rem',
+          }}
+        >
+          {mobileMenuOpen ? '✕' : '☰'}
+        </button>
       </div>
     </nav>
   );
