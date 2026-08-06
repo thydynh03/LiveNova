@@ -23,7 +23,7 @@ const inputStyle: React.CSSProperties = {
   minHeight: '44px',
   padding: '0.625rem 0.875rem',
   borderRadius: 'var(--radius)',
-  border: '1px solid hsl(var(--border))',
+  border: '1px solid hsl(var(--input))',
   background: 'hsl(var(--background))',
   color: 'inherit',
   font: 'inherit',
@@ -45,11 +45,22 @@ const EVENT_OPTIONS = [
  * that will be read aloud and the media that will appear — those are the things
  * they are checking before they go live.
  */
-function ActionPreview({ action }: { action: any }) {
+function ActionPreview({
+  action,
+  vars,
+}: {
+  action: any;
+  vars: Record<string, string>;
+}) {
   const payload = action?.payload ?? {};
 
   if (action?.type === 'tts_read') {
-    const text = payload.text ?? payload.content ?? '';
+    // The server returns the template with its placeholders intact. Showing
+    // "Xin chào {sender}" defeats the purpose of a preview — the user is here
+    // to hear the sentence, and {sender} is not a sentence. Substitute the
+    // values they just typed into the simulated event.
+    const raw: string = payload.text ?? payload.content ?? '';
+    const text = raw.replace(/\{(\w+)\}/g, (whole, key) => vars[key] ?? whole);
     return (
       <div style={{ display: 'flex', gap: '0.625rem', alignItems: 'flex-start' }}>
         <span
@@ -361,7 +372,19 @@ export function RuleDryRunModal({ rule, onClose }: RuleDryRunModalProps) {
                   }}
                 >
                   {(result.actionsTriggered ?? []).map((act: any, i: number) => (
-                    <ActionPreview key={i} action={act} />
+                    <ActionPreview
+                      key={i}
+                      action={act}
+                      vars={{
+                        sender: senderUsername,
+                        senderUsername,
+                        user: senderUsername,
+                        gift: giftName,
+                        giftName,
+                        coins: String(giftCoinValue),
+                        content,
+                      }}
+                    />
                   ))}
                   <p style={{ fontSize: '0.8125rem', color: 'hsl(var(--muted-foreground))' }}>
                     Nếu OBS đang mở, hiệu ứng vừa hiện lên đó luôn.

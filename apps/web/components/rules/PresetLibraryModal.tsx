@@ -12,24 +12,21 @@ export interface PresetLibraryModalProps {
 const PRESETS_LIST = [
   {
     id: 'rose-popup',
-    title: '🌹 Cảm ơn quà Rose (Hoa Hồng)',
-    description: 'Tự động hiển thị ảnh/video popup cảm ơn mỗi khi người xem tặng 1 Hoa Hồng.',
-    badge: 'Quà phổ biến',
-    color: '#f43f5e',
+    title: 'Cảm ơn khi có người tặng Hoa hồng',
+    description: 'Ai tặng Hoa hồng là màn hình live hiện ngay lời cảm ơn.',
+    badge: 'Hay dùng nhất',
   },
   {
     id: 'dragon-gift',
-    title: '🐉 Siêu Popup Rồng Bay (> 1000 Xu)',
-    description: 'Hiệu ứng hoành tráng dành riêng cho các món quà VIP có giá trị từ 1000 Xu trở lên.',
-    badge: 'Siêu VIP',
-    color: '#a855f7',
+    title: 'Ăn mừng quà lớn',
+    description: 'Quà từ 1.000 xu trở lên thì chạy hiệu ứng thật hoành tráng.',
+    badge: 'Quà lớn',
   },
   {
     id: 'comment-welcome',
-    title: '💬 Tự động chào hỏi khi comment "chao"',
-    description: 'Giọng đọc AI TTS tự động phát lời chào thân thiện khi viewer nhắn "chào", "hi", "hello".',
-    badge: 'Bình luận AI',
-    color: '#3b82f6',
+    title: 'Chào lại người mới vào',
+    description: 'Ai nhắn “chào”, “hi”, “hello” thì LiveNova chào lại bằng giọng nói.',
+    badge: 'Có giọng đọc',
   },
 ];
 
@@ -45,7 +42,7 @@ export function PresetLibraryModal({ onClose, onSuccess }: PresetLibraryModalPro
       await api.post(`/rules/presets/${presetId}`);
       onSuccess();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Áp dụng luật mẫu thất bại');
+      setError(err instanceof Error ? err.message : 'Không thêm được mẫu này, thử lại nhé');
       setApplying(null);
     }
   }
@@ -56,8 +53,7 @@ export function PresetLibraryModal({ onClose, onSuccess }: PresetLibraryModalPro
         position: 'fixed',
         inset: 0,
         background: 'hsl(20 8% 11% / 0.45)',
-        backdropFilter: 'blur(8px)',
-        zIndex: 999,
+        zIndex: 300,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -90,10 +86,10 @@ export function PresetLibraryModal({ onClose, onSuccess }: PresetLibraryModalPro
           <div>
             <h2 style={{ fontSize: '1.25rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
               <Icon name="spark" size={22} />
-              Kho Luật Mẫu Sẵn (Preset Library)
+              Mẫu có sẵn
             </h2>
             <p style={{ fontSize: '0.8rem', color: 'hsl(var(--muted-foreground))', marginTop: '0.2rem' }}>
-              Thêm các luật tương tác phổ biến nhất vào kênh của bạn chỉ với 1 click.
+              Chọn một mẫu là chạy được ngay. Sửa lại câu chữ cho giống giọng bạn lúc nào cũng được.
             </p>
           </div>
           <button
@@ -128,19 +124,10 @@ export function PresetLibraryModal({ onClose, onSuccess }: PresetLibraryModalPro
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.3rem' }}>
                   <strong style={{ fontSize: '1rem' }}>{p.title}</strong>
-                  <span
-                    style={{
-                      fontSize: '0.7rem',
-                      fontWeight: 700,
-                      padding: '0.15rem 0.5rem',
-                      borderRadius: 'var(--radius-sm)',
-                      background: `${p.color}25`,
-                      color: p.color,
-                      border: `1px solid ${p.color}50`,
-                    }}
-                  >
-                    {p.badge}
-                  </span>
+                  {/* One neutral badge style. The three presets used to be
+                      rose, purple and blue, which read as three unrelated
+                      products rather than three options in one list. */}
+                  <span className="pill">{p.badge}</span>
                 </div>
                 <p style={{ fontSize: '0.85rem', color: 'hsl(var(--muted-foreground))', margin: 0 }}>{p.description}</p>
               </div>
@@ -152,7 +139,7 @@ export function PresetLibraryModal({ onClose, onSuccess }: PresetLibraryModalPro
                   padding: '0.55rem 1.1rem',
                   borderRadius: 'var(--radius)',
                   background: 'hsl(var(--primary))',
-                  color: '#fff',
+                  color: 'hsl(var(--primary-foreground))',
                   border: 'none',
                   fontWeight: 600,
                   fontSize: '0.85rem',
@@ -161,7 +148,7 @@ export function PresetLibraryModal({ onClose, onSuccess }: PresetLibraryModalPro
                   opacity: applying === p.id ? 0.7 : 1,
                 }}
               >
-                {applying === p.id ? 'Đang thêm...' : '+ Thêm luật này'}
+                {applying === p.id ? 'Đang thêm…' : 'Dùng mẫu này'}
               </button>
             </div>
           ))}
