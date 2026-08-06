@@ -49,6 +49,24 @@ export class RuleController {
     return this.ruleService.deleteRule(id, userId);
   }
 
+  @Post(':id/duplicate')
+  @HttpCode(HttpStatus.CREATED)
+  async duplicateRule(
+    @CurrentUserId() userId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.ruleService.duplicateRule(id, userId);
+  }
+
+  @Post('presets/:presetId')
+  @HttpCode(HttpStatus.CREATED)
+  async applyPreset(
+    @CurrentUserId() userId: string,
+    @Param('presetId') presetId: string,
+  ) {
+    return this.ruleService.applyPreset(userId, presetId);
+  }
+
   @Post(':id/test')
   @HttpCode(HttpStatus.OK)
   async testRule(
