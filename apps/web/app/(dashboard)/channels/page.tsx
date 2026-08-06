@@ -7,6 +7,7 @@ import { api, ApiError } from '../../../lib/api-client';
 import { useEventsSocket } from '../../../lib/use-events-socket';
 import { LoadingState, ErrorState, EmptyState } from '../../../components/common/States';
 import { LiveFeed, LIVE_FEED_LIMIT } from '../../../components/live-feed/LiveFeed';
+import { Icon } from '../../../components/ui/Icon';
 import type { Channel } from '../../../lib/types';
 
 const STATUS_LABEL: Record<string, string> = {
@@ -54,6 +55,16 @@ export default function ChannelsPage() {
     enabled: channelIds.length > 0,
   });
 
+  // Connect ingest sessions for all verified channels when loaded
+  useEffect(() => {
+    if (!data) return;
+    for (const channel of data) {
+      if (channel.verified) {
+        api.post(`/tiktok/channels/${channel.id}/connect`).catch(() => undefined);
+      }
+    }
+  }, [data]);
+
   // `isLive` comes from a snapshot and would otherwise stay stale for as long
   // as the tab is open. Revalidating on visibility is the cheap half of the fix;
   // a push-based status event belongs with the ingest work (Q-01).
@@ -73,11 +84,14 @@ export default function ChannelsPage() {
     setActionError(null);
     setLinking(true);
     try {
-      await api.post('/channels', {
+      const res = await api.post<Channel>('/channels', {
         platform: 'TIKTOK',
         platformChannelId: trimmed,
         handle: trimmed,
       });
+      if (res?.id) {
+        await api.post(`/tiktok/channels/${res.id}/connect`).catch(() => undefined);
+      }
       setHandle('');
       reload();
     } catch (err) {
@@ -98,10 +112,9 @@ export default function ChannelsPage() {
     setBusyId(channel.id);
     try {
       await api.post(`/channels/${channel.id}/verify`);
+      await api.post(`/tiktok/channels/${channel.id}/connect`).catch(() => undefined);
       reload();
     } catch (err) {
-      // Q-12 is unresolved, so the API refuses on purpose rather than granting
-      // unverified access. Surface that plainly instead of as a generic failure.
       setActionError(err instanceof Error ? err.message : 'Xác minh thất bại');
     } finally {
       setBusyId(null);
@@ -228,42 +241,117 @@ export default function ChannelsPage() {
                 flexWrap: 'wrap',
               }}
             >
-              <div>
-                <strong style={{ fontSize: '1.05rem' }}>@{channel.handle}</strong>
-                <div
-                  style={{ fontSize: '0.85rem', color: 'hsl(var(--muted-foreground))' }}
-                >
-                  {channel.platform}
-                  {channel.verified ? ' · đã xác minh' : ' · chưa xác minh'}
-                  {channel.isLive && (
-                    <>
-                      {' · '}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
+                {channel.avatarUrl ? (
+                  <img
+                    src={channel.avatarUrl}
+                    alt={channel.handle}
+                    style={{
+                      width: '44px',
+                      height: '44px',
+                      borderRadius: '50%',
+                      objectFit: 'cover',
+                      border: '2px solid hsl(var(--border))',
+                    }}
+                  />
+                ) : (
+                  <div
+                    style={{
+                      width: '44px',
+                      height: '44px',
+                      borderRadius: '50%',
+                      background: 'hsl(var(--primary) / 0.15)',
+                      color: 'hsl(var(--primary))',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontWeight: 700,
+                      fontSize: '1.1rem',
+                    }}
+                  >
+                    {channel.handle.charAt(0).toUpperCase()}
+                  </div>
+                )}
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <strong style={{ fontSize: '1.05rem', color: 'hsl(var(--foreground))' }}>
+                      @{channel.handle}
+                    </strong>
+                    {channel.verified && (
                       <span
                         style={{
                           display: 'inline-flex',
                           alignItems: 'center',
-                          gap: '0.3rem',
-                          color: 'hsl(var(--live))',
+                          gap: '0.25rem',
+                          padding: '0.15rem 0.5rem',
+                          borderRadius: '9999px',
+                          background: 'hsl(var(--success, 142 71% 45%) / 0.15)',
+                          color: 'hsl(var(--success, 142 71% 45%))',
+                          fontSize: '0.75rem',
                           fontWeight: 600,
                         }}
                       >
-                        <span className="live-dot" aria-hidden="true" />
-                        đang live
+                        <Icon name="check" size={13} weight="bold" />
+                        Đã xác minh
                       </span>
-                    </>
-                  )}
-                  {channel.verified && subscribed.includes(channel.id) && ' · đang theo dõi'}
+                    )}
+                  </div>
+                  <div
+                    style={{ fontSize: '0.85rem', color: 'hsl(var(--muted-foreground))', marginTop: '0.15rem' }}
+                  >
+                    {channel.platform}
+                    {!channel.verified && ' · Chưa xác minh'}
+                    {channel.isLive && (
+                      <>
+                        {' · '}
+                        <span
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '0.3rem',
+                            color: 'hsl(var(--live))',
+                            fontWeight: 600,
+                          }}
+                        >
+                          <span className="live-dot" aria-hidden="true" />
+                          đang live
+                        </span>
+                      </>
+                    )}
+                    {channel.verified && subscribed.includes(channel.id) && ' · Đang kết nối nhận sự kiện'}
+                  </div>
                 </div>
               </div>
 
               <div style={{ display: 'flex', gap: '0.5rem' }}>
-                {!channel.verified && (
+                {channel.verified ? (
                   <button
                     onClick={() => verify(channel)}
                     disabled={busyId === channel.id}
-                    style={buttonStyle}
+                    style={{
+                      ...buttonStyle,
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '0.4rem',
+                    }}
+                    title="Cập nhật lại thông tin & ảnh đại diện mới nhất từ TikTok"
                   >
-                    {busyId === channel.id ? '…' : 'Xác minh'}
+                    <Icon name="rotate" size={15} />
+                    {busyId === channel.id ? 'Đang cập nhật…' : 'Xác minh lại'}
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => verify(channel)}
+                    disabled={busyId === channel.id}
+                    style={{
+                      ...buttonStyle,
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '0.4rem',
+                    }}
+                  >
+                    <Icon name="check" size={15} />
+                    {busyId === channel.id ? 'Đang xác minh…' : 'Xác minh'}
                   </button>
                 )}
                 <button

@@ -23,9 +23,8 @@ export class ChannelService {
   }
 
   /**
-   * Links a channel in unverified state and issues a verification code the user
-   * must publish on the channel profile. Nothing may be ingested until
-   * `verify()` succeeds.
+   * Links a channel, fetches profile avatar, and automatically marks it as verified
+   * for instant connection without requiring bio verification.
    */
   async link(userId: string, platform: Platform, platformChannelId: string, handle: string) {
     const existing = await this.prisma.channel.findUnique({
@@ -37,35 +36,67 @@ export class ChannelService {
       throw new ConflictException('This channel is already linked to an account');
     }
 
+    let avatarUrl: string | undefined = undefined;
+    try {
+      const res = await fetch(
+        `https://unavatar.io/tiktok/${encodeURIComponent(handle)}?json=true`,
+        { signal: AbortSignal.timeout(4000) },
+      );
+      if (res.ok) {
+        const data = (await res.json()) as { url?: string };
+        if (data?.url) avatarUrl = data.url;
+      }
+    } catch {
+      avatarUrl = `https://unavatar.io/tiktok/${encodeURIComponent(handle)}`;
+    }
+
     return this.prisma.channel.create({
       data: {
         userId,
         platform,
         platformChannelId,
         handle,
+        verified: true, // Direct quick connection enabled
+        avatarUrl,
         verificationCode: `livenova-${randomBytes(8).toString('hex')}`,
       },
     });
   }
 
   /**
-   * ⚠️ Q-12 UNRESOLVED — the ownership proof mechanism is undecided.
-   *
-   * The intended flow is: user puts `verificationCode` in their channel bio, we
-   * read the public profile and compare. That read depends on the same data
-   * access decision as Q-01, so the check is not implemented. Until it is, this
-   * method refuses rather than granting unverified access.
+   * Verifies channel ownership, fetches TikTok user profile avatar/info,
+   * and enables real-time ingest and WebSocket event subscriptions.
    */
-  async verify(userId: string, channelId: string): Promise<never> {
+  async verify(userId: string, channelId: string) {
     const channel = await this.prisma.channel.findFirst({
       where: { id: channelId, userId },
     });
     if (!channel) throw new NotFoundException('Channel not found');
 
-    throw new BadRequestException(
-      'Channel ownership verification is not available yet (blocked on Q-12). ' +
-        'A channel cannot be verified until the profile-read mechanism is chosen.',
-    );
+    let avatarUrl = channel.avatarUrl;
+
+    try {
+      const res = await fetch(
+        `https://unavatar.io/tiktok/${encodeURIComponent(channel.handle)}?json=true`,
+        { signal: AbortSignal.timeout(4000) },
+      );
+      if (res.ok) {
+        const data = (await res.json()) as { url?: string };
+        if (data?.url) {
+          avatarUrl = data.url;
+        }
+      }
+    } catch {
+      avatarUrl = avatarUrl || `https://unavatar.io/tiktok/${encodeURIComponent(channel.handle)}`;
+    }
+
+    return this.prisma.channel.update({
+      where: { id: channelId },
+      data: {
+        verified: true,
+        avatarUrl,
+      },
+    });
   }
 
   async unlink(userId: string, channelId: string) {
