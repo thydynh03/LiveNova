@@ -235,7 +235,23 @@ export default function ChannelsPage() {
                 >
                   {channel.platform}
                   {channel.verified ? ' · đã xác minh' : ' · chưa xác minh'}
-                  {channel.isLive && ' · 🔴 đang live'}
+                  {channel.isLive && (
+                    <>
+                      {' · '}
+                      <span
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '0.3rem',
+                          color: 'hsl(var(--live))',
+                          fontWeight: 600,
+                        }}
+                      >
+                        <span className="live-dot" aria-hidden="true" />
+                        đang live
+                      </span>
+                    </>
+                  )}
                   {channel.verified && subscribed.includes(channel.id) && ' · đang theo dõi'}
                 </div>
               </div>

@@ -17,11 +17,11 @@ const LABEL: Record<LiveEventType, string> = {
 
 const ACCENT: Record<LiveEventType, string> = {
   [LiveEventType.COMMENT]: 'hsl(var(--muted-foreground))',
-  [LiveEventType.GIFT]: '#f43f5e',
+  [LiveEventType.GIFT]: 'hsl(var(--live))',
   [LiveEventType.LIKE]: '#ec4899',
-  [LiveEventType.FOLLOW]: '#10b981',
+  [LiveEventType.FOLLOW]: 'hsl(var(--success))',
   [LiveEventType.SHARE]: '#3b82f6',
-  [LiveEventType.JOIN]: '#a78bfa',
+  [LiveEventType.JOIN]: 'hsl(var(--primary))',
 };
 
 /**
