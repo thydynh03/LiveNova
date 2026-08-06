@@ -339,7 +339,7 @@ export default function ProfileSettingsPage() {
             <p style={{ color: 'hsl(var(--muted-foreground))' }}>Không tìm thấy phiên đăng nhập nào.</p>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              {sessions.map((s) => (
+              {sessions.map((s, index) => (
                 <div
                   key={String(s.id)}
                   style={{
@@ -353,8 +353,13 @@ export default function ProfileSettingsPage() {
                   }}
                 >
                   <div>
-                    <div style={{ fontWeight: 600, fontSize: '0.95rem', marginBottom: '0.25rem' }}>
+                    <div style={{ fontWeight: 600, fontSize: '0.95rem', marginBottom: '0.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                       💻 {String(s.userAgent || 'Thiết bị không xác định')}
+                      {index === 0 && (
+                        <span style={{ fontSize: '0.75rem', background: '#6366f1', color: '#fff', padding: '0.15rem 0.5rem', borderRadius: '10px', fontWeight: 500 }}>
+                          Thiết bị này
+                        </span>
+                      )}
                     </div>
                     <div style={{ fontSize: '0.8rem', color: 'hsl(var(--muted-foreground))' }}>
                       IP: {String(s.ip || 'Không xác định')} • Đăng nhập: {new Date(String(s.createdAt)).toLocaleString('vi-VN')}

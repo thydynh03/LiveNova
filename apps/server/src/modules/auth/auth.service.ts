@@ -8,7 +8,7 @@ import {
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as argon2 from 'argon2';
-import { randomBytes } from 'crypto';
+import { randomBytes, createHmac } from 'crypto';
 import { ProviderType } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { SessionService, RefreshContext } from './session.service';
@@ -31,12 +31,14 @@ export interface TokenPair {
 
 interface ResetTokenData {
   userId: string;
+  tokenHash: string;
   expiresAt: number;
 }
 
 @Injectable()
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
+  // O(1) keyed lookup map
   private readonly resetTokens = new Map<string, ResetTokenData>();
   private readonly env = loadEnv();
 
@@ -165,21 +167,24 @@ export class AuthService {
     return this.sessionService.revokeAllForUser(userId);
   }
 
+  private computeTokenKey(token: string): string {
+    return createHmac('sha256', this.env.jwtRefreshSecret).update(token).digest('hex');
+  }
+
   async forgotPassword(email: string): Promise<{ success: boolean }> {
     const user = await this.prisma.user.findUnique({ where: { email } });
 
-    // P0: Always return identical response shape for unknown emails to avoid account enumeration oracle.
     if (!user || !user.passwordHash || user.deletedAt) {
       return { success: true };
     }
 
     const rawToken = randomBytes(32).toString('hex');
+    const tokenKey = this.computeTokenKey(rawToken);
     const tokenHash = await argon2.hash(rawToken, { type: argon2.argon2id });
     const expiresAt = Date.now() + 15 * 60 * 1000;
 
-    this.resetTokens.set(tokenHash, { userId: user.id, expiresAt });
+    this.resetTokens.set(tokenKey, { userId: user.id, tokenHash, expiresAt });
 
-    // Never return resetToken in API response body. Deliver out-of-band / log in dev.
     if (process.env.NODE_ENV !== 'production') {
       this.logger.log(`[DEV ONLY] Password reset token for ${email}: ${rawToken}`);
     }
@@ -188,35 +193,29 @@ export class AuthService {
   }
 
   async resetPassword(rawToken: string, newPassword: string): Promise<boolean> {
-    let matchedHash: string | null = null;
-    let matchedData: ResetTokenData | null = null;
+    const tokenKey = this.computeTokenKey(rawToken);
+    const data = this.resetTokens.get(tokenKey);
 
-    for (const [hash, data] of this.resetTokens.entries()) {
-      if (data.expiresAt < Date.now()) {
-        this.resetTokens.delete(hash);
-        continue;
-      }
-
-      if (!matchedHash && (await argon2.verify(hash, rawToken))) {
-        matchedHash = hash;
-        matchedData = data;
-      }
+    if (!data || data.expiresAt < Date.now()) {
+      if (tokenKey) this.resetTokens.delete(tokenKey);
+      throw new BadRequestException('Token khôi phục không hợp lệ hoặc đã hết hạn');
     }
 
-    if (!matchedHash || !matchedData) {
-      throw new BadRequestException('Token khôi phục không hợp lệ hoặc đã hết hạn');
+    const validToken = await argon2.verify(data.tokenHash, rawToken);
+    if (!validToken) {
+      throw new BadRequestException('Token khôi phục không hợp lệ');
     }
 
     const passwordHash = await this.hashPassword(newPassword);
 
     await this.prisma.user.update({
-      where: { id: matchedData.userId },
+      where: { id: data.userId },
       data: { passwordHash },
     });
 
-    this.resetTokens.delete(matchedHash);
+    this.resetTokens.delete(tokenKey);
 
-    await this.logoutEverywhere(matchedData.userId);
+    await this.logoutEverywhere(data.userId);
 
     return true;
   }
@@ -239,7 +238,6 @@ export class AuthService {
       data: { passwordHash },
     });
 
-    // P3 fix: Revoke all sessions on password change to force re-authentication
     await this.logoutEverywhere(userId);
 
     return true;

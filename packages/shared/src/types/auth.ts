@@ -34,8 +34,8 @@ export interface UserSessionInfo {
   id: string;
   ip?: string;
   userAgent?: string;
-  rememberMe: boolean;
-  createdAt: Date;
-  lastUsedAt: Date;
-  expiresAt: Date;
+  rememberMe?: boolean;
+  createdAt: string;
+  lastUsedAt?: string;
+  expiresAt: string;
 }
