@@ -182,11 +182,15 @@ function MediaOverlayContent() {
               <img
                 src={activePopup.url}
                 alt="Popup effect"
+                onError={(e) => {
+                  // Fallback if image URL is unreachable
+                  (e.target as HTMLImageElement).src = 'https://media.giphy.com/media/3o7TKrEzvLbsVAud8I/giphy.gif';
+                }}
                 style={{
                   width: '100%',
                   maxHeight: '320px',
                   borderRadius: '14px',
-                  objectFit: 'cover',
+                  objectFit: 'contain',
                 }}
               />
             )

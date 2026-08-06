@@ -180,7 +180,7 @@ export class RuleService {
             type: RuleActionType.MEDIA_POPUP,
             payload: {
               mediaType: 'image',
-              url: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=500',
+              url: 'https://media.giphy.com/media/26flv1e9aR4Qv96vK/giphy.gif',
               durationMs: 5000,
               position: 'center',
               caption: 'Cảm ơn {sender} đã tặng Hoa Hồng! 🌹',
@@ -201,7 +201,7 @@ export class RuleService {
             type: RuleActionType.MEDIA_POPUP,
             payload: {
               mediaType: 'image',
-              url: 'https://images.unsplash.com/photo-1579783902614-a3fb3927b675?w=600',
+              url: 'https://media.giphy.com/media/3o7TKrEzvLbsVAud8I/giphy.gif',
               durationMs: 8000,
               position: 'center',
               caption: '💥 SIÊU VIP {sender} ĐÃ TẶNG {gift} ({coins} Xu)! 💥',
