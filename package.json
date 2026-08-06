@@ -1,6 +1,7 @@
 {
   "name": "livenova",
   "private": true,
+  "packageManager": "pnpm@9.0.0",
   "workspaces": [
     "packages/*",
     "apps/*"
@@ -8,22 +9,11 @@
   "scripts": {
     "lint": "eslint .",
     "build": "pnpm -r run build",
-<<<<<<< HEAD
-    "dev": "pnpm -r run dev",
-    "test": "pnpm -r run test"
-=======
     "dev": "pnpm --parallel run dev",
-<<<<<<< HEAD
-    "dev:web": "pnpm --filter @tiktok-live/web dev",
-    "dev:server": "pnpm --filter @tiktok-live/server dev",
-    "dev:no-desktop": "pnpm --parallel --filter !@tiktok-live/desktop-app dev"
->>>>>>> b3e87d3 (fix(monorepo): resolve dev scripts parallel execution, tauri recursion and tokio runtime panic)
-=======
     "dev:web": "pnpm --filter @livenova/web dev",
     "dev:server": "pnpm --filter @livenova/server dev",
     "dev:no-desktop": "pnpm --parallel --filter !@livenova/desktop-app dev",
     "test": "pnpm -r run test"
->>>>>>> 0ea2ba6 (fix(desktop-app): integrate Wails desktop workspace and resolve dev server port conflicts)
   },
   "devDependencies": {
     "eslint": "^8.50.0",

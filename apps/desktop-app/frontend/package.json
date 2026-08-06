@@ -3,16 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-<<<<<<< HEAD:apps/desktop-app/frontend/package.json
     "dev": "vite",
     "build": "vite build",
     "typecheck": "tsc --noEmit",
-=======
-    "dev": "tauri dev",
-    "dev:frontend": "vite",
-    "build": "tauri build",
-    "build:frontend": "tsc && vite build",
->>>>>>> b3e87d3 (fix(monorepo): resolve dev scripts parallel execution, tauri recursion and tokio runtime panic):apps/desktop-app/package.json
     "lint": "eslint src/"
   },
   "dependencies": {
