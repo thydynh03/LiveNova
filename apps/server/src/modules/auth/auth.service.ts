@@ -7,7 +7,7 @@ import {
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as argon2 from 'argon2';
-import { randomBytes, createHmac } from 'crypto';
+import { randomBytes } from 'crypto';
 import { ProviderType } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { SessionService, RefreshContext } from './session.service';
@@ -35,6 +35,7 @@ interface ResetTokenData {
 
 @Injectable()
 export class AuthService {
+  // Map of storedTokenHash -> ResetTokenData
   private readonly resetTokens = new Map<string, ResetTokenData>();
   private readonly env = loadEnv();
 
@@ -163,10 +164,6 @@ export class AuthService {
     return this.sessionService.revokeAllForUser(userId);
   }
 
-  private computeResetTokenHash(token: string): string {
-    return createHmac('sha256', this.env.jwtRefreshSecret).update(token).digest('hex');
-  }
-
   async forgotPassword(email: string): Promise<{ success: boolean; resetToken?: string }> {
     const user = await this.prisma.user.findUnique({ where: { email } });
 
@@ -175,7 +172,7 @@ export class AuthService {
     }
 
     const rawToken = randomBytes(32).toString('hex');
-    const tokenHash = this.computeResetTokenHash(rawToken);
+    const tokenHash = await argon2.hash(rawToken, { type: argon2.argon2id });
     const expiresAt = Date.now() + 15 * 60 * 1000;
 
     this.resetTokens.set(tokenHash, { userId: user.id, expiresAt });
@@ -187,24 +184,36 @@ export class AuthService {
   }
 
   async resetPassword(rawToken: string, newPassword: string): Promise<boolean> {
-    const tokenHash = this.computeResetTokenHash(rawToken);
-    const data = this.resetTokens.get(tokenHash);
+    let matchedHash: string | null = null;
+    let matchedData: ResetTokenData | null = null;
 
-    if (!data || data.expiresAt < Date.now()) {
-      this.resetTokens.delete(tokenHash);
+    // Prune expired & verify matching token using argon2
+    for (const [hash, data] of this.resetTokens.entries()) {
+      if (data.expiresAt < Date.now()) {
+        this.resetTokens.delete(hash);
+        continue;
+      }
+
+      if (!matchedHash && (await argon2.verify(hash, rawToken))) {
+        matchedHash = hash;
+        matchedData = data;
+      }
+    }
+
+    if (!matchedHash || !matchedData) {
       throw new BadRequestException('Token khôi phục không hợp lệ hoặc đã hết hạn');
     }
 
     const passwordHash = await this.hashPassword(newPassword);
 
     await this.prisma.user.update({
-      where: { id: data.userId },
+      where: { id: matchedData.userId },
       data: { passwordHash },
     });
 
-    this.resetTokens.delete(tokenHash);
+    this.resetTokens.delete(matchedHash);
 
-    await this.logoutEverywhere(data.userId);
+    await this.logoutEverywhere(matchedData.userId);
 
     return true;
   }
