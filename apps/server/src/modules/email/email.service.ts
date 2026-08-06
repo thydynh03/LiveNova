@@ -6,15 +6,19 @@ export class EmailService {
   private readonly logger = new Logger(EmailService.name);
   private readonly initialized: boolean = false;
   private readonly fromEmail: string;
+  private readonly fromName: string;
+  private readonly replyTo?: string;
 
   constructor() {
     const apiKey = process.env.SENDGRID_API_KEY;
-    this.fromEmail = process.env.SENDGRID_FROM_EMAIL || 'no-reply@livenova.app';
+    this.fromEmail = process.env.EMAIL_FROM || process.env.SENDGRID_FROM_EMAIL || 'no-reply@livenova.app';
+    this.fromName = process.env.EMAIL_FROM_NAME || 'LiveNova Support';
+    this.replyTo = process.env.EMAIL_REPLY_TO;
 
     if (apiKey && apiKey.startsWith('SG.')) {
       sgMail.setApiKey(apiKey);
       this.initialized = true;
-      this.logger.log('SendGrid EmailService initialized with API key');
+      this.logger.log(`SendGrid EmailService initialized for ${this.fromEmail}`);
     } else {
       this.logger.warn('SENDGRID_API_KEY not configured or invalid. EmailService will log OTP to console in DEV mode.');
     }
@@ -37,7 +41,7 @@ export class EmailService {
         </div>
         <p style="font-size: 13px; color: #71717a;">Mã OTP có hiệu lực trong <strong>10 phút</strong>. Vui lòng không chia sẻ mã này cho ai khác.</p>
         <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;" />
-        <p style="font-size: 11px; color: #a1a1aa; text-align: center;">Đây là email tự động, vui lòng không trả lời email này.</p>
+        <p style="font-size: 11px; color: #a1a1aa; text-align: center;">Đây là email tự động từ hệ thống LiveNova.</p>
       </div>
     `;
 
@@ -51,14 +55,18 @@ export class EmailService {
     try {
       await sgMail.send({
         to,
-        from: this.fromEmail,
+        from: {
+          email: this.fromEmail,
+          name: this.fromName,
+        },
+        replyTo: this.replyTo ? { email: this.replyTo } : undefined,
         subject,
         html,
       });
       this.logger.log(`OTP email sent successfully via SendGrid to ${to}`);
       return true;
     } catch (err: any) {
-      this.logger.error(`Failed to send OTP email to ${to}: ${err?.message ?? err}`);
+      this.logger.error(`Failed to send OTP email to ${to}: ${err?.response?.body?.errors?.[0]?.message || err?.message || err}`);
       return false;
     }
   }
