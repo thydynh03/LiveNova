@@ -172,20 +172,28 @@ function MediaOverlayContent() {
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
-            gap: '1rem',
-            padding: '1.5rem 2rem',
-            borderRadius: '20px',
-            background: 'rgba(10, 15, 20, 0.9)',
-            border: `2px solid ${ACCENT}`,
-            boxShadow: `0 0 40px rgba(225, 39, 76, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.15)`,
-            backdropFilter: 'blur(16px)',
+            gap: '0.75rem',
+            padding: '0',
+            background: 'transparent',
+            border: 'none',
+            boxShadow: 'none',
             color: 'white',
             textAlign: 'center',
-            maxWidth: '520px',
+            maxWidth: '600px',
           }}
         >
-          <div style={{ fontSize: '1.2rem', fontWeight: 700, color: ACCENT, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <Icon name="gift" size={24} style={{ color: ACCENT }} />
+          {/* Caption text floating with glow - like TikTok gift text */}
+          <div style={{
+            fontSize: '1.3rem',
+            fontWeight: 800,
+            color: '#FFD700',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.5rem',
+            textShadow: '0 0 10px rgba(255, 215, 0, 0.8), 0 0 20px rgba(255, 215, 0, 0.5), 0 2px 4px rgba(0,0,0,0.9)',
+            letterSpacing: '0.02em',
+          }}>
+            <span style={{ fontSize: '1.5rem' }}>🎁</span>
             {activePopup.caption}
           </div>
 
@@ -196,10 +204,10 @@ function MediaOverlayContent() {
                 autoPlay
                 playsInline
                 style={{
-                  width: '100%',
-                  maxHeight: '340px',
-                  borderRadius: '14px',
+                  maxWidth: '100%',
+                  maxHeight: '400px',
                   objectFit: 'contain',
+                  filter: 'drop-shadow(0 0 20px rgba(255, 165, 0, 0.4))',
                 }}
                 ref={(el) => {
                   if (el) {
@@ -216,14 +224,13 @@ function MediaOverlayContent() {
                 src={activePopup.url}
                 alt="Popup effect"
                 onError={(e) => {
-                  // Fallback if image URL is unreachable
                   (e.target as HTMLImageElement).src = 'https://media.giphy.com/media/3o7TKrEzvLbsVAud8I/giphy.gif';
                 }}
                 style={{
-                  width: '100%',
-                  maxHeight: '320px',
-                  borderRadius: '14px',
+                  maxWidth: '100%',
+                  maxHeight: '400px',
                   objectFit: 'contain',
+                  filter: 'drop-shadow(0 0 20px rgba(255, 165, 0, 0.4))',
                 }}
               />
             )
