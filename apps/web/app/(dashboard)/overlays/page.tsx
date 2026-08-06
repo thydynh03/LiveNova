@@ -16,23 +16,16 @@ import type { Overlay } from '../../../lib/types';
  * them it is not ready.
  */
 const LIVE_RENDERERS: Record<string, string> = {
+  MEDIA: '/overlays/media',
   CHAT: '/overlays/chat',
 };
 
-/**
- * Renderers that are wired to the socket but have no server-side producer yet.
- *
- * The chat overlay consumes real actions correctly; nothing dispatches CHATBOX
- * actions until F04 ships, so the URL works and stays blank. Say so rather than
- * letting a streamer conclude their OBS setup is broken.
- */
 const AWAITING_PRODUCER: Record<string, string> = {
   CHAT: 'Cần luật Chatbox (F04) mới có dữ liệu',
 };
 
 /** Types that exist in the API but have no working renderer yet. */
 const PENDING_LABEL: Record<string, string> = {
-  MEDIA: 'Đang phát triển (Dev A — F01)',
   GOAL: 'Đang phát triển (F06)',
   PK_BAR: 'Đang phát triển (F08)',
   LEADERBOARD: 'Đang phát triển (F10)',
