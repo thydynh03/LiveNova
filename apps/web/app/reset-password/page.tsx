@@ -23,7 +23,8 @@ function ResetPasswordForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const [token, setToken] = useState<string | null>(null);
+  const email = searchParams.get('email') || '';
+  const code = searchParams.get('code') || '';
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -31,24 +32,17 @@ function ResetPasswordForm() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    const rawToken = searchParams.get('token');
-    if (rawToken) {
-      setToken(rawToken);
-      // Immediately clear the sensitive token from the URL bar to prevent leakage via browser history or Referer headers
-      if (typeof window !== 'undefined') {
-        window.history.replaceState({}, document.title, window.location.pathname);
-      }
-    } else if (!token) {
+    if (!email || !code) {
       setError('Mã khôi phục mật khẩu không khả dụng hoặc đã hết hạn.');
     }
-  }, [searchParams, token]);
+  }, [email, code]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
 
-    if (!token) {
-      setError('Mã khôi phục mật khẩu không khả dụng.');
+    if (!email || !code) {
+      setError('Thông tin khôi phục không hợp lệ.');
       return;
     }
 
@@ -70,7 +64,7 @@ function ResetPasswordForm() {
     setLoading(true);
 
     try {
-      await resetPassword(token, newPassword);
+      await resetPassword(email, code, newPassword);
       setSuccess(true);
       setTimeout(() => {
         router.push('/login');
@@ -184,7 +178,7 @@ function ResetPasswordForm() {
 
             <button
               type="submit"
-              disabled={loading || !token}
+              disabled={loading || !email || !code}
               style={{
                 width: '100%',
                 padding: '0.85rem',

@@ -46,10 +46,40 @@ export class ForgotPasswordDto {
   email!: string;
 }
 
-export class ResetPasswordDto {
+export class VerifyOtpDto {
+  @IsEmail({}, { message: 'Email không hợp lệ' })
+  @MaxLength(320)
+  email!: string;
+
   @IsString()
-  @IsNotEmpty({ message: 'Token là bắt buộc' })
-  token!: string;
+  @MinLength(6, { message: 'Mã OTP gồm 6 chữ số' })
+  @MaxLength(6, { message: 'Mã OTP gồm 6 chữ số' })
+  code!: string;
+
+  @IsOptional()
+  @IsString()
+  type?: 'REGISTER' | 'FORGOT_PASSWORD';
+}
+
+export class ResendOtpDto {
+  @IsEmail({}, { message: 'Email không hợp lệ' })
+  @MaxLength(320)
+  email!: string;
+
+  @IsOptional()
+  @IsString()
+  type?: 'REGISTER' | 'FORGOT_PASSWORD';
+}
+
+export class ResetPasswordDto {
+  @IsEmail({}, { message: 'Email không hợp lệ' })
+  @MaxLength(320)
+  email!: string;
+
+  @IsString()
+  @MinLength(6, { message: 'Mã OTP gồm 6 chữ số' })
+  @MaxLength(6, { message: 'Mã OTP gồm 6 chữ số' })
+  code!: string;
 
   @IsString()
   @MinLength(8, { message: 'Mật khẩu mới tối thiểu 8 ký tự' })

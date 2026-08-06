@@ -4,24 +4,15 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { ThemeToggle } from './ThemeToggle';
+import { AvatarDropdown } from './AvatarDropdown';
 import { getNavItems } from '../../config/nav';
 import { useAuth } from '../../context/AuthContext';
 import { Icon } from '../ui/Icon';
 
 export function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [signingOut, setSigningOut] = useState(false);
   const pathname = usePathname();
-  const { status, signOut } = useAuth();
-
-  async function handleSignOut() {
-    setSigningOut(true);
-    try {
-      await signOut();
-    } finally {
-      setSigningOut(false);
-    }
-  }
+  const { status } = useAuth();
 
   // Links come from the registry — adding a feature never edits this file.
   const items = getNavItems();
@@ -76,27 +67,8 @@ export function Navbar() {
 
           <ThemeToggle />
 
-          <div suppressHydrationWarning>
-            {status === 'authenticated' && (
-              <button
-                type="button"
-                onClick={handleSignOut}
-                disabled={signingOut}
-                style={{
-                  minHeight: '44px',
-                  padding: '0.5rem 1rem',
-                  borderRadius: 'var(--radius)',
-                  border: '1px solid hsl(var(--border))',
-                  background: 'hsl(var(--card))',
-                  color: 'hsl(var(--foreground))',
-                  fontWeight: 500,
-                  cursor: signingOut ? 'not-allowed' : 'pointer',
-                  opacity: signingOut ? 0.6 : 1,
-                }}
-              >
-                {signingOut ? 'Đang thoát…' : 'Đăng xuất'}
-              </button>
-            )}
+          <div suppressHydrationWarning style={{ display: 'flex', alignItems: 'center' }}>
+            {status === 'authenticated' && <AvatarDropdown />}
           </div>
         </div>
 

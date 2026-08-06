@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { forgotPassword } from '../../lib/api-client';
 import { Icon } from '../../components/ui/Icon';
 
@@ -17,6 +18,7 @@ const inputStyle: React.CSSProperties = {
 };
 
 export default function ForgotPasswordPage() {
+  const router = useRouter();
   const [email, setEmail] = useState('');
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -29,7 +31,7 @@ export default function ForgotPasswordPage() {
 
     try {
       await forgotPassword(email);
-      setSubmitted(true);
+      router.push(`/verify-otp?email=${encodeURIComponent(email)}&type=FORGOT_PASSWORD`);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Yêu cầu thất bại');
     } finally {

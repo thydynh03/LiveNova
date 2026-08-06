@@ -51,7 +51,7 @@ export default function RegisterPage() {
     setSubmitting(true);
     try {
       await signUp(email, password, displayName);
-      router.replace('/dashboard');
+      router.push(`/verify-otp?email=${encodeURIComponent(email)}&type=REGISTER`);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Đăng ký thất bại');
     } finally {

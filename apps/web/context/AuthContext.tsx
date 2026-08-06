@@ -37,7 +37,8 @@ interface AuthContextValue {
   status: AuthStatus;
   user: UserProfile | null;
   signIn: (email: string, password: string, rememberMe?: boolean) => Promise<void>;
-  signUp: (email: string, password: string, displayName: string) => Promise<void>;
+  signUp: (email: string, password: string, displayName: string) => Promise<{ pendingVerification: boolean; email: string }>;
+  confirmOtp: (email: string, code: string, type?: 'REGISTER' | 'FORGOT_PASSWORD') => Promise<void>;
   signOut: () => Promise<void>;
   refreshUser: () => Promise<void>;
 }
@@ -116,7 +117,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [fetchUserProfile]);
 
   const signUp = useCallback(async (email: string, password: string, displayName: string) => {
-    await apiRegister(email, password, displayName);
+    return apiRegister(email, password, displayName);
+  }, []);
+
+  const confirmOtp = useCallback(async (email: string, code: string, type?: 'REGISTER' | 'FORGOT_PASSWORD') => {
+    const { verifyOtp: apiVerifyOtp } = await import('../lib/api-client');
+    await apiVerifyOtp(email, code, type);
     authGeneration.current += 1;
     if (mounted.current) {
       setStatus('authenticated');
@@ -139,7 +145,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [fetchUserProfile]);
 
   return (
-    <AuthContext.Provider value={{ status, user, signIn, signUp, signOut, refreshUser }}>
+    <AuthContext.Provider value={{ status, user, signIn, signUp, confirmOtp, signOut, refreshUser }}>
       {children}
     </AuthContext.Provider>
   );
