@@ -8,11 +8,14 @@ import {
 } from '@livenova/shared';
 import { RuleEngineService } from './rule-engine.service';
 import { PrismaService } from '../../prisma/prisma.service';
+import { TtsService } from '../tts/tts.service';
 
 function makePrisma() {
   return {
     channel: { findUnique: jest.fn() },
     rule: { findMany: jest.fn() },
+    overlay: { findFirst: jest.fn() },
+    ttsSettings: { findUnique: jest.fn() },
   };
 }
 
@@ -57,15 +60,24 @@ describe('RuleEngineService', () => {
   let emitter: EventEmitter2;
   let emit: jest.SpyInstance;
   let service: RuleEngineService;
+  let tts: { synthesize: jest.Mock };
 
   beforeEach(() => {
     prisma = makePrisma();
     prisma.channel.findUnique.mockResolvedValue({ userId: 'user-1' });
     prisma.rule.findMany.mockResolvedValue([ruleRow()]);
+    prisma.overlay.findFirst.mockResolvedValue({ id: 'overlay-1' });
+    prisma.ttsSettings.findUnique.mockResolvedValue(null);
+
+    tts = { synthesize: jest.fn().mockResolvedValue({ url: 'data:audio/mpeg;base64,AAA' }) };
 
     emitter = new EventEmitter2();
     emit = jest.spyOn(emitter, 'emit');
-    service = new RuleEngineService(prisma as unknown as PrismaService, emitter);
+    service = new RuleEngineService(
+      prisma as unknown as PrismaService,
+      emitter,
+      tts as unknown as TtsService,
+    );
   });
 
   function dispatched(): OverlayDispatchEvent[] {
@@ -165,5 +177,113 @@ describe('RuleEngineService', () => {
 
     await expect(service.handleLiveEvent(giftEvent())).resolves.toBeUndefined();
     expect(dispatched()).toHaveLength(0);
+  });
+  describe('TTS_READ', () => {
+    const ttsRule = () =>
+      ruleRow({
+        actions: [
+          {
+            type: RuleActionType.TTS_READ,
+            payload: { text: 'Cảm ơn {sender} đã tặng {gift} ({coins} xu)' },
+          },
+        ],
+      });
+
+    beforeEach(() => {
+      prisma.rule.findMany.mockResolvedValue([ttsRule()]);
+    });
+
+    it('synthesises on the server and hands the overlay a playable URL', async () => {
+      // The overlay authenticates with a public token alone, so it has no
+      // identity to bill and cannot call the metered endpoint itself.
+      await service.handleLiveEvent(giftEvent());
+
+      expect(tts.synthesize).toHaveBeenCalledTimes(1);
+      expect(dispatched()[0].action.payload.audioUrl).toBe('data:audio/mpeg;base64,AAA');
+    });
+
+    it('interpolates placeholders before synthesis, not after', async () => {
+      await service.handleLiveEvent(giftEvent());
+
+      // Synthesising the raw template would read "dấu ngoặc sender" aloud.
+      expect(tts.synthesize).toHaveBeenCalledWith(
+        expect.objectContaining({ text: 'Cảm ơn Ngọc Hân đã tặng Sư tử (29999 xu)' }),
+        'user-1',
+      );
+    });
+
+    it('bills the owner of the channel', async () => {
+      await service.handleLiveEvent(giftEvent());
+      expect(tts.synthesize).toHaveBeenCalledWith(expect.anything(), 'user-1');
+    });
+
+    it('uses the saved voice settings of the owner', async () => {
+      prisma.ttsSettings.findUnique.mockResolvedValue({
+        voiceId: 'vi-VN-Standard-B',
+        rate: 0.8,
+        pitch: 2,
+        volume: 0.5,
+      });
+
+      await service.handleLiveEvent(giftEvent());
+
+      expect(tts.synthesize).toHaveBeenCalledWith(
+        expect.objectContaining({ voice: 'vi-VN-Standard-B', rate: 0.8 }),
+        'user-1',
+      );
+      expect(dispatched()[0].action.payload.volume).toBe(0.5);
+    });
+
+    it('skips the action when the user is out of credits, without throwing', async () => {
+      tts.synthesize.mockRejectedValue(new Error('Insufficient credits'));
+
+      await expect(service.handleLiveEvent(giftEvent())).resolves.toBeUndefined();
+      expect(dispatched()).toHaveLength(0);
+    });
+
+    it('does not spend a credit on an empty template', async () => {
+      prisma.rule.findMany.mockResolvedValue([
+        ruleRow({ actions: [{ type: RuleActionType.TTS_READ, payload: { text: '   ' } }] }),
+      ]);
+
+      await service.handleLiveEvent(giftEvent());
+
+      expect(tts.synthesize).not.toHaveBeenCalled();
+      expect(dispatched()).toHaveLength(0);
+    });
+  });
+
+  describe('delivery target', () => {
+    it('addresses one overlay instead of the whole user room', async () => {
+      // Broadcasting would make a streamer with a chat source and an alerts
+      // source open hear every line spoken twice.
+      await service.handleLiveEvent(giftEvent());
+      expect(dispatched()[0].overlayId).toBe('overlay-1');
+    });
+
+    it('drops the action when the user has no enabled MEDIA overlay', async () => {
+      prisma.overlay.findFirst.mockResolvedValue(null);
+
+      await service.handleLiveEvent(giftEvent());
+
+      expect(dispatched()).toHaveLength(0);
+    });
+
+    it('interpolates the caption of a media popup too', async () => {
+      prisma.rule.findMany.mockResolvedValue([
+        ruleRow({
+          actions: [
+            {
+              type: RuleActionType.MEDIA_POPUP,
+              payload: { mediaType: 'image', url: 'https://x/y.png', caption: 'Cảm ơn {sender}!' },
+            },
+          ],
+        }),
+      ]);
+
+      await service.handleLiveEvent(giftEvent());
+
+      expect(dispatched()[0].action.payload.caption).toBe('Cảm ơn Ngọc Hân!');
+    });
   });
 });

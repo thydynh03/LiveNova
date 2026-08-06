@@ -4,6 +4,7 @@ import React, { useEffect, useState, useCallback, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { OverlayAction, RuleActionType, MediaPopupPayload } from '@livenova/shared';
 import { useOverlaySocket } from '../../../lib/use-overlay-socket';
+import { useSpeechQueue } from '../../../lib/use-speech-queue';
 import { Icon } from '../../../components/ui/Icon';
 
 interface MediaPopupItem {
@@ -32,7 +33,25 @@ function MediaOverlayContent() {
     document.documentElement.style.backgroundColor = 'transparent';
   }, []);
 
+  const { enqueue: speak, status: speechStatus } = useSpeechQueue();
+
   const handleAction = useCallback((action: OverlayAction) => {
+    // Speech arrives already synthesised: the server bills the owner and hands
+    // over a URL, because this page authenticates with a public token alone and
+    // has no identity the credit ledger could charge.
+    if (action.type === RuleActionType.TTS_READ) {
+      const audioUrl = (action.payload as { audioUrl?: unknown }).audioUrl;
+      if (typeof audioUrl === 'string' && audioUrl !== '') {
+        const rawVolume = (action.payload as { volume?: unknown }).volume;
+        speak({
+          id: action.id,
+          audioUrl,
+          volume: typeof rawVolume === 'number' ? rawVolume : 1,
+        });
+      }
+      return;
+    }
+
     if (action.type !== RuleActionType.MEDIA_POPUP) return;
 
     const payload = action.payload as unknown as MediaPopupPayload;
@@ -64,11 +83,13 @@ function MediaOverlayContent() {
     setTimeout(() => {
       setActivePopup((current) => (current?.id === item.id ? null : current));
     }, item.durationMs);
-  }, []);
+  }, [speak]);
 
   const { status, rejectionCode } = useOverlaySocket(token, { onAction: handleAction });
 
-  const statusMessage = !token
+  const statusMessage = speechStatus === 'blocked'
+    ? 'Trình duyệt chặn tự phát âm thanh — mở URL này trong OBS Browser Source'
+    : !token
     ? 'Thiếu ?token= trong URL overlay'
     : status === 'connecting'
     ? 'Đang kết nối…'

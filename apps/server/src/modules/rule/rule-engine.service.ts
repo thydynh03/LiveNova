@@ -15,6 +15,7 @@ import {
 } from '@livenova/shared';
 import { v4 as uuidv4 } from 'uuid';
 import { PrismaService } from '../../prisma/prisma.service';
+import { TtsService } from '../tts/tts.service';
 
 /**
  * The runtime that turns a live event into an overlay action.
@@ -60,14 +61,19 @@ export class RuleEngineService {
     RuleActionType.TTS_READ,
   ]);
 
+  /** userId → the overlay that renders alerts, or null if they have none. */
+  private readonly alertOverlays = new Map<string, string | null>();
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly eventEmitter: EventEmitter2,
+    private readonly ttsService: TtsService,
   ) {}
 
   /** Called by RuleService after any create/update/delete. */
   invalidateUser(userId: string): void {
     this.ruleCache.delete(userId);
+    this.alertOverlays.delete(userId);
   }
 
   @OnEvent('live.any')
@@ -83,7 +89,7 @@ export class RuleEngineService {
 
       for (const result of results) {
         for (const action of result.actions) {
-          this.dispatch(userId, result.rule, action, event);
+          await this.dispatch(userId, result.rule, action, event);
         }
       }
     } catch (err) {
@@ -97,12 +103,12 @@ export class RuleEngineService {
     }
   }
 
-  private dispatch(
+  private async dispatch(
     userId: string,
     rule: SharedRule,
     action: RuleAction,
     event: LiveEvent,
-  ): void {
+  ): Promise<void> {
     if (!RuleEngineService.OVERLAY_ACTIONS.has(action.type)) {
       this.logger.warn(
         `Rule "${rule.name}" requested ${action.type}, which no connected surface handles yet`,
@@ -110,18 +116,92 @@ export class RuleEngineService {
       return;
     }
 
+    let payload = this.normalisePayload(action, event);
+
+    if (action.type === RuleActionType.TTS_READ) {
+      const speech = await this.synthesise(userId, rule, payload);
+      if (!speech) return;
+      payload = speech;
+    }
+
     const overlayAction: OverlayAction = {
       id: uuidv4(),
       ruleId: rule.id,
       ruleName: rule.name,
       type: action.type,
-      payload: this.normalisePayload(action),
+      payload,
       event: projectEvent(event),
       createdAt: new Date().toISOString(),
     };
 
-    const dispatchEvent: OverlayDispatchEvent = { userId, action: overlayAction };
+    // Targeted at one overlay rather than broadcast to the user's room. A
+    // streamer with both a chat and an alerts source open would otherwise get
+    // the same line spoken twice, once from each browser source.
+    const overlayId = await this.resolveAlertOverlay(userId);
+    if (!overlayId) {
+      this.logger.warn(
+        `Rule "${rule.name}" matched but user ${userId} has no enabled MEDIA overlay to render it`,
+      );
+      return;
+    }
+
+    const dispatchEvent: OverlayDispatchEvent = { userId, action: overlayAction, overlayId };
     this.eventEmitter.emit(OVERLAY_DISPATCH_EVENT, dispatchEvent);
+  }
+
+  /**
+   * Turn the rule's text into audio before the action leaves the server.
+   *
+   * The overlay is authenticated by a public token alone, so it cannot call the
+   * metered TTS endpoint itself — it has no access token and no identity to
+   * bill. Synthesising here keeps the credit ledger on the side of the wire
+   * that knows who the user is, and hands the browser source a URL it only has
+   * to play.
+   */
+  private async synthesise(
+    userId: string,
+    rule: SharedRule,
+    payload: Record<string, unknown>,
+  ): Promise<Record<string, unknown> | null> {
+    const text = typeof payload.text === 'string' ? payload.text.trim() : '';
+    if (text === '') {
+      this.logger.warn(`Rule "${rule.name}" has a TTS action with no text`);
+      return null;
+    }
+
+    const settings = await this.prisma.ttsSettings.findUnique({ where: { userId } });
+
+    try {
+      const result = await this.ttsService.synthesize(
+        {
+          text,
+          voice: settings?.voiceId ?? 'vi-VN-Wavenet-A',
+          rate: settings?.rate ?? 1,
+          pitch: settings?.pitch ?? 0,
+        },
+        userId,
+      );
+      return { ...payload, text, audioUrl: result.url, volume: settings?.volume ?? 1 };
+    } catch (err) {
+      // Running out of credits mid-broadcast is an expected state, not a fault.
+      // It must not take the rest of the rule's actions down with it.
+      this.logger.warn(
+        `TTS for rule "${rule.name}" skipped: ${err instanceof Error ? err.message : String(err)}`,
+      );
+      return null;
+    }
+  }
+
+  private async resolveAlertOverlay(userId: string): Promise<string | null> {
+    if (this.alertOverlays.has(userId)) return this.alertOverlays.get(userId) ?? null;
+
+    const overlay = await this.prisma.overlay.findFirst({
+      where: { userId, type: 'MEDIA', enabled: true },
+      select: { id: true },
+    });
+
+    this.alertOverlays.set(userId, overlay?.id ?? null);
+    return overlay?.id ?? null;
   }
 
   /**
@@ -131,11 +211,25 @@ export class RuleEngineService {
    * 300000 pins a video over the broadcast for five minutes with no way to
    * dismiss it from the overlay.
    */
-  private normalisePayload(action: RuleAction): Record<string, unknown> {
-    if (action.type !== RuleActionType.MEDIA_POPUP) return action.payload;
+  private normalisePayload(action: RuleAction, event: LiveEvent): Record<string, unknown> {
+    const payload = { ...action.payload };
 
-    const raw = action.payload as { durationMs?: number };
-    return { ...action.payload, durationMs: clampMediaDuration(raw.durationMs) };
+    // {sender}/{gift}/{coins} are substituted here, not only in the browser.
+    // The media overlay does its own substitution for captions, but speech is
+    // synthesised on the server — an uninterpolated template would be read out
+    // loud, literally, as "dấu ngoặc sender".
+    for (const key of ['text', 'caption'] as const) {
+      if (typeof payload[key] === 'string') {
+        payload[key] = interpolate(payload[key] as string, event);
+      }
+    }
+
+    if (action.type === RuleActionType.MEDIA_POPUP) {
+      const raw = payload as { durationMs?: number };
+      payload.durationMs = clampMediaDuration(raw.durationMs);
+    }
+
+    return payload;
   }
 
   private async resolveOwner(channelId: string): Promise<string | null> {
@@ -182,6 +276,20 @@ export class RuleEngineService {
     this.ruleCache.set(userId, { rules, loadedAt: Date.now() });
     return rules;
   }
+}
+
+/**
+ * Fill the placeholders a rule author can use in captions and speech.
+ *
+ * Unknown placeholders are left alone rather than blanked: seeing `{gifts}` on
+ * screen tells the streamer they made a typo, where an empty gap does not.
+ */
+function interpolate(template: string, event: LiveEvent): string {
+  return template
+    .replace(/\{sender\}/g, event.senderDisplayName || 'Người xem')
+    .replace(/\{gift\}/g, event.giftName || 'món quà')
+    .replace(/\{coins\}/g, String(event.giftCoinValue ?? 0))
+    .replace(/\{content\}/g, event.content || '');
 }
 
 /**
