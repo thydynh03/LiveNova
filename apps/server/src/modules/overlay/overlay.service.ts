@@ -30,10 +30,35 @@ export class OverlayService {
   }
 
   async getOverlays(userId: string) {
-    return this.prisma.overlay.findMany({
+    let overlays = await this.prisma.overlay.findMany({
       where: { userId },
       orderBy: { createdAt: 'desc' },
     });
+
+    if (overlays.length === 0) {
+      await this.prisma.overlay.createMany({
+        data: [
+          {
+            userId,
+            type: OverlayType.MEDIA,
+            publicToken: OverlayService.generateToken(),
+            config: {},
+          },
+          {
+            userId,
+            type: OverlayType.CHAT,
+            publicToken: OverlayService.generateToken(),
+            config: {},
+          },
+        ],
+      });
+      overlays = await this.prisma.overlay.findMany({
+        where: { userId },
+        orderBy: { createdAt: 'desc' },
+      });
+    }
+
+    return overlays;
   }
 
   /**
