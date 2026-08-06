@@ -6,7 +6,31 @@ import {
 } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { LiveEvent, LiveEventType } from '@livenova/shared';
+import { randomInt } from 'crypto';
 import { v4 as uuidv4 } from 'uuid';
+
+/**
+ * Picks a random element using a CSPRNG.
+ *
+ * `Math.floor(Math.random() * arr.length)` is what CodeQL flagged here
+ * (js/insecure-randomness, CWE-338). Nothing this file generates is actually a
+ * credential — these are placeholder names for simulated events — but the
+ * alternative to fixing it is dismissing a High alert, and a security dashboard
+ * that carries permanent noise trains everyone to skim past the next one, which
+ * may be real. `randomInt` costs nothing here and keeps the primitive correct
+ * if this mock code is ever copied somewhere it matters.
+ */
+function pick<T>(items: readonly T[]): T {
+  // `randomInt(0)` throws, where the old expression quietly yielded index 0 and
+  // therefore `undefined` — which the `: T` return type would have been lying
+  // about. Every caller here passes a non-empty literal, so this only fires if
+  // someone reuses the helper carelessly, and failing loudly is the right
+  // outcome then.
+  if (items.length === 0) {
+    throw new Error('pick() requires a non-empty array');
+  }
+  return items[randomInt(items.length)];
+}
 
 /**
  * TikTok LIVE Event Ingest Service
@@ -85,7 +109,8 @@ export class TiktokService implements OnModuleInit, OnModuleDestroy {
         const event = this.generateMockEvent(channelId);
         this.emitEvent(event);
       },
-      Math.random() * 3000 + 2000,
+      // 2–5s between simulated events.
+      randomInt(2_000, 5_000),
     );
 
     this.activeSessions.set(channelId, interval);
@@ -147,7 +172,7 @@ export class TiktokService implements OnModuleInit, OnModuleDestroy {
       LiveEventType.SHARE,
       LiveEventType.JOIN,
     ];
-    const type = types[Math.floor(Math.random() * types.length)];
+    const type = pick(types);
     const names = ['Nguyễn Văn A', 'Trần Thị B', 'Lê Văn C', 'Phạm D'];
     const comments = [
       'Chị ơi đọc tên em với!',
@@ -162,8 +187,8 @@ export class TiktokService implements OnModuleInit, OnModuleDestroy {
       { name: 'Sư tử', coinValue: 29999 },
     ];
 
-    const sender = names[Math.floor(Math.random() * names.length)];
-    const gift = gifts[Math.floor(Math.random() * gifts.length)];
+    const sender = pick(names);
+    const gift = pick(gifts);
 
     return {
       id: uuidv4(),
@@ -171,9 +196,7 @@ export class TiktokService implements OnModuleInit, OnModuleDestroy {
       channelId,
       senderUsername: sender.toLowerCase().replace(/\s/g, '_'),
       senderDisplayName: sender,
-      content: type === LiveEventType.COMMENT
-        ? comments[Math.floor(Math.random() * comments.length)]
-        : undefined,
+      content: type === LiveEventType.COMMENT ? pick(comments) : undefined,
       giftName: type === LiveEventType.GIFT ? gift.name : undefined,
       giftCoinValue: type === LiveEventType.GIFT ? gift.coinValue : undefined,
       occurredAt: new Date(),
