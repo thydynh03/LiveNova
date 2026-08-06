@@ -51,6 +51,21 @@ export default function ProfileSettingsPage() {
   const { user, refreshUser, signOut } = useAuth();
   const [activeTab, setActiveTab] = useState<TabId>('profile');
 
+  const sanitizeAvatarInput = (value: string): string => {
+    const trimmed = value.trim();
+    if (!trimmed) return '';
+
+    try {
+      const parsed = new URL(trimmed, window.location.origin);
+      if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
+        return parsed.toString();
+      }
+      return '';
+    } catch {
+      return '';
+    }
+  };
+
   // Profile Form
   const [displayName, setDisplayName] = useState(user?.displayName || '');
   const [avatar, setAvatar] = useState(user?.avatar || '');
@@ -284,7 +299,7 @@ export default function ProfileSettingsPage() {
               <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '0.75rem' }}>
                 {isValidAvatarUrl(avatar) ? (
                   <img
-                    src={avatar}
+                    src={sanitizeAvatarInput(avatar)}
                     alt="Avatar preview"
                     style={{ width: '64px', height: '64px', borderRadius: '50%', objectFit: 'cover', border: '2px solid hsl(var(--primary))' }}
                   />
@@ -346,7 +361,7 @@ export default function ProfileSettingsPage() {
                 type="url"
                 placeholder="Hoặc dán URL ảnh trực tiếp (https://...)"
                 value={avatar}
-                onChange={(e) => setAvatar(e.target.value)}
+                onChange={(e) => setAvatar(sanitizeAvatarInput(e.target.value))}
                 style={inputStyle}
               />
             </div>
