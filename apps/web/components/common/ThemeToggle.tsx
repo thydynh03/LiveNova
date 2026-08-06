@@ -5,31 +5,32 @@ import { useTheme } from '../../context/ThemeContext';
 
 export function ThemeToggle() {
   const { theme, toggleTheme } = useTheme();
+  const goingDark = theme === 'light';
 
   return (
     <button
+      type="button"
       onClick={toggleTheme}
       className="theme-toggle btn glass"
-      aria-label="Toggle Theme"
+      // The old label was a static "Toggle Theme", which tells a screen-reader
+      // user nothing about what will happen or what the current state is.
+      aria-label={goingDark ? 'Chuyển sang giao diện tối' : 'Chuyển sang giao diện sáng'}
+      aria-pressed={theme === 'dark'}
+      title={goingDark ? 'Giao diện tối' : 'Giao diện sáng'}
       style={{
-        width: '40px',
-        height: '40px',
+        width: '44px',
+        height: '44px',
         borderRadius: '50%',
-        padding: '0',
+        padding: 0,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
+        cursor: 'pointer',
       }}
     >
-      <div style={{
-        transform: theme === 'dark' ? 'rotate(180deg)' : 'rotate(0deg)',
-        transition: 'transform 0.5s ease',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-      }}>
+      <span className="theme-toggle__icon" aria-hidden="true">
         {theme === 'light' ? '☀️' : '🌙'}
-      </div>
+      </span>
     </button>
   );
 }

@@ -35,3 +35,19 @@ export interface Overlay {
   publicToken: string;
   enabled: boolean;
 }
+
+export type Platform = 'TIKTOK' | 'FACEBOOK' | 'YOUTUBE';
+
+export interface Channel {
+  id: string;
+  platform: Platform;
+  platformChannelId: string;
+  handle: string;
+  avatarUrl: string | null;
+  verified: boolean;
+  /** Code the user must publish on their channel profile to prove ownership. */
+  verificationCode: string | null;
+  isLive: boolean;
+  lastLiveAt: string | null;
+  createdAt: string;
+}
