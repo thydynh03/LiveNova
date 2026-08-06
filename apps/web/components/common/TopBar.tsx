@@ -101,7 +101,7 @@ function DestinationSearch() {
           minHeight: '40px',
           padding: '0.5rem 0.75rem 0.5rem 2.25rem',
           borderRadius: 'var(--radius)',
-          border: '1px solid hsl(var(--border))',
+          border: '1px solid hsl(var(--input))',
           background: 'hsl(var(--background))',
           color: 'inherit',
           font: 'inherit',

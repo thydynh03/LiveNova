@@ -327,7 +327,7 @@ export default function TtsPage() {
                   borderRadius: 'var(--radius)',
                   background: 'hsl(var(--background))',
                   color: 'hsl(var(--foreground))',
-                  border: '1px solid hsl(var(--border))',
+                  border: '1px solid hsl(var(--input))',
                 }}
               >
                 {availableVoices.map((v) => (
@@ -438,7 +438,7 @@ export default function TtsPage() {
                 borderRadius: 'var(--radius)',
                 background: 'hsl(var(--background))',
                 color: 'hsl(var(--foreground))',
-                border: '1px solid hsl(var(--border))',
+                border: '1px solid hsl(var(--input))',
                 marginBottom: '1rem',
                 resize: 'none',
                 fontFamily: 'inherit',

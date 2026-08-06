@@ -10,7 +10,7 @@ const inputStyle: React.CSSProperties = {
   width: '100%',
   padding: '0.75rem 1rem',
   borderRadius: 'var(--radius)',
-  border: '1px solid hsl(var(--border))',
+  border: '1px solid hsl(var(--input))',
   background: 'hsl(var(--background))',
   color: 'inherit',
   fontSize: '0.95rem',

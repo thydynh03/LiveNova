@@ -213,7 +213,7 @@ export default function ChannelsPage() {
             padding: '0.7rem 0.9rem',
             minHeight: '44px',
             borderRadius: 'var(--radius)',
-            border: '1px solid hsl(var(--border))',
+            border: '1px solid hsl(var(--input))',
             background: 'hsl(var(--background))',
             color: 'hsl(var(--foreground))',
           }}
