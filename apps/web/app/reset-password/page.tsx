@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { resetPassword } from '../../lib/api-client';
+import { Icon } from '../../components/ui/Icon';
 
 const inputStyle: React.CSSProperties = {
   width: '100%',
@@ -103,7 +104,7 @@ function ResetPasswordForm() {
         }}
       >
         <h1 style={{ fontSize: '1.75rem', fontWeight: 700, marginBottom: '0.5rem' }}>
-          Đặt lại <span className="text-gradient">mật khẩu</span>
+          Đặt lại <span className="accent">mật khẩu</span>
         </h1>
         <p style={{ color: 'hsl(var(--muted-foreground))', marginBottom: '1.5rem', fontSize: '0.9rem' }}>
           Tạo mật khẩu mới cho tài khoản LiveNova của bạn.
@@ -114,14 +115,24 @@ function ResetPasswordForm() {
             style={{
               padding: '1.25rem',
               borderRadius: 'var(--radius)',
-              background: 'rgba(34, 197, 94, 0.15)',
-              border: '1px solid rgba(34, 197, 94, 0.3)',
-              color: '#4ade80',
+              background: 'hsl(var(--success) / 0.12)',
+              border: '1px solid hsl(var(--success) / 0.35)',
+              color: 'hsl(var(--success))',
               fontSize: '0.9rem',
               textAlign: 'center',
             }}
           >
-            ✓ Mật khẩu đã được thay đổi thành công! Đang chuyển đến trang đăng nhập...
+            <span
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.45rem',
+                justifyContent: 'center',
+              }}
+            >
+              <Icon name="check" size={18} weight="bold" />
+              Mật khẩu đã đổi. Đang chuyển tới trang đăng nhập.
+            </span>
           </div>
         ) : (
           <form onSubmit={handleSubmit}>
@@ -132,7 +143,7 @@ function ResetPasswordForm() {
                   borderRadius: 'var(--radius)',
                   background: 'rgba(239, 68, 68, 0.15)',
                   border: '1px solid rgba(239, 68, 68, 0.3)',
-                  color: '#f87171',
+                  color: 'hsl(var(--destructive))',
                   fontSize: '0.875rem',
                   marginBottom: '1.25rem',
                 }}
@@ -178,7 +189,7 @@ function ResetPasswordForm() {
                 width: '100%',
                 padding: '0.85rem',
                 borderRadius: 'var(--radius)',
-                background: 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)',
+                background: 'hsl(var(--primary))',
                 color: '#fff',
                 border: 'none',
                 fontWeight: 600,
@@ -193,8 +204,19 @@ function ResetPasswordForm() {
         )}
 
         <div style={{ marginTop: '1.75rem', textAlign: 'center', fontSize: '0.875rem' }}>
-          <Link href="/login" style={{ color: '#6366f1', textDecoration: 'none', fontWeight: 500 }}>
-            ← Quay lại đăng nhập
+          <Link
+            href="/login"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.4rem',
+              color: 'hsl(var(--primary))',
+              textDecoration: 'none',
+              fontWeight: 600,
+            }}
+          >
+            <Icon name="back" size={16} />
+            Quay lại đăng nhập
           </Link>
         </div>
       </div>

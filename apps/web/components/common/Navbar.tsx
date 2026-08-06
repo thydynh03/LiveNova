@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation';
 import { ThemeToggle } from './ThemeToggle';
 import { getNavItems } from '../../config/nav';
 import { useAuth } from '../../context/AuthContext';
+import { Icon } from '../ui/Icon';
 
 export function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -31,7 +32,9 @@ export function Navbar() {
       style={{
         position: 'sticky',
         top: 0,
-        zIndex: 1000,
+        // Matches --z-sticky in globals.css; inline styles cannot read the var
+        // here because React types zIndex as a number.
+        zIndex: 100,
         borderBottom: '1px solid var(--glass-border)',
         padding: '1rem 2rem',
       }}
@@ -46,7 +49,7 @@ export function Navbar() {
         }}
       >
         <Link href="/" style={{ fontSize: '1.5rem', fontWeight: 700 }}>
-          <span className="text-gradient">Live</span>Nova
+          <span className="accent">Live</span>Nova
         </Link>
 
         <div

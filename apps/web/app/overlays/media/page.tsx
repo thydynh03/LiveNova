@@ -1,17 +1,28 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import { Icon } from '../../../components/ui/Icon';
+
+/**
+ * Gift popup overlay, rendered inside an OBS browser source.
+ *
+ * Colours here are literal rather than theme tokens on purpose: this composites
+ * over arbitrary video, so it must stay legible regardless of the operator's
+ * light/dark preference in the dashboard.
+ */
 
 type GiftEventPopup = {
   id: string;
   senderName: string;
   senderAvatar: string;
   giftName: string;
-  giftIcon: string;
   coinValue: number;
   videoUrl?: string;
   imageUrl?: string;
 };
+
+/** Same cyan as --primary on the dark theme, resolved to a literal. */
+const ACCENT = '#22d3ee';
 
 export default function MediaOverlay() {
   const [activePopup, setActivePopup] = useState<GiftEventPopup | null>(null);
@@ -25,10 +36,9 @@ export default function MediaOverlay() {
     const timer = setInterval(() => {
       setActivePopup({
         id: `gift_${Date.now()}`,
-        senderName: 'NguyenVanA',
+        senderName: 'Ngọc Hân',
         senderAvatar: 'https://api.dicebear.com/6.x/avataaars/svg?seed=streamer1',
-        giftName: 'TikTok Cap 🧢',
-        giftIcon: '🎁',
+        giftName: 'Mũ TikTok',
         coinValue: 99,
         imageUrl: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?w=400&q=80',
       });
@@ -74,56 +84,82 @@ export default function MediaOverlay() {
             alignItems: 'center',
             gap: '1rem',
             padding: '1.5rem 2.5rem',
-            borderRadius: '24px',
-            background: 'rgba(15, 15, 25, 0.85)',
-            border: '2px solid rgba(167, 139, 250, 0.5)',
-            boxShadow: '0 0 40px rgba(167, 139, 250, 0.4), inset 0 0 20px rgba(255, 255, 255, 0.1)',
+            borderRadius: '20px',
+            background: 'rgba(10, 15, 20, 0.86)',
+            border: `1px solid ${ACCENT}66`,
+            boxShadow: `0 0 40px rgba(34, 211, 238, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.12)`,
             backdropFilter: 'blur(16px)',
             color: 'white',
             textAlign: 'center',
             maxWidth: '480px',
           }}
         >
-          {/* Top Banner Header */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
             <img
               src={activePopup.senderAvatar}
-              alt="avatar"
+              alt={`Ảnh đại diện của ${activePopup.senderName}`}
               style={{
                 width: '48px',
                 height: '48px',
                 borderRadius: '50%',
-                border: '2px solid #a78bfa',
+                border: `2px solid ${ACCENT}`,
               }}
             />
             <div style={{ textAlign: 'left' }}>
-              <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#f43f5e' }}>
-                🎉 {activePopup.senderName}
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.4rem',
+                  fontSize: '1.1rem',
+                  fontWeight: 700,
+                }}
+              >
+                <Icon name="gift" size={20} weight="fill" style={{ color: ACCENT }} />
+                {activePopup.senderName}
               </div>
               <div style={{ fontSize: '0.9rem', color: '#cbd5e1' }}>
-                đã tặng <strong>{activePopup.giftName}</strong> ({activePopup.coinValue} 🪙)
+                đã tặng <strong>{activePopup.giftName}</strong>
+                <span
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '0.25rem',
+                    marginLeft: '0.4rem',
+                    color: ACCENT,
+                    fontVariantNumeric: 'tabular-nums',
+                  }}
+                >
+                  <Icon name="coins" size={14} weight="fill" />
+                  {activePopup.coinValue}
+                </span>
               </div>
             </div>
           </div>
 
-          {/* Media Video / Image Banner */}
           {activePopup.imageUrl && (
             <img
               src={activePopup.imageUrl}
-              alt="Gift Media Popup"
+              alt={`Hiệu ứng kèm quà ${activePopup.giftName}`}
               style={{
                 width: '100%',
                 maxHeight: '240px',
                 objectFit: 'cover',
-                borderRadius: '16px',
-                border: '1px solid rgba(255, 255, 255, 0.2)',
+                borderRadius: '14px',
+                border: '1px solid rgba(255, 255, 255, 0.18)',
               }}
             />
           )}
         </div>
       ) : (
-        <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.9rem', fontFamily: 'sans-serif' }}>
-          [ OBS Media & Gift Popup Overlay Active — Waiting for Gift Events ]
+        <div
+          style={{
+            color: 'rgba(255,255,255,0.4)',
+            fontSize: '0.9rem',
+            fontFamily: 'system-ui, sans-serif',
+          }}
+        >
+          Overlay quà tặng đang chờ sự kiện.
         </div>
       )}
     </div>

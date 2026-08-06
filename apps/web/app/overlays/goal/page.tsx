@@ -37,7 +37,7 @@ export default function GoalOverlay() {
           textShadow: '0 2px 4px rgba(0,0,0,0.5)'
         }}>
           <span>Daily Goal (Roses)</span>
-          <span style={{ color: '#a78bfa' }}>{current} / {target}</span>
+          <span style={{ color: 'hsl(var(--primary))' }}>{current} / {target}</span>
         </div>
 
         <div style={{
@@ -49,7 +49,7 @@ export default function GoalOverlay() {
           <div style={{
             width: `${percentage}%`,
             height: '100%',
-            background: 'linear-gradient(90deg, #8b5cf6, #d946ef)',
+            background: 'hsl(var(--primary))',
             transition: 'width 1s cubic-bezier(0.4, 0, 0.2, 1)',
             boxShadow: '0 0 15px rgba(217, 70, 239, 0.5)',
             position: 'relative',

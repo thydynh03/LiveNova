@@ -1,21 +1,39 @@
 import type { Metadata, Viewport } from 'next';
-import { Inter } from 'next/font/google';
+import { Be_Vietnam_Pro, JetBrains_Mono } from 'next/font/google';
 import { ThemeProvider } from '../context/ThemeContext';
 import { AuthProvider } from '../context/AuthContext';
 import { themeInitScript } from '../lib/theme-script';
 import { siteUrl, SITE_NAME, SITE_DESCRIPTION } from '../lib/site';
 import './globals.css';
 
-const inter = Inter({
-  subsets: ['latin', 'vietnamese'],
-  variable: '--font-inter',
+/**
+ * Be Vietnam Pro, not Inter.
+ *
+ * Inter is the font every AI-generated interface reaches for, and more to the
+ * point it was not drawn with Vietnamese in mind: stacked diacritics on capital
+ * letters collide at display sizes, which is unavoidable in a product whose
+ * entire interface and audience are Vietnamese. Be Vietnam Pro was designed for
+ * this script, so the marks sit correctly at every weight.
+ *
+ * One family across display and body, separated by weight rather than by
+ * mixing two typefaces. Mixed-family emphasis is the amateur move.
+ */
+const sans = Be_Vietnam_Pro({
+  subsets: ['latin', 'latin-ext', 'vietnamese'],
+  weight: ['400', '500', '600', '700', '800'],
+  variable: '--font-sans',
+  display: 'swap',
+});
+
+/** Numbers only: coin counts and credit balances jitter in proportional figures. */
+const mono = JetBrains_Mono({
+  subsets: ['latin'],
+  weight: ['400', '500'],
+  variable: '--font-mono',
   display: 'swap',
 });
 
 export const metadata: Metadata = {
-  // metadataBase makes every relative OG/canonical URL resolve correctly.
-  // Without it Next warns, and social cards get relative image paths that no
-  // crawler can fetch.
   metadataBase: new URL(siteUrl()),
   title: {
     default: `${SITE_NAME} — Tự động hoá livestream TikTok`,
@@ -23,9 +41,13 @@ export const metadata: Metadata = {
   },
   description: SITE_DESCRIPTION,
   applicationName: SITE_NAME,
-  // The audited competitor had no description and no OG title on any page, so
-  // every share into Facebook and Zalo — its own main distribution channels —
-  // rendered a preview with no text at all. That is the mistake this avoids.
+  keywords: [
+    'livestream TikTok',
+    'đọc bình luận livestream',
+    'hiệu ứng quà tặng TikTok',
+    'overlay OBS',
+    'tự động hoá livestream',
+  ],
   openGraph: {
     type: 'website',
     siteName: SITE_NAME,
@@ -41,10 +63,7 @@ export const metadata: Metadata = {
   },
   alternates: {
     canonical: '/',
-    languages: {
-      'vi-VN': '/',
-      'x-default': '/',
-    },
+    languages: { 'vi-VN': '/', 'x-default': '/' },
   },
   robots: {
     index: true,
@@ -54,30 +73,31 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  // No `maximum-scale`: capping zoom is a WCAG 1.4.4 failure, and it was one of
-  // the findings on the audited site.
+  // No maximum-scale: capping zoom fails WCAG 1.4.4.
   width: 'device-width',
   initialScale: 1,
   themeColor: [
-    { media: '(prefers-color-scheme: light)', color: '#ffffff' },
-    { media: '(prefers-color-scheme: dark)', color: '#0b0b12' },
+    { media: '(prefers-color-scheme: light)', color: '#f8fafc' },
+    { media: '(prefers-color-scheme: dark)', color: '#0d1117' },
   ],
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="vi" suppressHydrationWarning>
+    <html lang="vi" className={`${sans.variable} ${mono.variable}`} suppressHydrationWarning>
       <head>
-        {/* Must run before paint — see lib/theme-script.ts. */}
+        {/* Runs before paint so a dark-mode visitor never sees a white flash. */}
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
       </head>
-      <body className={inter.className}>
+      <body>
         <a href="#main-content" className="skip-link">
           Bỏ qua điều hướng
         </a>
         <ThemeProvider>
           <AuthProvider>{children}</AuthProvider>
         </ThemeProvider>
+        {/* Fixed, non-interactive: keeps the noise off every scroll repaint. */}
+        <div className="grain" aria-hidden="true" />
       </body>
     </html>
   );
