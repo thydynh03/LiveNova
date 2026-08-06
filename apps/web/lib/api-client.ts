@@ -179,7 +179,7 @@ async function performAuthExchange(
   payload: Record<string, unknown>,
   defaultErrorMessage: string,
 ): Promise<string> {
-  const generation = (sessionGeneration += 1);
+  const initialGeneration = sessionGeneration;
   cancelInFlightRefresh();
   pendingLogins += 1;
 
@@ -204,7 +204,8 @@ async function performAuthExchange(
       throw new ApiError(data?.message ?? defaultErrorMessage, res.status);
     }
 
-    if (generation !== sessionGeneration) {
+    // Only discard response if logout() occurred while login request was in-flight
+    if (initialGeneration !== sessionGeneration) {
       throw new ApiError('Thao tác đã bị hủy', 401);
     }
   } finally {
