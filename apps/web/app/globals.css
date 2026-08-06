@@ -36,7 +36,18 @@
   --muted-foreground: 20 6% 40%;
   --accent-surface: 348 70% 97%;
   --border: 20 18% 90%;
-  --input: 20 18% 90%;
+
+  /* Form-control boundaries, deliberately darker than --border.
+   *
+   * WCAG 1.4.11 wants 3:1 for the visual boundary of a UI component, and a
+   * hairline that merely separates two cards is not that — an input the user
+   * has to find and click is. At the old value the field edge measured 1.2:1
+   * against the card behind it, so the box was effectively invisible and only
+   * the placeholder text suggested anything was there.
+   *
+   * 54% lightness measures 3.51:1 on the white card and 3.35:1 on the page
+   * background; a couple of points lighter drops the page case under 3. */
+  --input: 20 10% 54%;
 
   /* The single accent. One primary action per screen, plus the active nav
      item — that is the entire licence. */
@@ -94,7 +105,8 @@
   --muted-foreground: 24 8% 66%;
   --accent-surface: 347 30% 16%;
   --border: 20 8% 22%;
-  --input: 20 8% 22%;
+  /* 3.57:1 on the dark card, 3.96:1 on the dark page. */
+  --input: 20 8% 46%;
 
   /* Lifted for contrast on dark, same hue so the brand stays recognisable */
   --primary: 347 80% 62%;

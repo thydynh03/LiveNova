@@ -124,7 +124,10 @@ function Toggle({
         height: '30px',
         padding: 0,
         borderRadius: 999,
-        border: '1px solid hsl(var(--border))',
+        // A switch is a UI component under WCAG 1.4.11, so its boundary needs
+        // the 3:1 token too — the off state is otherwise a pale pill on a pale
+        // card with nothing marking its edge.
+        border: '1px solid hsl(var(--input))',
         background: on ? 'hsl(var(--primary))' : 'hsl(var(--muted))',
         cursor: disabled ? 'not-allowed' : 'pointer',
         opacity: busy ? 0.6 : 1,
@@ -338,7 +341,7 @@ export default function RulesPage() {
               minHeight: '44px',
               padding: '0.6rem 0.875rem',
               borderRadius: 'var(--radius)',
-              border: '1px solid hsl(var(--border))',
+              border: '1px solid hsl(var(--input))',
               background: 'hsl(var(--card))',
               color: 'inherit',
               font: 'inherit',
