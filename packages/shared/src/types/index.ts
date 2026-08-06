@@ -322,7 +322,50 @@ export interface GoalState {
   label: string;
 }
 
-export type OverlayState = GoalState;
+/** One side of a PK battle. */
+export interface PkSide {
+  hostDisplayName: string;
+  score: number;
+  /** Highest single contributor on this side, if the platform reported one. */
+  mvpDisplayName?: string;
+}
+
+/** Payload of an OVERLAY_SOCKET.STATE frame for a PK_BAR overlay. */
+export interface PkState {
+  kind: 'pk';
+  battleId: string;
+  /** Exactly two sides; a multi-guest battle is reduced to the two teams. */
+  sides: [PkSide, PkSide];
+  /**
+   * Absolute end time in epoch milliseconds.
+   *
+   * The overlay counts down from this rather than from a seconds-remaining
+   * figure: a browser source that reconnects thirty seconds later would
+   * otherwise restart the clock from a stale number.
+   */
+  endsAtMs: number;
+  /** False once the platform reports the round has finished. */
+  active: boolean;
+}
+
+export type OverlayState = GoalState | PkState;
+
+/**
+ * Internal bus event carrying a PK battle scoreboard.
+ *
+ * Separate from `live.*` because a battle is not something a viewer did: it has
+ * no sender, and it describes a standing score rather than an occurrence.
+ */
+export const BATTLE_EVENT = 'live.battle';
+
+export interface BattleUpdate {
+  channelId: string;
+  battleId: string;
+  /** Platform status code; a finished round stops being active. */
+  status: number;
+  endsAtMs: number;
+  teams: { hostDisplayName: string; score: number; mvpDisplayName?: string }[];
+}
 
 /** Internal bus event name for continuous overlay state. */
 export const OVERLAY_STATE_EVENT = 'overlay.state';

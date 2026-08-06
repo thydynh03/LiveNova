@@ -5,7 +5,7 @@ import {
   OnModuleDestroy,
 } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import { LiveEvent, LiveEventType } from '@livenova/shared';
+import { LiveEvent, LiveEventType, BATTLE_EVENT, BattleUpdate } from '@livenova/shared';
 import { v4 as uuidv4 } from 'uuid';
 import { TikTokLive } from '@tiktool/live';
 
@@ -162,6 +162,25 @@ export class TiktokService implements OnModuleInit, OnModuleDestroy {
         ...identity(data.user),
         occurredAt: toDate(data.timestamp),
       });
+    });
+
+    // PK battles are not LiveEvents: they carry no sender and describe a
+    // standing scoreboard rather than something that happened. They go onto
+    // their own channel so the rule engine never has to filter them out.
+    live.on('battleArmies', (data) => {
+      const update: BattleUpdate = {
+        channelId,
+        battleId: data.battleId,
+        status: data.status,
+        endsAtMs: data.endTimeMs,
+        teams: (data.teams ?? []).map((team) => ({
+          hostDisplayName: team.hostUser?.nickname ?? '',
+          score: team.score ?? 0,
+          // Contributors arrive sorted MVP first.
+          mvpDisplayName: team.users?.[0]?.user?.nickname,
+        })),
+      };
+      this.eventEmitter.emit(BATTLE_EVENT, update);
     });
 
     live.on('disconnected', (code, reason) => {
