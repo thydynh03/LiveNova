@@ -8,6 +8,7 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { LiveEvent, LiveEventType } from '@livenova/shared';
 import { randomInt } from 'crypto';
 import { v4 as uuidv4 } from 'uuid';
+import { WebcastPushConnection } from 'tiktok-live-connector';
 
 /**
  * Picks a random element using a CSPRNG.
@@ -54,8 +55,8 @@ function pick<T>(items: readonly T[]): T {
 export class TiktokService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(TiktokService.name);
 
-  /** Active channel sessions: channelId → interval handle */
-  private readonly activeSessions = new Map<string, NodeJS.Timeout>();
+  /** Active channel sessions: channelId → session instance */
+  private readonly activeSessions = new Map<string, { disconnect: () => void } | NodeJS.Timeout>();
 
   constructor(private readonly eventEmitter: EventEmitter2) {}
 
@@ -95,26 +96,112 @@ export class TiktokService implements OnModuleInit, OnModuleDestroy {
       return;
     }
 
-    this.logger.log(
-      `Connecting to channel: ${channelId}` +
-        (platformChannelId ? ` (@${platformChannelId})` : '') +
-        ' (simulation mode)',
-    );
+    const targetHandle = platformChannelId || channelId;
+    this.logger.log(`Connecting to TikTok LIVE stream for handle: @${targetHandle} (ChannelId: ${channelId})`);
 
-    // ─── SIMULATION MODE ───────────────────────────────────────────────
-    // Emits random events every 2-5 seconds for development/testing.
-    // REPLACE THIS BLOCK with real TikTok ingest when Q-01 is resolved.
-    const interval = setInterval(
-      () => {
-        const event = this.generateMockEvent(channelId);
-        this.emitEvent(event);
-      },
-      // 2–5s between simulated events.
-      randomInt(2_000, 5_000),
-    );
+    try {
+      const connection = new WebcastPushConnection(targetHandle, {
+        enableExtendedGiftInfo: true,
+        requestOptions: {
+          timeout: 10000,
+        },
+      });
 
-    this.activeSessions.set(channelId, interval);
-    this.logger.log(`Channel ${channelId} connected (mock mode)`);
+      connection.on('chat', (data: { uniqueId?: string; nickname?: string; comment?: string }) => {
+        this.emitEvent({
+          id: uuidv4(),
+          type: LiveEventType.COMMENT,
+          channelId,
+          senderUsername: data.uniqueId || data.nickname || 'anonymous',
+          senderDisplayName: data.nickname || data.uniqueId || 'Anonymous',
+          content: data.comment,
+          occurredAt: new Date(),
+        });
+      });
+
+      connection.on('gift', (data: { uniqueId?: string; nickname?: string; giftName?: string; diamondCount?: number; repeatCount?: number; giftType?: number; repeatEnd?: number }) => {
+        if (data.giftType === 1 && data.repeatEnd === 0) {
+          // Streak in progress, wait for end
+          return;
+        }
+        this.emitEvent({
+          id: uuidv4(),
+          type: LiveEventType.GIFT,
+          channelId,
+          senderUsername: data.uniqueId || data.nickname || 'anonymous',
+          senderDisplayName: data.nickname || data.uniqueId || 'Anonymous',
+          giftName: data.giftName || 'Gift',
+          giftCoinValue: data.diamondCount || data.repeatCount || 1,
+          occurredAt: new Date(),
+        });
+      });
+
+      connection.on('like', (data: { uniqueId?: string; nickname?: string; likeCount?: number }) => {
+        this.emitEvent({
+          id: uuidv4(),
+          type: LiveEventType.LIKE,
+          channelId,
+          senderUsername: data.uniqueId || data.nickname || 'anonymous',
+          senderDisplayName: data.nickname || data.uniqueId || 'Anonymous',
+          content: `Thả ${data.likeCount || 1} tim`,
+          occurredAt: new Date(),
+        });
+      });
+
+      connection.on('member', (data: { uniqueId?: string; nickname?: string }) => {
+        this.emitEvent({
+          id: uuidv4(),
+          type: LiveEventType.JOIN,
+          channelId,
+          senderUsername: data.uniqueId || data.nickname || 'anonymous',
+          senderDisplayName: data.nickname || data.uniqueId || 'Anonymous',
+          occurredAt: new Date(),
+        });
+      });
+
+      connection.on('social', (data: { uniqueId?: string; nickname?: string; label?: string; displayType?: string }) => {
+        const isFollow = data.label?.includes('follow') || data.displayType?.includes('follow');
+        this.emitEvent({
+          id: uuidv4(),
+          type: isFollow ? LiveEventType.FOLLOW : LiveEventType.SHARE,
+          channelId,
+          senderUsername: data.uniqueId || data.nickname || 'anonymous',
+          senderDisplayName: data.nickname || data.uniqueId || 'Anonymous',
+          occurredAt: new Date(),
+        });
+      });
+
+      connection.on('streamEnd', () => {
+        this.logger.warn(`TikTok LIVE stream ended for @${targetHandle}`);
+      });
+
+      connection.on('disconnected', () => {
+        this.logger.warn(`Disconnected from TikTok LIVE stream for @${targetHandle}`);
+      });
+
+      connection.on('error', (err: Error) => {
+        this.logger.error(`TikTok LIVE Webcast error for @${targetHandle}: ${err?.message}`);
+      });
+
+      await connection.connect();
+      this.activeSessions.set(channelId, { disconnect: () => connection.disconnect() });
+      this.logger.log(`Successfully connected to live stream for @${targetHandle}!`);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      this.logger.warn(
+        `Could not connect to live Webcast stream for @${targetHandle} (${msg}). Starting fallback mode.`,
+      );
+
+      const interval = setInterval(
+        () => {
+          const event = this.generateMockEvent(channelId);
+          this.emitEvent(event);
+        },
+        randomInt(3000, 6000),
+      );
+
+      this.activeSessions.set(channelId, { disconnect: () => clearInterval(interval) });
+    }
   }
 
   /**
@@ -123,7 +210,13 @@ export class TiktokService implements OnModuleInit, OnModuleDestroy {
   async disconnect(channelId: string): Promise<void> {
     const session = this.activeSessions.get(channelId);
     if (session) {
-      clearInterval(session);
+      if ('disconnect' in session && typeof session.disconnect === 'function') {
+        session.disconnect();
+      } else if (typeof session === 'object' && session !== null && 'close' in session) {
+        (session as { close: () => void }).close();
+      } else if (typeof session === 'number' || typeof session === 'object') {
+        clearInterval(session as unknown as NodeJS.Timeout);
+      }
       this.activeSessions.delete(channelId);
       this.logger.log(`Channel ${channelId} disconnected`);
     }
