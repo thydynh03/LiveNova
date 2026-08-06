@@ -7,7 +7,6 @@ import { ThemeToggle } from './ThemeToggle';
 import { AvatarDropdown } from './AvatarDropdown';
 import { getNavItems } from '../../config/nav';
 import { useAuth } from '../../context/AuthContext';
-import { Icon } from '../ui/Icon';
 
 export function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
