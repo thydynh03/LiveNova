@@ -5,7 +5,6 @@ import { useSearchParams } from 'next/navigation';
 import { OverlayAction, RuleActionType, MediaPopupPayload } from '@livenova/shared';
 import { useOverlaySocket } from '../../../lib/use-overlay-socket';
 import { useSpeechQueue } from '../../../lib/use-speech-queue';
-import { Icon } from '../../../components/ui/Icon';
 
 interface MediaPopupItem {
   id: string;
@@ -20,8 +19,6 @@ interface MediaPopupItem {
   caption: string;
   durationMs: number;
 }
-
-const ACCENT = '#e1274c';
 
 function MediaOverlayContent() {
   const token = useSearchParams().get('token');
