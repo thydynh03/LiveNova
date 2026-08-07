@@ -8,6 +8,8 @@ import {
   HttpCode,
   HttpStatus,
   ParseUUIDPipe,
+  Inject,
+  forwardRef,
 } from '@nestjs/common';
 import { TiktokService } from './tiktok.service';
 import { ChannelService } from '../channel/channel.service';
@@ -19,6 +21,7 @@ import { CurrentUserId } from '../../common/decorators/current-user.decorator';
 export class TiktokController {
   constructor(
     private readonly tiktokService: TiktokService,
+    @Inject(forwardRef(() => ChannelService))
     private readonly channelService: ChannelService,
   ) {}
 
