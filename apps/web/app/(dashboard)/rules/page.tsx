@@ -5,6 +5,7 @@ import { useApi } from '../../../lib/use-api';
 import { api } from '../../../lib/api-client';
 import { LoadingState, ErrorState } from '../../../components/common/States';
 import { Icon } from '../../../components/ui/Icon';
+import { ConfirmAction } from '../../../components/common/ConfirmAction';
 import { RuleModal } from '../../../components/rules/RuleModal';
 import { RuleDryRunModal } from '../../../components/rules/RuleDryRunModal';
 import { PresetLibraryModal } from '../../../components/rules/PresetLibraryModal';
@@ -226,7 +227,8 @@ export default function RulesPage() {
   }
 
   async function handleDelete(rule: any) {
-    if (!confirm(`Xoá kịch bản "${rule.name}"? Thao tác này không hoàn tác được.`)) return;
+    // Confirmation is inline — see ConfirmAction on why window.confirm() is not
+    // usable here.
     setActionError(null);
     try {
       await api.delete(`/rules/${rule.id}`);
@@ -452,9 +454,26 @@ export default function RulesPage() {
                 </TextButton>
                 <TextButton onClick={() => setDryRunRule(rule)}>Thử trước</TextButton>
                 <TextButton onClick={() => handleDuplicate(rule)}>Nhân bản</TextButton>
-                <TextButton tone="danger" onClick={() => handleDelete(rule)}>
-                  Xoá
-                </TextButton>
+                <ConfirmAction
+                  label="Xoá"
+                  question="Xoá hẳn kịch bản này?"
+                  confirmLabel="Xoá"
+                  busyLabel="Đang xoá…"
+                  onConfirm={() => handleDelete(rule)}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    padding: '0.25rem 0.375rem',
+                    minHeight: '32px',
+                    cursor: 'pointer',
+                    font: 'inherit',
+                    fontSize: '0.875rem',
+                    fontWeight: 500,
+                    color: 'hsl(var(--destructive))',
+                    textDecoration: 'underline',
+                    textUnderlineOffset: '3px',
+                  }}
+                />
               </div>
             </div>
 
