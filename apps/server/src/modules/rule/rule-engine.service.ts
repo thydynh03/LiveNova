@@ -246,15 +246,49 @@ export class RuleEngineService {
   }
 
   private async resolveAlertOverlay(userId: string): Promise<string | null> {
-    if (this.alertOverlays.has(userId)) return this.alertOverlays.get(userId) ?? null;
+    if (this.alertOverlays.has(userId)) {
+      const cached = this.alertOverlays.get(userId);
+      if (cached) return cached;
+    }
 
-    const overlay = await this.prisma.overlay.findFirst({
-      where: { userId, type: 'MEDIA', enabled: true },
+    let overlay = await this.prisma.overlay.findFirst({
+      where: { userId, type: 'MEDIA' },
       select: { id: true },
     });
 
-    this.alertOverlays.set(userId, overlay?.id ?? null);
-    return overlay?.id ?? null;
+    if (!overlay) {
+      // Auto-create default MEDIA and CHAT overlays for user if not created yet
+      await this.prisma.overlay
+        .createMany({
+          data: [
+            {
+              userId,
+              type: 'MEDIA',
+              publicToken: uuidv4().replace(/-/g, ''),
+              config: {},
+            },
+            {
+              userId,
+              type: 'CHAT',
+              publicToken: uuidv4().replace(/-/g, ''),
+              config: {},
+            },
+          ],
+        })
+        .catch(() => undefined);
+
+      overlay = await this.prisma.overlay.findFirst({
+        where: { userId, type: 'MEDIA' },
+        select: { id: true },
+      });
+    }
+
+    if (overlay) {
+      this.alertOverlays.set(userId, overlay.id);
+      return overlay.id;
+    }
+
+    return null;
   }
 
   /**

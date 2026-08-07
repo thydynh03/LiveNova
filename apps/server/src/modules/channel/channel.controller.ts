@@ -15,6 +15,7 @@ import { Platform } from '@prisma/client';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { CurrentUserId } from '../../common/decorators/current-user.decorator';
 import { ChannelService } from './channel.service';
+import { TiktokService } from '../tiktok/tiktok.service';
 
 class LinkChannelDto {
   @IsEnum(Platform)
@@ -34,7 +35,10 @@ class LinkChannelDto {
 @UseGuards(JwtAuthGuard)
 @Controller('channels')
 export class ChannelController {
-  constructor(private readonly channelService: ChannelService) {}
+  constructor(
+    private readonly channelService: ChannelService,
+    private readonly tiktokService: TiktokService,
+  ) {}
 
   @Get()
   async list(@CurrentUserId() userId: string) {
@@ -43,13 +47,26 @@ export class ChannelController {
 
   @Post()
   async link(@CurrentUserId() userId: string, @Body() dto: LinkChannelDto) {
-    return this.channelService.link(userId, dto.platform, dto.platformChannelId, dto.handle);
+    const channel = await this.channelService.link(
+      userId,
+      dto.platform,
+      dto.platformChannelId,
+      dto.handle,
+    );
+    if (channel.verified && channel.platform === Platform.TIKTOK) {
+      this.tiktokService.connect(channel.id, channel.handle).catch(() => undefined);
+    }
+    return channel;
   }
 
   @Post(':id/verify')
   @HttpCode(HttpStatus.OK)
   async verify(@CurrentUserId() userId: string, @Param('id', ParseUUIDPipe) id: string) {
-    return this.channelService.verify(userId, id);
+    const channel = await this.channelService.verify(userId, id);
+    if (channel.verified && channel.platform === Platform.TIKTOK) {
+      this.tiktokService.connect(channel.id, channel.handle).catch(() => undefined);
+    }
+    return channel;
   }
 
   @Delete(':id')
