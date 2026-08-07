@@ -183,12 +183,4 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
   emitToChannel(channelId: string, event: string, data: unknown) {
     this.server.to(`channel_${channelId}`).emit(event, data);
   }
-
-  @OnEvent('kingdom_war.update')
-  broadcastKingdomWarUpdate(state: any) {
-    if (this.server) {
-      this.server.to(`channel_${state.channelId}`).emit('kingdom_war_update', state);
-      this.server.emit('kingdom_war_update', state);
-    }
-  }
 }

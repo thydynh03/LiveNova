@@ -21,7 +21,13 @@ interface MediaPopupItem {
 }
 
 function MediaOverlayContent() {
-  const token = useSearchParams().get('token');
+  const searchParams = useSearchParams();
+  const token = searchParams.get('token');
+  const customDefaultVideo = searchParams.get('defaultVideo');
+
+  // Default idle video that runs continuously on loop when no popup is active
+  const defaultVideoUrl = customDefaultVideo || '/DogDefault.mp4';
+
   const [activePopup, setActivePopup] = useState<MediaPopupItem | null>(null);
 
   useEffect(() => {
@@ -66,6 +72,9 @@ function MediaOverlayContent() {
       payload.url?.endsWith('.webm') ||
       payload.mediaType === 'video';
 
+    // If url is missing or points to old asset, default to /DogDonate.mp4
+    const popupUrl = payload.url || '/DogDonate.mp4';
+
     const item: MediaPopupItem = {
       id: action.id,
       senderDisplayName: event.senderDisplayName,
@@ -73,7 +82,7 @@ function MediaOverlayContent() {
       giftCoinValue: event.giftCoinValue,
       content: event.content,
       mediaType: isVideoUrl ? 'video' : 'image',
-      url: payload.url || '',
+      url: popupUrl,
       position: payload.position || 'center',
       volume: payload.volume ?? 0.8,
       caption,
@@ -156,13 +165,15 @@ function MediaOverlayContent() {
             color: '#fff',
             fontFamily: 'sans-serif',
             fontSize: '0.85rem',
+            zIndex: 100,
           }}
         >
           {statusMessage}
         </div>
       )}
 
-      {activePopup && (
+      {/* Donate Popup Reaction Video / Image */}
+      {activePopup ? (
         <div
           className="media-popup"
           style={{
@@ -177,9 +188,10 @@ function MediaOverlayContent() {
             color: 'white',
             textAlign: 'center',
             maxWidth: '600px',
+            zIndex: 10,
           }}
         >
-          {/* Caption text floating with glow - like TikTok gift text */}
+          {/* Caption text floating with glow */}
           <div style={{
             fontSize: '1.3rem',
             fontWeight: 800,
@@ -233,6 +245,26 @@ function MediaOverlayContent() {
             )
           )}
         </div>
+      ) : (
+        /* Default Idle Video: DogDefault.mp4 plays continuously on loop */
+        <video
+          src={defaultVideoUrl}
+          autoPlay
+          loop
+          muted
+          playsInline
+          style={{
+            maxWidth: '100%',
+            maxHeight: '450px',
+            objectFit: 'contain',
+            filter: 'drop-shadow(0 0 15px rgba(255, 255, 255, 0.2))',
+          }}
+          ref={(el) => {
+            if (el) {
+              el.play().catch(() => {});
+            }
+          }}
+        />
       )}
     </div>
   );
