@@ -170,7 +170,14 @@ export default function BillingPage() {
               >
                 <span style={{ minWidth: 0 }}>
                   <span style={{ display: 'block' }}>
-                    {entry.description || REASON_PHRASE[entry.reason] || 'Thay đổi lượt đọc'}
+                    {/*
+                      The Vietnamese phrase wins over `description`. The server
+                      writes machine strings like "TTS synthesis (38 chars)",
+                      which is a log line, not something to show a creator; the
+                      description is only useful for reasons we have no phrase
+                      for, such as a manual support adjustment.
+                    */}
+                    {REASON_PHRASE[entry.reason] || entry.description || 'Thay đổi lượt đọc'}
                   </span>
                   <span style={{ fontSize: '0.8125rem', color: 'hsl(var(--muted-foreground))' }}>
                     {formatWhen(entry.createdAt)}

@@ -28,6 +28,8 @@ export default function TtsPage() {
   const [testText, setTestText] = useState<string>('Cảm ơn bạn đã theo dõi kênh livestream!');
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  /** Why the last line failed to play. Cleared as soon as one plays. */
+  const [playbackError, setPlaybackError] = useState<string | null>(null);
 
   // Queue state
   const [queue, setQueue] = useState<TtsQueueItem[]>([]);
@@ -153,22 +155,41 @@ export default function TtsPage() {
     void processNextInQueue();
   }, [queue]);
 
+  /**
+   * Plays one line and reports why if it does not.
+   *
+   * Every failure path here used to `resolve()` with no message: a rejected
+   * request, a missing URL, a decode error, a blocked autoplay. The item
+   * vanished from the queue and the screen went back to idle, so a run that
+   * failed and a run that succeeded looked identical — which is precisely the
+   * "nó chạy xong tắt luôn" report. Silence is the worst possible answer for a
+   * feature whose entire output is sound.
+   */
   const playAudioItem = (text: string): Promise<void> => {
     return new Promise((resolve) => {
       const selected = availableVoices.find((v) => v.id === selectedVoiceId);
+
+      const fail = (reason: string) => {
+        setIsPlaying(false);
+        setPlaybackError(reason);
+        setStatusMessage(null);
+        resolve();
+      };
+
       if (selected?.isOnlineFallback || selectedVoiceId === 'google-vi') {
         // Straight to the API, so the request goes through the same auth guard,
         // length validation and throttle as every other TTS call. `rate` and
         // `pitch` are the field names the API's DTO expects.
         previewTts({ text, voice: selectedVoiceId, rate: speed, pitch })
           .then((data) => {
-            if (!data.url) throw new Error('No audio URL');
+            if (!data.url) throw new Error('Máy chủ không trả về file âm thanh');
             const audio = new Audio(data.url);
             audio.playbackRate = speed;
             audioRef.current = audio;
 
             audio.onplay = () => {
               setIsPlaying(true);
+              setPlaybackError(null);
               setStatusMessage(`Đang đọc: "${text}"`);
             };
             audio.onended = () => {
@@ -176,17 +197,31 @@ export default function TtsPage() {
               setStatusMessage(null);
               resolve();
             };
-            audio.onerror = () => {
-              setIsPlaying(false);
-              resolve();
-            };
+            audio.onerror = () => fail('Không mở được file âm thanh máy chủ gửi về.');
 
-            audio.play().catch(() => resolve());
+            // A rejected play() is usually the browser's autoplay policy: the
+            // click that started this was consumed before the request came
+            // back, so by the time audio exists there is no gesture left.
+            audio.play().catch((err: unknown) => {
+              const name = (err as { name?: string })?.name;
+              fail(
+                name === 'NotAllowedError'
+                  ? 'Trình duyệt chặn tự phát tiếng. Bấm "Nghe thử" lần nữa, hoặc cho phép âm thanh cho trang này.'
+                  : 'Không phát được âm thanh trên trình duyệt này.',
+              );
+            });
           })
-          .catch(() => resolve());
+          .catch((err: unknown) => {
+            const msg = err instanceof Error ? err.message : '';
+            fail(
+              /credit|quota|insufficient|402|hết/i.test(msg)
+                ? 'Hết lượt đọc — nạp thêm để tiếp tục.'
+                : `Không tạo được giọng đọc${msg ? `: ${msg}` : '.'}`,
+            );
+          });
       } else {
         if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
-          resolve();
+          fail('Trình duyệt này không hỗ trợ đọc bằng giọng máy.');
           return;
         }
 
@@ -204,6 +239,7 @@ export default function TtsPage() {
 
         utterance.onstart = () => {
           setIsPlaying(true);
+          setPlaybackError(null);
           setStatusMessage(`Đang đọc: "${text}"`);
         };
         utterance.onend = () => {
@@ -211,10 +247,12 @@ export default function TtsPage() {
           setStatusMessage(null);
           resolve();
         };
-        utterance.onerror = () => {
-          setIsPlaying(false);
-          resolve();
-        };
+        utterance.onerror = (e) =>
+          fail(
+            e.error === 'not-allowed'
+              ? 'Trình duyệt chặn phát tiếng. Bấm "Nghe thử" lần nữa nhé.'
+              : 'Giọng máy của trình duyệt không đọc được câu này.',
+          );
 
         window.speechSynthesis.speak(utterance);
       }
@@ -230,7 +268,7 @@ export default function TtsPage() {
     }
 
     if (!testText.trim()) {
-      setStatusMessage('Vui lòng nhập văn bản cần đọc.');
+      setStatusMessage('Gõ một câu để nghe thử nhé.');
       return;
     }
 
@@ -258,15 +296,38 @@ export default function TtsPage() {
         Chọn giọng và cách đọc cho những câu LiveNova nói hộ bạn trên sóng.
       </p>
 
+      {/* A failure has to say so. Without this the queue simply emptied and the
+          screen returned to idle, which is what a success looks like too. */}
+      {playbackError && (
+        <div
+          role="alert"
+          style={{
+            padding: '0.75rem 1rem',
+            marginBottom: '1rem',
+            borderRadius: 'var(--radius)',
+            background: 'hsl(var(--destructive) / 0.08)',
+            border: '1px solid hsl(var(--destructive) / 0.3)',
+            color: 'hsl(var(--destructive))',
+            fontSize: '0.9375rem',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.5rem',
+          }}
+        >
+          <Icon name="warning" size={18} />
+          {playbackError}
+        </div>
+      )}
+
       {statusMessage && (
         <div
           style={{
             padding: '0.75rem 1rem',
             marginBottom: '1.5rem',
             borderRadius: 'var(--radius)',
-            background: isPlaying ? 'rgba(34, 197, 94, 0.1)' : 'rgba(234, 179, 8, 0.1)',
-            border: `1px solid ${isPlaying ? 'rgba(34, 197, 94, 0.2)' : 'rgba(234, 179, 8, 0.2)'}`,
-            color: isPlaying ? '#22c55e' : '#eab308',
+            background: isPlaying ? 'hsl(var(--success) / 0.08)' : 'hsl(var(--warning) / 0.1)',
+            border: `1px solid ${isPlaying ? 'hsl(var(--success) / 0.3)' : 'hsl(var(--warning) / 0.35)'}`,
+            color: isPlaying ? 'hsl(var(--success))' : 'hsl(38 92% 32%)',
             fontSize: '0.9rem',
             fontWeight: 600,
             display: 'flex',
@@ -327,7 +388,7 @@ export default function TtsPage() {
                   borderRadius: 'var(--radius)',
                   background: 'hsl(var(--background))',
                   color: 'hsl(var(--foreground))',
-                  border: '1px solid hsl(var(--border))',
+                  border: '1px solid hsl(var(--input))',
                 }}
               >
                 {availableVoices.map((v) => (
@@ -438,7 +499,7 @@ export default function TtsPage() {
                 borderRadius: 'var(--radius)',
                 background: 'hsl(var(--background))',
                 color: 'hsl(var(--foreground))',
-                border: '1px solid hsl(var(--border))',
+                border: '1px solid hsl(var(--input))',
                 marginBottom: '1rem',
                 resize: 'none',
                 fontFamily: 'inherit',
@@ -467,7 +528,7 @@ export default function TtsPage() {
                 }}
               >
                 <Icon name="gift" size={16} />
-                Giả lập tặng quà
+                Thử câu cảm ơn quà
               </button>
               <button
                 type="button"
@@ -489,7 +550,7 @@ export default function TtsPage() {
                 }}
               >
                 <Icon name="comment" size={16} />
-                Giả lập bình luận
+                Thử câu chào bình luận
               </button>
             </div>
           </div>
@@ -509,7 +570,7 @@ export default function TtsPage() {
             }}
           >
             <Icon name={isPlaying || queue.length > 0 ? 'stop' : 'play'} size={18} weight="fill" />
-            {isPlaying || queue.length > 0 ? 'Dừng & Xóa hàng chờ' : 'Đưa vào Hàng chờ phát'}
+            {isPlaying || queue.length > 0 ? 'Dừng đọc' : 'Nghe thử'}
           </button>
         </div>
       </div>
@@ -565,7 +626,7 @@ export default function TtsPage() {
 
         {queue.length === 0 ? (
           <p style={{ color: 'hsl(var(--muted-foreground))', fontSize: '0.9rem', margin: 0 }}>
-            Hàng chờ hiện đang trống. Hãy thêm văn bản hoặc bấm nút giả lập để test đọc tuần tự.
+            Chưa có câu nào đang chờ. Gõ một câu rồi bấm “Nghe thử”.
           </p>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>

@@ -5,6 +5,7 @@ import { useApi } from '../../../lib/use-api';
 import { api } from '../../../lib/api-client';
 import { LoadingState, ErrorState } from '../../../components/common/States';
 import { Icon } from '../../../components/ui/Icon';
+import { ConfirmAction } from '../../../components/common/ConfirmAction';
 import { RuleModal } from '../../../components/rules/RuleModal';
 import { RuleDryRunModal } from '../../../components/rules/RuleDryRunModal';
 import { PresetLibraryModal } from '../../../components/rules/PresetLibraryModal';
@@ -124,7 +125,10 @@ function Toggle({
         height: '30px',
         padding: 0,
         borderRadius: 999,
-        border: '1px solid hsl(var(--border))',
+        // A switch is a UI component under WCAG 1.4.11, so its boundary needs
+        // the 3:1 token too — the off state is otherwise a pale pill on a pale
+        // card with nothing marking its edge.
+        border: '1px solid hsl(var(--input))',
         background: on ? 'hsl(var(--primary))' : 'hsl(var(--muted))',
         cursor: disabled ? 'not-allowed' : 'pointer',
         opacity: busy ? 0.6 : 1,
@@ -223,7 +227,8 @@ export default function RulesPage() {
   }
 
   async function handleDelete(rule: any) {
-    if (!confirm(`Xoá kịch bản "${rule.name}"? Thao tác này không hoàn tác được.`)) return;
+    // Confirmation is inline — see ConfirmAction on why window.confirm() is not
+    // usable here.
     setActionError(null);
     try {
       await api.delete(`/rules/${rule.id}`);
@@ -338,7 +343,7 @@ export default function RulesPage() {
               minHeight: '44px',
               padding: '0.6rem 0.875rem',
               borderRadius: 'var(--radius)',
-              border: '1px solid hsl(var(--border))',
+              border: '1px solid hsl(var(--input))',
               background: 'hsl(var(--card))',
               color: 'inherit',
               font: 'inherit',
@@ -449,9 +454,26 @@ export default function RulesPage() {
                 </TextButton>
                 <TextButton onClick={() => setDryRunRule(rule)}>Thử trước</TextButton>
                 <TextButton onClick={() => handleDuplicate(rule)}>Nhân bản</TextButton>
-                <TextButton tone="danger" onClick={() => handleDelete(rule)}>
-                  Xoá
-                </TextButton>
+                <ConfirmAction
+                  label="Xoá"
+                  question="Xoá hẳn kịch bản này?"
+                  confirmLabel="Xoá"
+                  busyLabel="Đang xoá…"
+                  onConfirm={() => handleDelete(rule)}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    padding: '0.25rem 0.375rem',
+                    minHeight: '32px',
+                    cursor: 'pointer',
+                    font: 'inherit',
+                    fontSize: '0.875rem',
+                    fontWeight: 500,
+                    color: 'hsl(var(--destructive))',
+                    textDecoration: 'underline',
+                    textUnderlineOffset: '3px',
+                  }}
+                />
               </div>
             </div>
 

@@ -217,7 +217,7 @@ function VerifyOtpForm() {
                   width: '48px',
                   height: '56px',
                   borderRadius: 'var(--radius)',
-                  border: '1px solid hsl(var(--border))',
+                  border: '1px solid hsl(var(--input))',
                   background: 'hsl(var(--background))',
                   color: 'inherit',
                   fontSize: '1.5rem',
