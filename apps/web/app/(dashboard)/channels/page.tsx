@@ -8,6 +8,7 @@ import { useEventsSocket } from '../../../lib/use-events-socket';
 import { LoadingState, ErrorState, EmptyState } from '../../../components/common/States';
 import { LiveFeed, LIVE_FEED_LIMIT } from '../../../components/live-feed/LiveFeed';
 import { Icon } from '../../../components/ui/Icon';
+import { ConfirmAction } from '../../../components/common/ConfirmAction';
 import { BridgePanel } from '../../../components/bridge/BridgePanel';
 import { readStoredBridgeToken, useLocalBridge } from '../../../lib/use-local-bridge';
 import type { GameInputCommand } from '@livenova/shared';
@@ -142,15 +143,9 @@ export default function ChannelsPage() {
   }
 
   async function unlink(channel: Channel) {
-    // Confirmed because it is not obviously reversible from the user's side:
-    // re-linking needs the bio verification code published again.
-    if (
-      !confirm(
-        `Ngắt kênh @${channel.handle}?\n\nLiveNova sẽ ngừng nhận bình luận và quà tặng từ kênh này. Nối lại thì phải xác minh lại từ đầu.`,
-      )
-    )
-      return;
-
+    // The confirmation lives in <ConfirmAction>, not in window.confirm(): the
+    // native dialog is suppressed in embedded browsers, and a suppressed
+    // confirm() returns false, which made this button do nothing at all.
     setActionError(null);
     setBusyId(channel.id);
     try {
@@ -372,13 +367,15 @@ export default function ChannelsPage() {
                     {busyId === channel.id ? 'Đang xác minh…' : 'Xác minh'}
                   </button>
                 )}
-                <button
-                  onClick={() => unlink(channel)}
+                <ConfirmAction
+                  label="Ngắt kênh"
+                  question={`Ngắt @${channel.handle}? Nối lại phải xác minh từ đầu.`}
+                  confirmLabel="Ngắt kênh"
+                  busyLabel="Đang ngắt…"
                   disabled={busyId === channel.id}
                   style={{ ...buttonStyle, color: 'hsl(var(--destructive))' }}
-                >
-                  Ngắt kênh
-                </button>
+                  onConfirm={() => unlink(channel)}
+                />
               </div>
             </div>
 
