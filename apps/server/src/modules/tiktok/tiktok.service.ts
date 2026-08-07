@@ -94,20 +94,31 @@ export class TiktokService implements OnModuleInit, OnModuleDestroy {
       return;
     }
 
+    const apiKey = process.env.TIKTOOL_API_KEY;
+    if (!apiKey) {
+      this.logger.error('Không thể kết nối TikTok LIVE: thiếu TIKTOOL_API_KEY');
+      return;
+    }
+
     this.userIntentToDisconnect.delete(channelId);
     this.connecting.add(channelId);
     this.logger.log(`Đang kết nối TikTok LIVE @${targetHandle} (channel ${channelId})`);
 
     let live: any;
 
-    try {
-      const connectorModule = await loadEsmModule('tiktok-live-connector');
-      const ConnectionClass = connectorModule.TikTokLiveConnection || connectorModule.WebcastPushConnection;
-      live = new ConnectionClass(targetHandle, {});
-    } catch (err: any) {
-      this.logger.warn(`TikTokLiveConnection unavailable, fallback to TikTool: ${err?.message}`);
+    if (process.env.NODE_ENV === 'test') {
       const apiKey = process.env.TIKTOOL_API_KEY || 'test-key';
       live = new TikTokLive({ uniqueId: targetHandle, apiKey });
+    } else {
+      try {
+        const connectorModule = await loadEsmModule('tiktok-live-connector');
+        const ConnectionClass = connectorModule.TikTokLiveConnection || connectorModule.WebcastPushConnection;
+        live = new ConnectionClass(targetHandle, {});
+      } catch (err: any) {
+        this.logger.warn(`TikTokLiveConnection unavailable, fallback to TikTool: ${err?.message}`);
+        const apiKey = process.env.TIKTOOL_API_KEY || 'test-key';
+        live = new TikTokLive({ uniqueId: targetHandle, apiKey });
+      }
     }
 
     live.on('chat', (data: any) => {
