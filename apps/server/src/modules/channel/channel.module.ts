@@ -1,8 +1,10 @@
 import { Module } from '@nestjs/common';
 import { ChannelService } from './channel.service';
 import { ChannelController } from './channel.controller';
+import { TiktokModule } from '../tiktok/tiktok.module';
 
 @Module({
+  imports: [TiktokModule],
   providers: [ChannelService],
   controllers: [ChannelController],
   exports: [ChannelService],

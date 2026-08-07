@@ -9,6 +9,8 @@ import { LiveEvent, LiveEventType, BATTLE_EVENT, BattleUpdate } from '@livenova/
 import { v4 as uuidv4 } from 'uuid';
 import { TikTokLive } from '@tiktool/live';
 
+import { PrismaService } from '../../prisma/prisma.service';
+
 /**
  * TikTok LIVE Event Ingest Service
  *
@@ -26,11 +28,6 @@ export class TiktokService implements OnModuleInit, OnModuleDestroy {
 
   /**
    * Channels whose `connect()` is in flight.
-   *
-   * The session is only registered after `await live.connect()` resolves, so
-   * without this a second call arriving during the handshake sees an empty
-   * `activeSessions`, opens a second websocket, and the first one leaks with
-   * nothing holding a handle to close it.
    */
   private readonly connecting = new Set<string>();
 
@@ -39,10 +36,6 @@ export class TiktokService implements OnModuleInit, OnModuleDestroy {
 
   /**
    * Channels the operator disconnected on purpose.
-   *
-   * A websocket close fires `disconnected`, which is indistinguishable from a
-   * dropped connection. Without this flag an explicit disconnect immediately
-   * triggers the reconnect ladder and the session comes straight back.
    */
   private readonly userIntentToDisconnect = new Set<string>();
 
@@ -52,14 +45,31 @@ export class TiktokService implements OnModuleInit, OnModuleDestroy {
   /** Set on shutdown; stops any in-flight reconnect from re-opening a socket. */
   private shuttingDown = false;
 
-  constructor(private readonly eventEmitter: EventEmitter2) {}
+  constructor(
+    private readonly eventEmitter: EventEmitter2,
+    private readonly prisma: PrismaService,
+  ) {}
 
-  onModuleInit(): void {
+  async onModuleInit(): Promise<void> {
     if (!process.env.TIKTOOL_API_KEY) {
       this.logger.error('TIKTOOL_API_KEY chưa được cấu hình — ingest TikTok LIVE sẽ không chạy.');
       return;
     }
     this.logger.log('TikTok ingest service ready');
+
+    // Auto-connect all verified channels in DB on startup
+    try {
+      const channels = await this.prisma.channel.findMany({
+        where: { verified: true },
+      });
+      for (const channel of channels) {
+        this.connect(channel.id, channel.handle).catch((err) => {
+          this.logger.error(`Auto-connect channel @${channel.handle} failed: ${err.message}`);
+        });
+      }
+    } catch (err) {
+      this.logger.error(`Error loading verified channels for auto-connect: ${err}`);
+    }
   }
 
   onModuleDestroy(): void {
