@@ -5,6 +5,7 @@ import { useApi } from '../../../lib/use-api';
 import { api } from '../../../lib/api-client';
 import { LoadingState, ErrorState, EmptyState } from '../../../components/common/States';
 import { Icon, type IconName } from '../../../components/ui/Icon';
+import { ConfirmAction } from '../../../components/common/ConfirmAction';
 import type { Overlay } from '../../../lib/types';
 
 /**
@@ -163,14 +164,8 @@ export default function OverlaysPage() {
   }
 
   async function rotate(overlay: Overlay) {
-    const label = DISPLAY[overlay.type]?.name ?? overlay.type;
-    if (
-      !confirm(
-        `Tạo đường dẫn mới cho "${label}"?\n\nĐường dẫn cũ sẽ ngừng hoạt động, bạn phải dán lại vào OBS.`,
-      )
-    )
-      return;
-
+    // Confirmation is inline — see ConfirmAction on why window.confirm() is not
+    // usable here.
     setActionError(null);
     setRotatingId(overlay.id);
     try {
@@ -321,10 +316,13 @@ export default function OverlaysPage() {
                       Xem thử
                     </a>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => rotate(overlay)}
+                  <ConfirmAction
+                    label="Lỡ để lộ đường dẫn? Tạo cái mới"
+                    question="Đường dẫn cũ sẽ ngừng chạy, phải dán lại vào OBS."
+                    confirmLabel="Tạo đường dẫn mới"
+                    busyLabel="Đang tạo…"
                     disabled={rotatingId === overlay.id}
+                    onConfirm={() => rotate(overlay)}
                     style={{
                       background: 'none',
                       border: 'none',
@@ -338,11 +336,7 @@ export default function OverlaysPage() {
                       textDecoration: 'underline',
                       textUnderlineOffset: '3px',
                     }}
-                  >
-                    {rotatingId === overlay.id
-                      ? 'Đang tạo đường dẫn mới…'
-                      : 'Lỡ để lộ đường dẫn? Tạo cái mới'}
-                  </button>
+                  />
                 </>
               ) : (
                 <p style={{ fontSize: '0.875rem', color: 'hsl(var(--muted-foreground))', marginTop: 'auto' }}>

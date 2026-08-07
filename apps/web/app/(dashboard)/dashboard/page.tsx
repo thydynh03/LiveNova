@@ -113,6 +113,7 @@ export default function DashboardPage() {
   const rules = useApi<Rule[]>('/rules');
   const overlays = useApi<Overlay[]>('/overlays');
   const channels = useApi<Channel[]>('/channels');
+  const sessions = useApi<{ activeSessions: string[]; count: number }>('/tiktok/sessions');
 
   const [events, setEvents] = useState<LiveEvent[]>([]);
   const onEvent = useCallback((event: LiveEvent) => {
@@ -126,7 +127,20 @@ export default function DashboardPage() {
     enabled: channelIds.length > 0,
   });
 
-  const liveChannel = (channels.data ?? []).find((c) => c.isLive) ?? null;
+  /**
+   * Live state comes from the ingest sessions, not from `channel.isLive`.
+   *
+   * That column is written nowhere: TiktokService opens the room and starts
+   * emitting events without ever flipping the flag or stamping `lastLiveAt`, so
+   * reading it here produced a header that said "Đang live" over a hero that
+   * said "Chưa có buổi live nào đang chạy" — while real comments scrolled past
+   * underneath. `/tiktok/sessions` is what the server actually knows.
+   */
+  const liveChannelIds = new Set(sessions.data?.activeSessions ?? []);
+  const liveChannel = (channels.data ?? []).find((c) => liveChannelIds.has(c.id)) ?? null;
+
+  // `lastLiveAt` is null for the same reason, so the timer only appears when the
+  // server has a real start time. An invented one is worse than none.
   const elapsed = useElapsed(liveChannel?.lastLiveAt ?? null);
 
   // Session totals are computed from events this page actually received, and
