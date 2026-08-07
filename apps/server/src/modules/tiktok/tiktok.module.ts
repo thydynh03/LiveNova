@@ -1,12 +1,10 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { TiktokService } from './tiktok.service';
 import { TiktokController } from './tiktok.controller';
 import { ChannelModule } from '../channel/channel.module';
 
 @Module({
-  // H-10 — EventEmitterModule.forRoot() is registered once in AppModule; importing
-  // the bare module here would not provide EventEmitter2 and injection would fail.
-  imports: [ChannelModule],
+  imports: [forwardRef(() => ChannelModule)],
   controllers: [TiktokController],
   providers: [TiktokService],
   exports: [TiktokService],

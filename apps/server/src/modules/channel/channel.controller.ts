@@ -9,6 +9,8 @@ import {
   HttpCode,
   HttpStatus,
   ParseUUIDPipe,
+  Inject,
+  forwardRef,
 } from '@nestjs/common';
 import { IsEnum, IsString, MaxLength, MinLength } from 'class-validator';
 import { Platform } from '@prisma/client';
@@ -37,6 +39,7 @@ class LinkChannelDto {
 export class ChannelController {
   constructor(
     private readonly channelService: ChannelService,
+    @Inject(forwardRef(() => TiktokService))
     private readonly tiktokService: TiktokService,
   ) {}
 
