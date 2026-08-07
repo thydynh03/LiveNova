@@ -79,7 +79,12 @@ describe('TiktokService', () => {
 
     emitter = new EventEmitter2();
     emit = jest.spyOn(emitter, 'emit');
-    service = new TiktokService(emitter);
+    const prisma = {
+      channel: {
+        findMany: jest.fn().mockResolvedValue([]),
+      },
+    } as any;
+    service = new TiktokService(emitter, prisma);
   });
 
   afterEach(() => {
