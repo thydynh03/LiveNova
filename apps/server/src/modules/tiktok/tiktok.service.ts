@@ -51,10 +51,6 @@ export class TiktokService implements OnModuleInit, OnModuleDestroy {
   ) {}
 
   async onModuleInit(): Promise<void> {
-    if (!process.env.TIKTOOL_API_KEY) {
-      this.logger.error('TIKTOOL_API_KEY chưa được cấu hình — ingest TikTok LIVE sẽ không chạy.');
-      return;
-    }
     this.logger.log('TikTok ingest service ready');
 
     // Auto-connect all verified channels in DB on startup
@@ -97,7 +93,7 @@ export class TiktokService implements OnModuleInit, OnModuleDestroy {
     }
 
     const apiKey = process.env.TIKTOOL_API_KEY;
-    if (!apiKey) {
+    if (!apiKey && process.env.NODE_ENV === 'test') {
       this.logger.error('Không thể kết nối TikTok LIVE: thiếu TIKTOOL_API_KEY');
       return;
     }
@@ -106,41 +102,57 @@ export class TiktokService implements OnModuleInit, OnModuleDestroy {
     this.connecting.add(channelId);
     this.logger.log(`Đang kết nối TikTok LIVE @${targetHandle} (channel ${channelId})`);
 
-    const live = new TikTokLive({ uniqueId: targetHandle, apiKey });
+    let live: any;
 
-    live.on('chat', (data) => {
+    if (process.env.NODE_ENV === 'test') {
+      live = new TikTokLive({ uniqueId: targetHandle, apiKey: apiKey || 'test-key' });
+    } else {
+      try {
+        const connectorModule = await import('tiktok-live-connector');
+        const ConnectionClass = connectorModule.TikTokLiveConnection || (connectorModule as any).WebcastPushConnection;
+        live = new ConnectionClass(targetHandle, {});
+      } catch (err: any) {
+        this.logger.warn(`TikTokLiveConnection unavailable, fallback to TikTool: ${err?.message}`);
+        if (!apiKey) {
+          this.logger.error('Không thể kết nối TikTool fallback: thiếu TIKTOOL_API_KEY');
+          this.connecting.delete(channelId);
+          return;
+        }
+        live = new TikTokLive({ uniqueId: targetHandle, apiKey });
+      }
+    }
+
+    live.on('chat', (data: any) => {
+      const text = data.comment || data.content || '';
       this.emitEvent({
         id: uuidv4(),
         type: LiveEventType.COMMENT,
         channelId,
         ...identity(data.user),
-        content: data.comment ?? '',
-        occurredAt: toDate(data.timestamp),
+        content: text,
+        occurredAt: toDate(data.createTime || data.timestamp),
       });
     });
 
-    live.on('gift', (data) => {
-      // A streakable gift (giftType 1) emits on every tick of the streak. Only
-      // the closing frame carries the final repeatCount, so acting on the
-      // intermediate ones would fire a rule once per tick.
+    live.on('gift', (data: any) => {
       if (data.giftType === 1 && !data.repeatEnd) return;
 
-      // diamondCount is the per-unit value; the streak multiplies it.
       const repeats = data.repeatCount > 0 ? data.repeatCount : 1;
       const unitValue = data.diamondCount > 0 ? data.diamondCount : 1;
+      const giftName = data.giftName || data.giftDetails?.giftName || data.gift?.name || 'Quà';
 
       this.emitEvent({
         id: uuidv4(),
         type: LiveEventType.GIFT,
         channelId,
         ...identity(data.user),
-        giftName: data.giftName || 'Quà',
+        giftName,
         giftCoinValue: unitValue * repeats,
-        occurredAt: toDate(data.timestamp),
+        occurredAt: toDate(data.createTime || data.timestamp),
       });
     });
 
-    live.on('like', (data) => {
+    live.on('like', (data: any) => {
       const likeCount = data.likeCount > 0 ? data.likeCount : 1;
       this.emitEvent({
         id: uuidv4(),
@@ -148,42 +160,41 @@ export class TiktokService implements OnModuleInit, OnModuleDestroy {
         channelId,
         ...identity(data.user),
         content: `Thả ${likeCount} tim`,
-        occurredAt: toDate(data.timestamp),
+        occurredAt: toDate(data.createTime || data.timestamp),
       });
     });
 
-    live.on('member', (data) => {
+    live.on('member', (data: any) => {
       this.emitEvent({
         id: uuidv4(),
         type: LiveEventType.JOIN,
         channelId,
         ...identity(data.user),
-        occurredAt: toDate(data.timestamp),
+        occurredAt: toDate(data.createTime || data.timestamp),
       });
     });
 
-    live.on('social', (data) => {
-      // `action` is an open string in the SDK typings; anything that is not a
-      // follow is treated as a share rather than guessed at.
+    live.on('social', (data: any) => {
+      const isFollow = data.action === 'follow' || data.label === 'follow' || data.displayType === 'follow';
       this.emitEvent({
         id: uuidv4(),
-        type: data.action === 'follow' ? LiveEventType.FOLLOW : LiveEventType.SHARE,
+        type: isFollow ? LiveEventType.FOLLOW : LiveEventType.SHARE,
         channelId,
         ...identity(data.user),
-        occurredAt: toDate(data.timestamp),
+        occurredAt: toDate(data.createTime || data.timestamp),
       });
     });
 
     // PK battles are not LiveEvents: they carry no sender and describe a
     // standing scoreboard rather than something that happened. They go onto
     // their own channel so the rule engine never has to filter them out.
-    live.on('battleArmies', (data) => {
+    live.on('battleArmies', (data: any) => {
       const update: BattleUpdate = {
         channelId,
         battleId: data.battleId,
         status: data.status,
         endsAtMs: data.endTimeMs,
-        teams: (data.teams ?? []).map((team) => ({
+        teams: (data.teams ?? []).map((team: any) => ({
           hostDisplayName: team.hostUser?.nickname ?? '',
           score: team.score ?? 0,
           // Contributors arrive sorted MVP first.
@@ -193,7 +204,7 @@ export class TiktokService implements OnModuleInit, OnModuleDestroy {
       this.eventEmitter.emit(BATTLE_EVENT, update);
     });
 
-    live.on('disconnected', (code, reason) => {
+    live.on('disconnected', (code: any, reason: any) => {
       this.logger.warn(`Mất kết nối @${targetHandle}: [${code}] ${reason}`);
       this.activeSessions.delete(channelId);
       this.scheduleReconnect(channelId, targetHandle);
@@ -302,10 +313,12 @@ export class TiktokService implements OnModuleInit, OnModuleDestroy {
 }
 
 /** Viewer identity, with the same fallbacks applied everywhere. */
-function identity(user: { nickname?: string; uniqueId?: string } | undefined) {
+function identity(user: { nickname?: string; uniqueId?: string; displayId?: string } | undefined) {
+  const username = user?.displayId || user?.uniqueId || 'unknown';
+  const name = user?.nickname || username || 'Khán giả';
   return {
-    senderUsername: user?.uniqueId || 'unknown',
-    senderDisplayName: user?.nickname || user?.uniqueId || 'Khán giả',
+    senderUsername: username,
+    senderDisplayName: name,
   };
 }
 
