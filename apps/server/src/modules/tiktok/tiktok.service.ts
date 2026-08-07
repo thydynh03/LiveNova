@@ -7,10 +7,11 @@ import {
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { LiveEvent, LiveEventType, BATTLE_EVENT, BattleUpdate } from '@livenova/shared';
 import { v4 as uuidv4 } from 'uuid';
-import { TikTokLiveConnection } from 'tiktok-live-connector';
 import { TikTokLive } from '@tiktool/live';
 
 import { PrismaService } from '../../prisma/prisma.service';
+
+const loadEsmModule = new Function('specifier', 'return import(specifier)');
 
 /**
  * TikTok LIVE Event Ingest Service
@@ -97,12 +98,14 @@ export class TiktokService implements OnModuleInit, OnModuleDestroy {
     this.connecting.add(channelId);
     this.logger.log(`Đang kết nối TikTok LIVE @${targetHandle} (channel ${channelId})`);
 
-    const ConnectionClass = TikTokLiveConnection as any;
     let live: any;
 
     try {
+      const connectorModule = await loadEsmModule('tiktok-live-connector');
+      const ConnectionClass = connectorModule.TikTokLiveConnection || connectorModule.WebcastPushConnection;
       live = new ConnectionClass(targetHandle, {});
-    } catch {
+    } catch (err: any) {
+      this.logger.warn(`TikTokLiveConnection unavailable, fallback to TikTool: ${err?.message}`);
       const apiKey = process.env.TIKTOOL_API_KEY || 'test-key';
       live = new TikTokLive({ uniqueId: targetHandle, apiKey });
     }
