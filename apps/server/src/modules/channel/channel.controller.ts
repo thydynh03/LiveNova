@@ -15,6 +15,7 @@ import { Platform } from '@prisma/client';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { CurrentUserId } from '../../common/decorators/current-user.decorator';
 import { ChannelService } from './channel.service';
+import { TiktokService } from '../tiktok/tiktok.service';
 
 class LinkChannelDto {
   @IsEnum(Platform)
