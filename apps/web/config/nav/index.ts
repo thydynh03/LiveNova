@@ -11,6 +11,7 @@ import { dashboardNav } from './dashboard.nav';
 import { overlaysNav } from './overlays.nav';
 import { rulesNav } from './rules.nav';
 import { settingsNav } from './settings.nav';
+import { templatesNav } from './templates.nav';
 import { ttsNav } from './tts.nav';
 
 const registry: NavItem[] = [
@@ -20,6 +21,7 @@ const registry: NavItem[] = [
   overlaysNav,
   rulesNav,
   settingsNav,
+  templatesNav,
   ttsNav,
 ];
 

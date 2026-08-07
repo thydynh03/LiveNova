@@ -13,6 +13,17 @@ enum Role {
   ADMIN
 }
 
+enum TemplateKind {
+  GAME
+  MEDIA_PACK
+  RULE_PACK
+}
+
+/// Engine chạy template loại GAME. Hiện chỉ có một.
+enum GameMode {
+  TEAM_BATTLE
+}
+
 enum ProviderType {
   GOOGLE
   FACEBOOK
@@ -66,14 +77,14 @@ enum OtpType {
 }
 
 model User {
-  id           String    @id @default(uuid())
-  email        String    @unique
-  displayName  String?
-  avatar       String?
-  role         Role      @default(USER)
+  id            String    @id @default(uuid())
+  email         String    @unique
+  displayName   String?
+  avatar        String?
+  role          Role      @default(USER)
   // L10N-07 / B.8.1 — VN-first defaults. Drives BR-06 daily quota reset.
-  locale       String    @default("vi")
-  timezone     String    @default("Asia/Ho_Chi_Minh")
+  locale        String    @default("vi")
+  timezone      String    @default("Asia/Ho_Chi_Minh")
   passwordHash  String?
   emailVerified Boolean   @default(false)
   deletedAt     DateTime?
@@ -88,6 +99,10 @@ model User {
   transactions  Transaction[]
   rules         Rule[]
   overlays      Overlay[]
+  userTemplates UserTemplate[]
+  templatesMade Template[]      @relation("TemplateAuthor")
+  adminActions  AdminAuditLog[] @relation("AdminActor")
+  actionsOnMe   AdminAuditLog[] @relation("AdminTarget")
   liveSessions  LiveSession[]
   ttsSettings   TtsSettings?
   gameProfiles  GameProfile[]
@@ -327,4 +342,95 @@ model OtpCode {
   user      User?    @relation(fields: [email], references: [email], onDelete: Cascade)
 
   @@index([email, type])
+}
+
+/// ─────────────────────────────────────────────────────────────────────────────
+/// Template — bộ cấu hình do admin soạn, streamer chọn và áp dụng.
+///
+/// Đây là bản tổng quát của `RuleService.applyPreset`, vốn viết cứng 3 preset
+/// trong file .ts. Đưa vào DB để admin thêm chủ đề mới mà không cần lập trình.
+/// ─────────────────────────────────────────────────────────────────────────────
+model Template {
+  id             String       @id @default(uuid())
+  kind           TemplateKind
+  /// Chỉ có giá trị khi kind = GAME.
+  gameMode       GameMode?
+  /// Định danh ổn định cho mẫu do seed tạo: chạy seed lại không nhân bản, và
+  /// endpoint preset cũ vẫn tra được. Mẫu admin tự tạo thì để trống.
+  slug           String?      @unique
+  name           String
+  description    String?
+  thumbnailUrl   String?
+  /// Cấu hình engine hoặc bộ luật. Hình dạng tuỳ theo `kind`.
+  config         Json
+  /// Trường nào streamer được sửa sau khi áp dụng. Ngoài danh sách là admin khoá.
+  editableFields String[]     @default([])
+  /// Chưa publish thì chỉ admin thấy.
+  published      Boolean      @default(false)
+  createdById    String
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  createdBy User            @relation("TemplateAuthor", fields: [createdById], references: [id])
+  assets    TemplateAsset[]
+  applied   UserTemplate[]
+
+  @@index([kind, published])
+}
+
+/// Media của một template. `config` trỏ vào `key`, không nhúng URL, để đổi
+/// asset không phải sửa config.
+model TemplateAsset {
+  id         String   @id @default(uuid())
+  templateId String
+  /// Khoá logic: "fx_dragon", "castle_cat".
+  key        String
+  url        String
+  mediaType  String
+  createdAt  DateTime @default(now())
+
+  template Template @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  @@unique([templateId, key])
+}
+
+/// Bản sao template lúc streamer áp dụng.
+///
+/// Cố ý là bản sao, không phải tham chiếu: admin sửa template gốc không được
+/// làm đổi cấu hình của streamer đang live.
+model UserTemplate {
+  id         String   @id @default(uuid())
+  userId     String
+  /// Nguồn gốc — để biết template nào đang được bao nhiêu người dùng.
+  templateId String
+  name       String
+  config     Json
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  template Template @relation(fields: [templateId], references: [id])
+
+  @@index([userId])
+  @@index([templateId])
+}
+
+/// Nhật ký hành động của admin.
+///
+/// Không có bảng này thì "tự dưng mất credit" là câu hỏi không ai trả lời được.
+model AdminAuditLog {
+  id           String   @id @default(uuid())
+  adminId      String
+  /// Người bị tác động, nếu có.
+  targetUserId String?
+  action       String
+  /// Chi tiết đủ để dựng lại chuyện gì đã xảy ra.
+  detail       Json
+  createdAt    DateTime @default(now())
+
+  admin      User  @relation("AdminActor", fields: [adminId], references: [id])
+  targetUser User? @relation("AdminTarget", fields: [targetUserId], references: [id])
+
+  @@index([adminId, createdAt])
+  @@index([targetUserId, createdAt])
 }
