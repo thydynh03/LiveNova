@@ -36,6 +36,37 @@ export enum OverlayType {
   LEADERBOARD = 'leaderboard',
   TOP_VIEWER = 'top_viewer',
   ROOM_ENTRY = 'room_entry',
+  KINGDOM_WAR = 'kingdom_war',
+}
+
+export type KingdomFactionId = 'cat' | 'dog' | 'bear' | 'capybara';
+
+export interface KingdomFactionState {
+  id: KingdomFactionId;
+  name: string;
+  emoji: string;
+  color: string;
+  hp: number;
+  maxHp: number;
+  level: number;
+  troops: number;
+  mvpDisplayName?: string;
+  mvpScore: number;
+}
+
+export interface KingdomWarState {
+  channelId: string;
+  factions: Record<KingdomFactionId, KingdomFactionState>;
+  status: 'active' | 'paused' | 'ended';
+  winningFactionId?: KingdomFactionId;
+  lastAction?: {
+    type: 'summon' | 'repair' | 'cannon' | 'dragon';
+    factionId: KingdomFactionId;
+    targetFactionId?: KingdomFactionId;
+    actorDisplayName: string;
+    description: string;
+    timestamp: number;
+  };
 }
 
 export enum UserRole {

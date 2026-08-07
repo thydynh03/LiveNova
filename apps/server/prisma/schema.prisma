@@ -49,6 +49,7 @@ enum OverlayType {
   LEADERBOARD
   ROOM_ENTRY
   MEDIA
+  KINGDOM_WAR
 }
 
 enum LiveEventType {

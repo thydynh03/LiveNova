@@ -21,6 +21,7 @@ const LIVE_RENDERERS: Record<string, string> = {
   CHAT: '/overlays/chat',
   GOAL: '/overlays/goal',
   PK_BAR: '/overlays/pk',
+  KINGDOM_WAR: '/overlays/kingdom',
 };
 
 /** Type codes are database values. Nobody streaming has to see PK_BAR. */
@@ -44,6 +45,11 @@ const DISPLAY: Record<string, { name: string; blurb: string; icon: IconName }> =
     name: 'Thanh đấu PK',
     blurb: 'So kè điểm giữa hai bên khi bạn vào trận PK.',
     icon: 'versus',
+  },
+  KINGDOM_WAR: {
+    name: '🏰 Kingdom War (4 Vương Quốc)',
+    blurb: 'Game tương tác 4 vương quốc (Mèo, Chó, Gấu, Capybara) kích thích đại chiến donate.',
+    icon: 'spark',
   },
   LEADERBOARD: { name: 'Bảng xếp hạng', blurb: 'Đang được phát triển.', icon: 'goal' },
   ROOM_ENTRY: { name: 'Chào người vào phòng', blurb: 'Đang được phát triển.', icon: 'follow' },
