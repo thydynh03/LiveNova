@@ -11,8 +11,6 @@ import { TikTokLive } from '@tiktool/live';
 
 import { PrismaService } from '../../prisma/prisma.service';
 
-const loadEsmModule = new Function('specifier', 'return import(specifier)');
-
 /**
  * TikTok LIVE Event Ingest Service
  *
@@ -95,7 +93,7 @@ export class TiktokService implements OnModuleInit, OnModuleDestroy {
     }
 
     const apiKey = process.env.TIKTOOL_API_KEY;
-    if (!apiKey) {
+    if (!apiKey && process.env.NODE_ENV === 'test') {
       this.logger.error('Không thể kết nối TikTok LIVE: thiếu TIKTOOL_API_KEY');
       return;
     }
@@ -107,16 +105,19 @@ export class TiktokService implements OnModuleInit, OnModuleDestroy {
     let live: any;
 
     if (process.env.NODE_ENV === 'test') {
-      const apiKey = process.env.TIKTOOL_API_KEY || 'test-key';
-      live = new TikTokLive({ uniqueId: targetHandle, apiKey });
+      live = new TikTokLive({ uniqueId: targetHandle, apiKey: apiKey || 'test-key' });
     } else {
       try {
-        const connectorModule = await loadEsmModule('tiktok-live-connector');
-        const ConnectionClass = connectorModule.TikTokLiveConnection || connectorModule.WebcastPushConnection;
+        const connectorModule = await import('tiktok-live-connector');
+        const ConnectionClass = connectorModule.TikTokLiveConnection || (connectorModule as any).WebcastPushConnection;
         live = new ConnectionClass(targetHandle, {});
       } catch (err: any) {
         this.logger.warn(`TikTokLiveConnection unavailable, fallback to TikTool: ${err?.message}`);
-        const apiKey = process.env.TIKTOOL_API_KEY || 'test-key';
+        if (!apiKey) {
+          this.logger.error('Không thể kết nối TikTool fallback: thiếu TIKTOOL_API_KEY');
+          this.connecting.delete(channelId);
+          return;
+        }
         live = new TikTokLive({ uniqueId: targetHandle, apiKey });
       }
     }
