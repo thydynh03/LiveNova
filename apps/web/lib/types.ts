@@ -38,6 +38,16 @@ export interface Overlay {
 
 export type Platform = 'TIKTOK' | 'FACEBOOK' | 'YOUTUBE';
 
+/**
+ * How the streamer pushes video to TikTok.
+ *
+ * `DESKTOP` covers both stream key and the OBS Virtual Camera → TikTok LIVE
+ * Studio route; from this app's point of view they are the same thing, because
+ * both put a compositor in the video path. `MOBILE` has none, so anything that
+ * has to be drawn into the picture never reaches viewers.
+ */
+export type BroadcastSource = 'DESKTOP' | 'MOBILE';
+
 export interface Channel {
   id: string;
   platform: Platform;
@@ -49,5 +59,7 @@ export interface Channel {
   verificationCode: string | null;
   isLive: boolean;
   lastLiveAt: string | null;
+  /** The user's stated default. Older records predate the field. */
+  broadcastSource?: BroadcastSource;
   createdAt: string;
 }

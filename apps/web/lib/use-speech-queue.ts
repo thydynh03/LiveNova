@@ -124,5 +124,31 @@ export function useSpeechQueue(options: Options = {}) {
 
   const pending = () => queue.current.length;
 
-  return { enqueue, status, pending };
+  /**
+   * Clears the autoplay block, from inside a user gesture.
+   *
+   * Must be called synchronously from a click handler: browsers grant playback
+   * permission to the gesture, not to the page, and any await before the first
+   * play() spends it. Playing a muted, empty clip is enough to bank the
+   * permission for the rest of the session.
+   *
+   * Needed because this page is no longer only an OBS browser source — when the
+   * broadcast comes from a phone it runs in an ordinary tab and becomes the
+   * audio path for the whole product, where the policy does apply.
+   */
+  const unblock = useCallback(async () => {
+    try {
+      const probe = new Audio();
+      probe.muted = true;
+      await probe.play().catch(() => undefined);
+      probe.pause();
+    } catch {
+      // A failed probe is not fatal; the queue retries on the next line.
+    }
+    blocked.current = false;
+    if (mounted.current) setStatus('idle');
+    playNext();
+  }, [playNext]);
+
+  return { enqueue, status, pending, unblock };
 }

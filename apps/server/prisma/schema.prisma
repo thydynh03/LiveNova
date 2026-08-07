@@ -26,6 +26,23 @@ enum Platform {
   YOUTUBE
 }
 
+/// How the streamer pushes video to the platform.
+///
+/// This decides which rule actions can reach an audience: anything that has to
+/// be composited into the picture needs a desktop compositor, and a phone has
+/// none. It is stored on Channel as the user's stated default rather than on
+/// LiveSession, where it conceptually belongs — LiveSession is declared in this
+/// schema but nothing in the server ever creates a row, so putting the field
+/// there would mean building the session lifecycle first. Move it once that
+/// exists; until then this is a preference, not a record of what happened.
+enum BroadcastSource {
+  /// OBS or Streamlabs on a PC, via stream key or via OBS Virtual Camera into
+  /// TikTok LIVE Studio. Every action type works.
+  DESKTOP
+  /// Phone app. No compositor, so on-screen effects never reach viewers.
+  MOBILE
+}
+
 enum LedgerReason {
   PURCHASE
   TTS_SYNTHESIS
@@ -66,14 +83,14 @@ enum OtpType {
 }
 
 model User {
-  id           String    @id @default(uuid())
-  email        String    @unique
-  displayName  String?
-  avatar       String?
-  role         Role      @default(USER)
+  id            String    @id @default(uuid())
+  email         String    @unique
+  displayName   String?
+  avatar        String?
+  role          Role      @default(USER)
   // L10N-07 / B.8.1 — VN-first defaults. Drives BR-06 daily quota reset.
-  locale       String    @default("vi")
-  timezone     String    @default("Asia/Ho_Chi_Minh")
+  locale        String    @default("vi")
+  timezone      String    @default("Asia/Ho_Chi_Minh")
   passwordHash  String?
   emailVerified Boolean   @default(false)
   deletedAt     DateTime?
@@ -135,19 +152,23 @@ model Session {
 /// H-07 / FR-011, FR-012 — a channel must be owned and ownership-verified before
 /// any ingest or socket subscription is permitted (fixes C-04).
 model Channel {
-  id                String        @id @default(uuid())
+  id                String          @id @default(uuid())
   userId            String
-  platform          Platform      @default(TIKTOK)
+  platform          Platform        @default(TIKTOK)
   platformChannelId String
   handle            String
   avatarUrl         String?
-  verified          Boolean       @default(false)
+  verified          Boolean         @default(false)
   verificationCode  String?
-  isLive            Boolean       @default(false)
+  isLive            Boolean         @default(false)
   lastLiveAt        DateTime?
-  createdAt         DateTime      @default(now())
-  updatedAt         DateTime      @updatedAt
-  user              User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// Defaults to DESKTOP: it is the only mode where every feature works, so a
+  /// wrong guess here degrades gracefully instead of hiding features someone
+  /// actually has.
+  broadcastSource   BroadcastSource @default(DESKTOP)
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  user              User            @relation(fields: [userId], references: [id], onDelete: Cascade)
   liveSessions      LiveSession[]
 
   // BR-16 — one platform channel may be linked to exactly one account.

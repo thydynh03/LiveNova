@@ -1,12 +1,13 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
+import Link from 'next/link';
 import { useApi } from '../../../lib/use-api';
 import { api } from '../../../lib/api-client';
 import { LoadingState, ErrorState, EmptyState } from '../../../components/common/States';
 import { Icon, type IconName } from '../../../components/ui/Icon';
 import { ConfirmAction } from '../../../components/common/ConfirmAction';
-import type { Overlay } from '../../../lib/types';
+import type { Overlay, Channel } from '../../../lib/types';
 
 /**
  * Only overlay types whose renderer actually consumes the token and live data.
@@ -107,6 +108,12 @@ function ObsGuide() {
 
 export default function OverlaysPage() {
   const { data, loading, error, reload } = useApi<Overlay[]>('/overlays');
+  // Warn rather than hide. Someone may run a phone broadcast and still have OBS
+  // open on a second machine, and a screen that silently omits half its content
+  // is harder to trust than one that explains itself.
+  const { data: channels } = useApi<Channel[]>('/channels');
+  const mobileOnly =
+    (channels?.length ?? 0) > 0 && channels!.every((c) => c.broadcastSource === 'MOBILE');
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [rotatingId, setRotatingId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -210,6 +217,36 @@ export default function OverlaysPage() {
         >
           {actionError}
         </div>
+      )}
+
+      {mobileOnly && (
+        <section
+          className="card"
+          style={{
+            background: 'hsl(var(--warning) / 0.09)',
+            borderColor: 'hsl(var(--warning) / 0.35)',
+            display: 'flex',
+            gap: '0.75rem',
+            alignItems: 'flex-start',
+          }}
+        >
+          <span aria-hidden="true" style={{ color: 'hsl(38 92% 32%)', display: 'flex', marginTop: '0.15rem' }}>
+            <Icon name="warning" size={20} weight="fill" />
+          </span>
+          <div>
+            <strong style={{ display: 'block', marginBottom: '0.25rem' }}>
+              Kênh của bạn đang đặt là live bằng điện thoại
+            </strong>
+            <span style={{ color: 'hsl(var(--muted-foreground))' }}>
+              Những hiệu ứng dưới đây cần một phần mềm ghép hình trên máy tính, nên khán giả sẽ không
+              thấy chúng. Vẫn dùng được nếu bạn mở OBS trên máy khác.{' '}
+              <Link href="/huong-dan" style={{ color: 'hsl(var(--primary))', textDecoration: 'underline' }}>
+                Cách dùng đủ tính năng mà không cần stream key
+              </Link>
+              .
+            </span>
+          </div>
+        </section>
       )}
 
       <ObsGuide />

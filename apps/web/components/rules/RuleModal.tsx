@@ -3,6 +3,9 @@
 import React, { useState, useRef } from 'react';
 import { Icon } from '../ui/Icon';
 import { uploadImage, api } from '../../lib/api-client';
+import { useApi } from '../../lib/use-api';
+import { noteFor } from '../../lib/broadcast-capability';
+import type { Channel } from '../../lib/types';
 
 export interface RuleModalProps {
   rule?: any | null;
@@ -22,6 +25,12 @@ const inputStyle: React.CSSProperties = {
 };
 
 export function RuleModal({ rule, onClose, onSuccess }: RuleModalProps) {
+  // Only warn when every linked channel is a phone broadcast. A user with both
+  // does not need to be told that half their setup will not show it.
+  const { data: channels } = useApi<Channel[]>('/channels');
+  const mobileOnly =
+    (channels?.length ?? 0) > 0 && (channels ?? []).every((c) => c.broadcastSource === 'MOBILE');
+
   const isEditing = Boolean(rule?.id);
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [submitting, setSubmitting] = useState(false);
@@ -456,9 +465,31 @@ export function RuleModal({ rule, onClose, onSuccess }: RuleModalProps) {
                       onChange={(e) => updateActionType(idx, e.target.value)}
                       style={{ ...inputStyle, background: '#18181b', padding: '0.5rem' }}
                     >
-                      <option value="media_popup">🎥 Video / Ảnh Popup trên OBS Overlay</option>
-                      <option value="tts_read">🗣️ Đọc giọng nói TTS (Text-to-Speech)</option>
+                      <option value="media_popup">Hiện video/ảnh lên màn hình live</option>
+                      <option value="tts_read">Đọc thành tiếng</option>
                     </select>
+
+                    {/*
+                      Warn, do not block. The rule engine still runs this action
+                      and should: the overlay may be open on another machine,
+                      and refusing it here would make a dry run report something
+                      different from what a real event does.
+                    */}
+                    {mobileOnly && noteFor(act.type, 'MOBILE') && (
+                      <p
+                        style={{
+                          marginTop: '0.5rem',
+                          fontSize: '0.85rem',
+                          color: 'hsl(38 92% 32%)',
+                          display: 'flex',
+                          gap: '0.4rem',
+                          alignItems: 'flex-start',
+                        }}
+                      >
+                        <Icon name="warning" size={16} style={{ marginTop: '0.15rem', flex: 'none' }} />
+                        {noteFor(act.type, 'MOBILE')}
+                      </p>
+                    )}
                   </div>
 
                   {act.type === 'media_popup' && (

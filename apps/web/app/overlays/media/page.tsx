@@ -30,7 +30,7 @@ function MediaOverlayContent() {
     document.documentElement.style.backgroundColor = 'transparent';
   }, []);
 
-  const { enqueue: speak, status: speechStatus } = useSpeechQueue();
+  const { enqueue: speak, status: speechStatus, unblock } = useSpeechQueue();
 
   const handleAction = useCallback((action: OverlayAction) => {
     // Speech arrives already synthesised: the server bills the owner and hands
@@ -90,7 +90,7 @@ function MediaOverlayContent() {
   const { status, rejectionCode } = useOverlaySocket(token, { onAction: handleAction });
 
   const statusMessage = speechStatus === 'blocked'
-    ? 'Trình duyệt chặn tự phát âm thanh — mở URL này trong OBS Browser Source'
+    ? null // handled by the unblock button below
     : !token
     ? 'Thiếu ?token= trong URL overlay'
     : status === 'connecting'
@@ -160,6 +160,50 @@ function MediaOverlayContent() {
         >
           {statusMessage}
         </div>
+      )}
+
+      {/*
+        Autoplay unblock.
+
+        This page is no longer only an OBS browser source. When the broadcast
+        comes from a phone, the streamer opens it in an ordinary browser on the
+        PC and it becomes the audio path for the whole product — so the old
+        message here, "mở URL này trong OBS Browser Source", pointed the one
+        group of users who cannot follow it at the one thing they do not have.
+
+        A click is all the browser wants. It never appears inside OBS, which
+        does not apply the autoplay policy.
+      */}
+      {speechStatus === 'blocked' && (
+        <button
+          type="button"
+          onClick={() => void unblock()}
+          style={{
+            position: 'absolute',
+            inset: 0,
+            width: '100%',
+            height: '100%',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '0.75rem',
+            border: 'none',
+            background: 'rgba(0,0,0,0.82)',
+            color: '#fff',
+            fontFamily: 'sans-serif',
+            cursor: 'pointer',
+          }}
+        >
+          <span style={{ fontSize: '2.5rem' }} aria-hidden="true">
+            🔊
+          </span>
+          <span style={{ fontSize: '1.25rem', fontWeight: 700 }}>Bấm để bật tiếng</span>
+          <span style={{ fontSize: '0.9rem', opacity: 0.8, maxWidth: '30rem', textAlign: 'center' }}>
+            Trình duyệt chặn tự phát âm thanh cho tới khi bạn bấm một lần. Bấm xong là giọng đọc chạy
+            suốt buổi live.
+          </span>
+        </button>
       )}
 
       {activePopup && (

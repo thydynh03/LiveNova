@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
+import Link from 'next/link';
 import { LiveEvent } from '@livenova/shared';
 import { useApi } from '../../../lib/use-api';
 import { api, ApiError } from '../../../lib/api-client';
@@ -12,7 +13,7 @@ import { ConfirmAction } from '../../../components/common/ConfirmAction';
 import { BridgePanel } from '../../../components/bridge/BridgePanel';
 import { readStoredBridgeToken, useLocalBridge } from '../../../lib/use-local-bridge';
 import type { GameInputCommand } from '@livenova/shared';
-import type { Channel } from '../../../lib/types';
+import type { Channel, BroadcastSource } from '../../../lib/types';
 
 const STATUS_LABEL: Record<string, string> = {
   idle: 'Chưa kết nối',
@@ -30,6 +31,7 @@ export default function ChannelsPage() {
   const [linking, setLinking] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [sourceBusyId, setSourceBusyId] = useState<string | null>(null);
   const [events, setEvents] = useState<LiveEvent[]>([]);
 
   // Only verified channels can be subscribed to — the server rejects the rest,
@@ -139,6 +141,20 @@ export default function ChannelsPage() {
       setActionError(err instanceof Error ? err.message : 'Xác minh thất bại');
     } finally {
       setBusyId(null);
+    }
+  }
+
+  async function setSource(channel: Channel, source: BroadcastSource) {
+    if ((channel.broadcastSource ?? 'DESKTOP') === source) return;
+    setActionError(null);
+    setSourceBusyId(channel.id);
+    try {
+      await api.patch(`/channels/${channel.id}/broadcast-source`, { broadcastSource: source });
+      reload();
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Không lưu được lựa chọn');
+    } finally {
+      setSourceBusyId(null);
     }
   }
 
@@ -378,6 +394,86 @@ export default function ChannelsPage() {
                 />
               </div>
             </div>
+
+            {/* Which features are worth showing this user depends entirely on
+                this answer, so it is asked on the channel itself rather than
+                buried in settings. */}
+            <fieldset
+              style={{
+                marginTop: '1rem',
+                paddingTop: '1rem',
+                borderTop: '1px solid hsl(var(--border))',
+                border: 'none',
+                borderTopWidth: '1px',
+                borderTopStyle: 'solid',
+              }}
+            >
+              <legend
+                style={{
+                  fontSize: '0.875rem',
+                  fontWeight: 600,
+                  padding: 0,
+                  marginBottom: '0.5rem',
+                }}
+              >
+                Bạn live kênh này bằng gì?
+              </legend>
+              <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                {([
+                  { value: 'DESKTOP' as const, label: 'Máy tính', icon: 'desktop' as const },
+                  { value: 'MOBILE' as const, label: 'Điện thoại', icon: 'device' as const },
+                ]).map((opt) => {
+                  const current = channel.broadcastSource ?? 'DESKTOP';
+                  const active = current === opt.value;
+                  return (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      aria-pressed={active}
+                      disabled={sourceBusyId === channel.id}
+                      onClick={() => setSource(channel, opt.value)}
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '0.5rem',
+                        minHeight: '40px',
+                        padding: '0.5rem 0.875rem',
+                        borderRadius: 'var(--radius)',
+                        border: `1px solid ${active ? 'hsl(var(--primary))' : 'hsl(var(--input))'}`,
+                        background: active ? 'hsl(var(--accent-surface))' : 'hsl(var(--card))',
+                        color: active ? 'hsl(var(--primary-hover))' : 'hsl(var(--foreground))',
+                        fontWeight: active ? 600 : 500,
+                        font: 'inherit',
+                        fontSize: '0.9375rem',
+                        cursor: sourceBusyId === channel.id ? 'not-allowed' : 'pointer',
+                      }}
+                    >
+                      <Icon name={opt.icon} size={18} />
+                      {opt.label}
+                      {active && <Icon name="check" size={16} weight="bold" />}
+                    </button>
+                  );
+                })}
+              </div>
+              {(channel.broadcastSource ?? 'DESKTOP') === 'MOBILE' && (
+                <p
+                  style={{
+                    marginTop: '0.625rem',
+                    fontSize: '0.875rem',
+                    color: 'hsl(var(--muted-foreground))',
+                  }}
+                >
+                  Hiệu ứng vẽ lên màn hình sẽ không tới được khán giả khi live bằng điện thoại.{' '}
+                  <Link
+                    href="/huong-dan"
+                    style={{ color: 'hsl(var(--primary))', textDecoration: 'underline' }}
+                  >
+                    Xem cách dùng đủ tính năng
+                  </Link>
+                  .
+                </p>
+              )}
+            </fieldset>
 
             {!channel.verified && channel.verificationCode && (
               <div

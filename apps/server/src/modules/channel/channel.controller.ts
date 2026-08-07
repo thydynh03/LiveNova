@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Post,
+  Patch,
   Delete,
   Body,
   Param,
@@ -11,7 +12,7 @@ import {
   ParseUUIDPipe,
 } from '@nestjs/common';
 import { IsEnum, IsString, MaxLength, MinLength } from 'class-validator';
-import { Platform } from '@prisma/client';
+import { Platform, BroadcastSource } from '@prisma/client';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { CurrentUserId } from '../../common/decorators/current-user.decorator';
 import { ChannelService } from './channel.service';
@@ -29,6 +30,11 @@ class LinkChannelDto {
   @MinLength(1)
   @MaxLength(120)
   handle!: string;
+}
+
+class SetBroadcastSourceDto {
+  @IsEnum(BroadcastSource)
+  broadcastSource!: BroadcastSource;
 }
 
 @UseGuards(JwtAuthGuard)
@@ -50,6 +56,16 @@ export class ChannelController {
   @HttpCode(HttpStatus.OK)
   async verify(@CurrentUserId() userId: string, @Param('id', ParseUUIDPipe) id: string) {
     return this.channelService.verify(userId, id);
+  }
+
+  @Patch(':id/broadcast-source')
+  @HttpCode(HttpStatus.OK)
+  async setBroadcastSource(
+    @CurrentUserId() userId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: SetBroadcastSourceDto,
+  ) {
+    return this.channelService.setBroadcastSource(userId, id, dto.broadcastSource);
   }
 
   @Delete(':id')

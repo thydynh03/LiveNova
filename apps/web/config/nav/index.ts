@@ -8,6 +8,7 @@ import type { NavItem } from './types';
 import { billingNav } from './billing.nav';
 import { channelsNav } from './channels.nav';
 import { dashboardNav } from './dashboard.nav';
+import { guideNav } from './guide.nav';
 import { overlaysNav } from './overlays.nav';
 import { rulesNav } from './rules.nav';
 import { settingsNav } from './settings.nav';
@@ -17,6 +18,7 @@ const registry: NavItem[] = [
   billingNav,
   channelsNav,
   dashboardNav,
+  guideNav,
   overlaysNav,
   rulesNav,
   settingsNav,

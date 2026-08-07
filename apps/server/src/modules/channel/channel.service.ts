@@ -1,6 +1,6 @@
 import { Injectable, ConflictException, NotFoundException, BadRequestException } from '@nestjs/common';
 import { randomBytes } from 'crypto';
-import { Platform } from '@prisma/client';
+import { Platform, BroadcastSource } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 
 /**
@@ -97,6 +97,25 @@ export class ChannelService {
         avatarUrl,
       },
     });
+  }
+
+  /**
+   * Records how this channel is broadcast.
+   *
+   * Not a security boundary — it decides which rule actions the UI offers and
+   * warns about, because effects that must be composited into the picture
+   * cannot reach viewers when the stream originates on a phone. The rule engine
+   * deliberately still executes those actions: the overlay may legitimately be
+   * open somewhere else, and gating them server-side would break the meaning of
+   * a dry run.
+   */
+  async setBroadcastSource(userId: string, channelId: string, source: BroadcastSource) {
+    const result = await this.prisma.channel.updateMany({
+      where: { id: channelId, userId },
+      data: { broadcastSource: source },
+    });
+    if (result.count === 0) throw new NotFoundException('Channel not found');
+    return this.prisma.channel.findFirst({ where: { id: channelId, userId } });
   }
 
   async unlink(userId: string, channelId: string) {
