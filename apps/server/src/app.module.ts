@@ -13,6 +13,9 @@ import { OverlayModule } from './modules/overlay/overlay.module';
 import { TiktokModule } from './modules/tiktok/tiktok.module';
 import { WebsocketModule } from './modules/websocket/websocket.module';
 import { UploadModule } from './modules/upload/upload.module';
+import { AdminModule } from './modules/admin/admin.module';
+import { TemplateModule } from './modules/template/template.module';
+import { BattleModule } from './modules/battle/battle.module';
 
 @Module({
   imports: [
@@ -31,6 +34,9 @@ import { UploadModule } from './modules/upload/upload.module';
     TiktokModule,
     WebsocketModule,
     UploadModule,
+    AdminModule,
+    TemplateModule,
+    BattleModule,
   ],
   providers: [
     {

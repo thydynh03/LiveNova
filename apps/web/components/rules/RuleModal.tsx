@@ -219,7 +219,7 @@ export function RuleModal({ rule, onClose, onSuccess }: RuleModalProps) {
             onClick={onClose}
             style={{ background: 'none', border: 'none', color: 'hsl(var(--muted-foreground))', fontSize: '1.5rem', cursor: 'pointer' }}
           >
-            ✕
+            <Icon name="close" size={18} />
           </button>
         </div>
 
@@ -340,12 +340,12 @@ export function RuleModal({ rule, onClose, onSuccess }: RuleModalProps) {
               <div>
                 <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 600 }}>Sự kiện kích hoạt (Event Type)</label>
                 <select value={eventType} onChange={(e) => setEventType(e.target.value)} style={{ ...inputStyle, background: '#18181b' }}>
-                  <option value="gift">🎁 Quà tặng (Gift)</option>
-                  <option value="comment">💬 Bình luận (Comment)</option>
-                  <option value="like">❤️ Thả tim (Like Milestone)</option>
-                  <option value="follow">➕ Theo dõi mới (Follow)</option>
-                  <option value="share">🔄 Chia sẻ stream (Share)</option>
-                  <option value="join">🚪 Người xem vào phòng (Join)</option>
+                  <option value="gift">Quà tặng (Gift)</option>
+                  <option value="comment">Bình luận (Comment)</option>
+                  <option value="like">Thả tim (Like Milestone)</option>
+                  <option value="follow">Theo dõi mới (Follow)</option>
+                  <option value="share">Chia sẻ stream (Share)</option>
+                  <option value="join">Người xem vào phòng (Join)</option>
                 </select>
               </div>
 
@@ -456,8 +456,8 @@ export function RuleModal({ rule, onClose, onSuccess }: RuleModalProps) {
                       onChange={(e) => updateActionType(idx, e.target.value)}
                       style={{ ...inputStyle, background: '#18181b', padding: '0.5rem' }}
                     >
-                      <option value="media_popup">🎥 Video / Ảnh Popup trên OBS Overlay</option>
-                      <option value="tts_read">🗣️ Đọc giọng nói TTS (Text-to-Speech)</option>
+                      <option value="media_popup">Video / Ảnh Popup trên OBS Overlay</option>
+                      <option value="tts_read">Đọc giọng nói TTS (Text-to-Speech)</option>
                     </select>
                   </div>
 

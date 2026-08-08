@@ -96,7 +96,7 @@ export function PresetLibraryModal({ onClose, onSuccess }: PresetLibraryModalPro
             onClick={onClose}
             style={{ background: 'none', border: 'none', color: 'hsl(var(--muted-foreground))', fontSize: '1.5rem', cursor: 'pointer' }}
           >
-            ✕
+            <Icon name="close" size={18} />
           </button>
         </div>
 

@@ -16,6 +16,7 @@ function makePrisma() {
       updateMany: jest.fn().mockResolvedValue({ count: 1 }),
       deleteMany: jest.fn().mockResolvedValue({ count: 1 }),
     },
+    template: { findFirst: jest.fn() },
   };
 }
 
@@ -48,33 +49,74 @@ describe('RuleService', () => {
   });
 
   describe('applyPreset', () => {
-    it('points bundled assets at the public web origin, not localhost', async () => {
-      // Hard-coded http://localhost:3000 sent every production streamer's
-      // overlay to their own machine, where nothing is listening.
-      const rule = (await service.applyPreset('user-1', 'dragon-gift')) as unknown as {
-        actions: { payload: { url: string } }[];
-      };
+    /*
+     * The three presets used to be hard-coded in rule.service.ts. They are now
+     * RULE_PACK templates in the database, seeded rather than compiled, so an
+     * admin can change them without a deploy. These tests moved with them: the
+     * asset-URL concern now belongs to the seed (see prisma/seed.ts), and what
+     * matters here is that the lookup is scoped and materialises real rules.
+     */
+    function seedTemplate(rules: unknown[]) {
+      prisma.template.findFirst.mockResolvedValue({ config: { rules } });
+    }
 
-      expect(rule.actions[0].payload.url).toBe('https://livenova.vn/dragon_phoenix.mp4');
+    it('materialises every rule in the pack', async () => {
+      seedTemplate([
+        { name: 'A', conditions: {}, actions: [{ type: RuleActionType.TTS_READ, payload: {} }] },
+        { name: 'B', conditions: {}, actions: [{ type: RuleActionType.TTS_READ, payload: {} }] },
+      ]);
+
+      const created = (await service.applyPreset('user-1', 'welcome-pack')) as unknown[];
+
+      expect(prisma.rule.create).toHaveBeenCalledTimes(2);
+      expect(created).toHaveLength(2);
     });
 
-    it('does not leave a trailing slash doubled in the asset URL', async () => {
-      process.env.CORS_ORIGIN = 'https://livenova.vn/';
-      service = build();
+    it('returns a single rule unwrapped, keeping the old response shape', async () => {
+      seedTemplate([
+        { name: 'A', conditions: {}, actions: [{ type: RuleActionType.TTS_READ, payload: {} }] },
+      ]);
 
-      const rule = (await service.applyPreset('user-1', 'dragon-gift')) as unknown as {
-        actions: { payload: { url: string } }[];
-      };
+      const created = (await service.applyPreset('user-1', 'rose-popup')) as { name?: string };
 
-      expect(rule.actions[0].payload.url).toBe('https://livenova.vn/dragon_phoenix.mp4');
+      expect(Array.isArray(created)).toBe(false);
+      expect(created.name).toBe('A');
     });
 
-    it('rejects an unknown preset id', async () => {
+    it('only reads published templates', async () => {
+      seedTemplate([{ name: 'A', conditions: {}, actions: [{ type: RuleActionType.TTS_READ, payload: {} }] }]);
+
+      await service.applyPreset('user-1', 'rose-popup');
+
+      // An unpublished draft is an admin's working state; a streamer applying
+      // one would get a half-finished pack onto a live broadcast.
+      expect(prisma.template.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { slug: 'rose-popup', published: true },
+        }),
+      );
+    });
+
+    it('rejects an unknown preset slug', async () => {
+      prisma.template.findFirst.mockResolvedValue(null);
+
       await expect(service.applyPreset('user-1', 'nope')).rejects.toThrow(NotFoundException);
+      expect(prisma.rule.create).not.toHaveBeenCalled();
+    });
+
+    it('rejects a pack with no rules rather than silently doing nothing', async () => {
+      seedTemplate([]);
+
+      await expect(service.applyPreset('user-1', 'empty')).rejects.toThrow(NotFoundException);
     });
 
     it('drops the engine cache so a preset takes effect immediately', async () => {
+      seedTemplate([
+        { name: 'A', conditions: {}, actions: [{ type: RuleActionType.TTS_READ, payload: {} }] },
+      ]);
+
       await service.applyPreset('user-1', 'rose-popup');
+
       expect(engine.invalidateUser).toHaveBeenCalledWith('user-1');
     });
   });

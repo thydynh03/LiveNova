@@ -13,14 +13,11 @@ import {
   OverlayDispatchEvent,
 } from '@livenova/shared';
 import { PrismaService } from '../../prisma/prisma.service';
-import { loadEnv } from '../../common/config/env';
 import { RuleEngineService } from './rule-engine.service';
 import { CreateRuleDto, UpdateRuleDto, TestRuleEventDto } from './dto/rule.dto';
 
 @Injectable()
 export class RuleService {
-  private readonly env = loadEnv();
-
   constructor(
     private readonly prisma: PrismaService,
     private readonly ruleEngine: RuleEngineService,
@@ -216,80 +213,33 @@ export class RuleService {
     };
   }
 
-  async applyPreset(userId: string, presetId: string) {
-    // Assets bundled with the web app. Hard-coding http://localhost:3000 here
-    // meant every rule created from a preset in production pointed at the
-    // streamer's own machine, so the overlay silently rendered nothing.
-    const assets = this.env.publicWebUrl;
+  /**
+   * Áp một mẫu luật theo slug.
+   *
+   * Trước đây ba preset nằm cứng trong file này. Giờ chúng là `Template` loại
+   * RULE_PACK trong DB do seed tạo, nên admin sửa được mà không cần deploy.
+   * Endpoint cũ giữ nguyên để không phá client nào đang gọi.
+   */
+  async applyPreset(userId: string, presetSlug: string) {
+    const template = await this.prisma.template.findFirst({
+      where: { slug: presetSlug, published: true },
+      select: { config: true },
+    });
 
-    const PRESETS: Record<string, CreateRuleDto> = {
-      'rose-popup': {
-        name: '🌹 Popup Video Cảm ơn Hoa Hồng',
-        enabled: true,
-        priority: 1,
-        conditions: {
-          eventType: [LiveEventType.GIFT],
-          giftName: 'Rose',
-        },
-        actions: [
-          {
-            type: RuleActionType.MEDIA_POPUP,
-            payload: {
-              mediaType: 'image',
-              url: 'https://media.giphy.com/media/26flv1e9aR4Qv96vK/giphy.gif',
-              durationMs: 5000,
-              position: 'center',
-              caption: 'Cảm ơn {sender} đã tặng Hoa Hồng! 🌹',
-            },
-          },
-        ],
-      },
-      'dragon-gift': {
-        name: '🐉 Popup Siêu Quà Tặng (Rồng/Lớn hơn 1000 Xu)',
-        enabled: true,
-        priority: 0,
-        conditions: {
-          eventType: [LiveEventType.GIFT],
-          minCoinValue: 1000,
-        },
-        actions: [
-          {
-            type: RuleActionType.MEDIA_POPUP,
-            payload: {
-              mediaType: 'video',
-              url: `${assets}/dragon_phoenix.mp4`,
-              durationMs: 8000,
-              position: 'center',
-              caption: '💥 SIÊU VIP {sender} ĐÃ TẶNG {gift} ({coins} Xu)! 💥',
-            },
-          },
-        ],
-      },
-      'comment-welcome': {
-        name: '💬 Tự động chào khi comment "chao"',
-        enabled: true,
-        priority: 5,
-        conditions: {
-          eventType: [LiveEventType.COMMENT],
-          keywords: ['chao', 'hi', 'hello', 'chào'],
-        },
-        actions: [
-          {
-            type: RuleActionType.TTS_READ,
-            payload: {
-              text: 'Xin chào {sender} đã đến với livestream!',
-            },
-          },
-        ],
-      },
-    };
-
-    const preset = PRESETS[presetId];
-    if (!preset) {
-      throw new NotFoundException(`Preset '${presetId}' not found`);
+    if (!template) {
+      throw new NotFoundException(`Preset '${presetSlug}' not found`);
     }
 
-    return this.createRule(userId, preset);
+    const { rules } = template.config as unknown as { rules: CreateRuleDto[] };
+    if (!Array.isArray(rules) || rules.length === 0) {
+      throw new NotFoundException(`Preset '${presetSlug}' không có luật nào`);
+    }
+
+    const created = [];
+    for (const rule of rules) {
+      created.push(await this.createRule(userId, rule));
+    }
+    // Trả về một luật khi preset chỉ có một, giữ đúng hình dạng cũ.
+    return created.length === 1 ? created[0] : created;
   }
 }
-

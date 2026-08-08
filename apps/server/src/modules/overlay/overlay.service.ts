@@ -56,23 +56,26 @@ export class OverlayService {
       orderBy: { createdAt: 'desc' },
     });
 
-    if (overlays.length === 0) {
+    const defaultTypes = [
+      OverlayType.MEDIA,
+      OverlayType.CHAT,
+      OverlayType.GAME_BATTLE,
+    ];
+
+    const missingTypes = defaultTypes.filter(
+      (type) => !overlays.some((o) => o.type === type),
+    );
+
+    if (missingTypes.length > 0) {
       await this.prisma.overlay.createMany({
-        data: [
-          {
-            userId,
-            type: OverlayType.MEDIA,
-            publicToken: OverlayService.generateToken(),
-            config: {},
-          },
-          {
-            userId,
-            type: OverlayType.CHAT,
-            publicToken: OverlayService.generateToken(),
-            config: {},
-          },
-        ],
+        data: missingTypes.map((type) => ({
+          userId,
+          type,
+          publicToken: OverlayService.generateToken(),
+          config: {},
+        })),
       });
+
       overlays = await this.prisma.overlay.findMany({
         where: { userId },
         orderBy: { createdAt: 'desc' },
