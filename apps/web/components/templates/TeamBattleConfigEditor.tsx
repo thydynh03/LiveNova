@@ -583,12 +583,12 @@ export function TeamBattleConfigEditor({
                     {/* Warnings for this team */}
                     {hasNoGifts && (
                       <p style={{ color: 'hsl(var(--destructive))', fontSize: '0.75rem', marginTop: '0.4rem', margin: 0 }}>
-                        ⚠️ Chưa có quà nào được gán — khán giả sẽ không thể tham gia phe này!
+                        Chưa có quà nào được gán — khán giả sẽ không thể tham gia phe này!
                       </p>
                     )}
                     {teamHasConflict && (
                       <p style={{ color: 'hsl(var(--destructive))', fontSize: '0.75rem', marginTop: '0.4rem', margin: 0 }}>
-                        ⚠️ Trùng lặp quà với phe khác! Hãy kiểm tra lại danh sách quà.
+                        Trùng lặp quà với phe khác! Hãy kiểm tra lại danh sách quà.
                       </p>
                     )}
                   </div>
@@ -1119,7 +1119,7 @@ export function TeamBattleConfigEditor({
                           border: '1px solid hsl(var(--border))',
                         }}
                       >
-                        🎁 {g}
+                        {g}
                       </span>
                     ))}
                   </div>
@@ -1142,19 +1142,19 @@ export function TeamBattleConfigEditor({
             }}
           >
             <div>
-              ❤️ Tim: <strong>{value.power?.like ?? 1} power</strong>
+              Tim: <strong>{value.power?.like ?? 1} power</strong>
             </div>
             <div>
-              🔄 Share: <strong>{value.power?.share ?? 3} power</strong>
+              Share: <strong>{value.power?.share ?? 3} power</strong>
             </div>
             <div>
-              ➕ Follow: <strong>{value.power?.follow ?? 10} power</strong>
+              Follow: <strong>{value.power?.follow ?? 10} power</strong>
             </div>
             <div>
-              ⚡ Bình năng lượng: <strong>{value.energy?.capacity ?? 30} điểm</strong> (+{value.energy?.refillPerSec ?? 0.5}/s)
+              Bình năng lượng: <strong>{value.energy?.capacity ?? 30} điểm</strong> (+{value.energy?.refillPerSec ?? 0.5}/s)
             </div>
             <div>
-              🛡️ Trần sự kiện miễn phí: <strong>{value.freeEventMaxAction}</strong>
+              Trần sự kiện miễn phí: <strong>{value.freeEventMaxAction}</strong>
             </div>
           </div>
         </div>

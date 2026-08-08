@@ -19,6 +19,14 @@ describe('BattleService (Kingdom War 4-Way)', () => {
       channel: {
         findUnique: jest.fn().mockResolvedValue({ userId: 'user_1' }),
       },
+      battle: {
+        create: jest.fn().mockResolvedValue({ id: 'battle_row_1' }),
+        findMany: jest.fn().mockResolvedValue([]),
+        update: jest.fn().mockResolvedValue({}),
+      },
+      battleScore: { upsert: jest.fn() },
+      battleDonor: { upsert: jest.fn() },
+      $transaction: jest.fn().mockResolvedValue([]),
     } as unknown as PrismaService;
 
     emitter = {
@@ -190,6 +198,152 @@ describe('BattleService (Kingdom War 4-Way)', () => {
 
       const state = service['battles'].get('user_1')!.state;
       expect(state.teams.every((t) => t.score === 0)).toBe(true);
+    });
+  });
+  describe('surviving a restart', () => {
+    it('resumes a running round instead of starting from zero', async () => {
+      const endsAt = new Date(Date.now() + 10 * 60 * 1000);
+      (prisma.battle.findMany as jest.Mock).mockResolvedValue([
+        {
+          id: 'battle_row_1',
+          userId: 'user_1',
+          templateId: null,
+          title: 'Tran dang chay',
+          configSnapshot: { battle: { durationSec: 1800, showTopDonors: 5 } },
+          endsAt,
+          winnerTeamKey: null,
+          scores: [{ teamKey: 'cat', score: 45000, castleHp: 800, soldierCount: 30 }],
+          donors: [
+            { username: '@whale', nickname: 'Whale', teamKey: 'cat', totalScore: 45000 },
+          ],
+        },
+      ]);
+
+      const fresh = new BattleService(prisma, emitter);
+      fresh.onModuleInit();
+      await new Promise((r) => setImmediate(r));
+
+      // A deploy takes seconds. Dropping the scoreboard to zero mid-broadcast
+      // happens in front of an audience that has just paid to move it.
+      const state = await fresh.getOrCreateBattle('user_1');
+      expect(state.battleId).toBe('battle_row_1');
+      expect(state.teams.find((t) => t.key === 'cat')?.score).toBe(45000);
+      expect(state.teams.find((t) => t.key === 'cat')?.castleHp).toBe(800);
+      expect(state.topDonors[0].username).toBe('@whale');
+      expect(state.endsAtMs).toBe(endsAt.getTime());
+
+      fresh.onModuleDestroy();
+    });
+
+    it('does not resume a round whose clock has already run out', async () => {
+      (prisma.battle.findMany as jest.Mock).mockResolvedValue([]);
+
+      const fresh = new BattleService(prisma, emitter);
+      fresh.onModuleInit();
+      await new Promise((r) => setImmediate(r));
+
+      // The query filters on endsAt, so an expired round is never handed back.
+      expect(prisma.battle.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ status: 'RUNNING' }),
+        }),
+      );
+
+      fresh.onModuleDestroy();
+    });
+
+    it('keeps a battle row so the score has somewhere to be written', async () => {
+      await service.getOrCreateBattle('user_1');
+      expect(prisma.battle.create).toHaveBeenCalled();
+    });
+  });
+
+  describe('spam budget', () => {
+    const gift = () => ({
+      id: 'g1',
+      type: LiveEventType.GIFT,
+      channelId: 'chan_1',
+      senderUsername: 'spammer',
+      senderDisplayName: 'Spammer',
+      giftName: 'Rose',
+      giftCoinValue: 5,
+      occurredAt: new Date(),
+    });
+
+    const like = (content: string) => ({
+      id: 'l1',
+      type: LiveEventType.LIKE,
+      channelId: 'chan_1',
+      senderUsername: 'spammer',
+      senderDisplayName: 'Spammer',
+      content,
+      occurredAt: new Date(),
+    });
+
+    it('stops paying out once a viewer drains their budget', async () => {
+      await service.getOrCreateBattle('user_1');
+      await service.handleLiveEvent(gift() as never);
+
+      const battle = service['battles'].get('user_1')!;
+      const startingScore = battle.state.teams.find((t) => t.key === 'cat')!.score;
+
+      // The default capacity is 100 at 1 power per like, so well past it.
+      for (let i = 0; i < 400; i += 1) {
+        await service.handleLiveEvent(like('Tha 1 tim') as never);
+      }
+
+      const gained = battle.state.teams.find((t) => t.key === 'cat')!.score - startingScore;
+      expect(gained).toBeGreaterThan(0);
+      expect(gained).toBeLessThanOrEqual(battle.config.energy.capacity);
+    });
+
+    it('charges for the whole batch a like frame reports, not one per frame', async () => {
+      await service.getOrCreateBattle('user_1');
+      await service.handleLiveEvent(gift() as never);
+
+      const battle = service['battles'].get('user_1')!;
+      const before = battle.state.teams.find((t) => t.key === 'cat')!.score;
+
+      // `likeCount` in a webcast frame is already a sum; the ingest renders it
+      // as "Tha N tim". Charging one unit per frame would let a burst of 40
+      // through for the price of one.
+      await service.handleLiveEvent(like('Tha 40 tim') as never);
+
+      const gained = battle.state.teams.find((t) => t.key === 'cat')!.score - before;
+      expect(gained).toBe(40);
+    });
+
+    it('counts a follow once, however many times it is redone', async () => {
+      await service.getOrCreateBattle('user_1');
+      await service.handleLiveEvent(gift() as never);
+
+      const battle = service['battles'].get('user_1')!;
+      const before = battle.state.teams.find((t) => t.key === 'cat')!.score;
+
+      const follow = { ...like(''), type: LiveEventType.FOLLOW, id: 'f1' };
+      await service.handleLiveEvent(follow as never);
+      await service.handleLiveEvent(follow as never);
+      await service.handleLiveEvent(follow as never);
+
+      const gained = battle.state.teams.find((t) => t.key === 'cat')!.score - before;
+      expect(gained).toBe(battle.config.power.follow);
+    });
+
+    it('never lets a free event buy an expensive effect', async () => {
+      await service.getOrCreateBattle('user_1');
+      const battle = service['battles'].get('user_1')!;
+
+      await service.simulateEvent('user_1', {
+        sender: '@x',
+        teamKey: 'cat',
+        eventType: 'FOLLOW',
+        giftCount: 500,
+      });
+
+      // Lowering the power of free events is not enough on its own: spam still
+      // accumulates towards the dragon threshold. The tier is capped instead.
+      const fired = battle.state.recentEvents[0].actionKey;
+      expect(['soldier', 'castle']).toContain(fired);
     });
   });
 });

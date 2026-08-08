@@ -41,7 +41,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             fontSize: '1.75rem',
           }}
         >
-          🚫
+          <Icon name="lock" size={28} />
         </div>
         <h1 style={{ fontSize: '1.5rem', fontWeight: 800, marginBottom: '0.5rem', color: 'hsl(var(--foreground))' }}>
           Khu Vực Quản Trị Hệ Thống
@@ -113,7 +113,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               boxShadow: '0 0 16px rgba(236, 72, 153, 0.4)',
             }}
           >
-            ⚡
+            <Icon name="spark" size={20} weight="fill" />
           </div>
           <div style={{ display: 'grid', lineHeight: 1.2 }}>
             <span style={{ fontWeight: 800, fontSize: '0.95rem', letterSpacing: '-0.02em' }}>LiveNova Admin</span>

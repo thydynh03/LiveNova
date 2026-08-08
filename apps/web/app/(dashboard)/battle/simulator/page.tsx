@@ -310,7 +310,7 @@ export default function BattleSimulatorPage() {
             }}
           >
             <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 700, marginBottom: '0.5rem', color: 'hsl(var(--foreground))' }}>
-              👤 Tên Khán giả Giả lập
+              Tên khán giả Giả lập
             </label>
             <input
               type="text"
@@ -364,7 +364,7 @@ export default function BattleSimulatorPage() {
             }}
           >
             <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 700, marginBottom: '0.5rem', color: 'hsl(var(--foreground))' }}>
-              🏰 Chọn Vương quốc Tác động
+              Chọn vương quốc Tác động
             </label>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
               {[

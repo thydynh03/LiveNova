@@ -487,7 +487,7 @@ export function TemplateEditorModal({
                 />
                 {jsonParseError && (
                   <span style={{ color: 'hsl(var(--warning))', fontSize: '0.78rem' }}>
-                    ⚠️ {jsonParseError}
+                    {jsonParseError}
                   </span>
                 )}
               </div>

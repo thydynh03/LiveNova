@@ -126,7 +126,37 @@ export class BattleService implements OnModuleInit, OnModuleDestroy {
    * taps the heart button to protect something that recovers on its own.
    */
   private readonly allegiance = new Map<string, string>();
+
+  /**
+   * Anti-spam budget, per viewer, shared by likes and shares.
+   *
+   * `team.energy` is a team resource and only ever goes up, so it never limited
+   * anything. A single viewer can hold the heart button down and produce dozens
+   * of likes a second, so the budget has to be theirs, not their kingdom's.
+   *
+   * Key is `userId:senderUsername`. In memory: it refills on its own, so losing
+   * it on restart costs at most one bucket of free score.
+   */
+  private readonly viewerEnergy = new Map<string, { left: number; at: number }>();
+
+  /** `userId:senderUsername` for viewers whose follow has already been counted. */
+  private readonly followed = new Set<string>();
+
+  /** Battles whose score has moved since the last flush. */
+  private readonly dirty = new Set<string>();
+
   private energyTimer: NodeJS.Timeout | null = null;
+  private persistTimer: NodeJS.Timeout | null = null;
+
+  /**
+   * Ceiling on remembered viewers.
+   *
+   * A viral broadcast can have tens of thousands of distinct gifters, and both
+   * viewer maps grow with that. The oldest entries are dropped rather than
+   * letting one popular stream exhaust the process. A dropped viewer loses only
+   * their remembered side, which their next gift restores.
+   */
+  private static readonly MAX_TRACKED_VIEWERS = 20000;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -135,10 +165,168 @@ export class BattleService implements OnModuleInit, OnModuleDestroy {
 
   onModuleInit() {
     this.energyTimer = setInterval(() => this.tickEnergyRefill(), 1000);
+    // Batched every two seconds rather than written per event: a busy broadcast
+    // produces hundreds of events a minute, and a write for each would make the
+    // database the bottleneck. Losing at most two seconds to a crash is the
+    // price, and it is a fair one.
+    this.persistTimer = setInterval(() => void this.flush(), 2000);
+    this.energyTimer.unref?.();
+    this.persistTimer.unref?.();
+
+    void this.restoreRunningBattles();
   }
 
   onModuleDestroy() {
     if (this.energyTimer) clearInterval(this.energyTimer);
+    if (this.persistTimer) clearInterval(this.persistTimer);
+  }
+
+  /**
+   * Pick up where a restart left off.
+   *
+   * A deploy takes a few seconds. Without this the scoreboard drops to zero
+   * mid-broadcast, in front of an audience that has just paid to move it.
+   */
+  private async restoreRunningBattles(): Promise<void> {
+    try {
+      const rows = await this.prisma.battle.findMany({
+        where: { status: 'RUNNING', endsAt: { gt: new Date() } },
+        include: { scores: true, donors: { orderBy: { totalScore: 'desc' } } },
+      });
+
+      for (const row of rows) {
+        const config = row.configSnapshot as unknown as TeamBattleConfig;
+        const teams = KINGDOM_WAR_DEFAULT_TEAMS.map((t) => {
+          const saved = row.scores.find((sc) => sc.teamKey === t.key);
+          return {
+            ...t,
+            score: saved?.score ?? 0,
+            castleHp: saved?.castleHp ?? t.maxHp,
+            soldierCount: saved?.soldierCount ?? 0,
+          };
+        });
+
+        this.battles.set(row.userId, {
+          userId: row.userId,
+          battleId: row.id,
+          templateId: row.templateId ?? undefined,
+          title: row.title,
+          config,
+          state: {
+            kind: 'battle',
+            battleId: row.id,
+            templateId: row.templateId ?? undefined,
+            title: row.title,
+            teams,
+            topDonors: row.donors.map((d) => ({
+              username: d.username,
+              nickname: d.nickname,
+              teamKey: d.teamKey,
+              totalScore: d.totalScore,
+            })),
+            recentEvents: [],
+            winnerTeamKey: row.winnerTeamKey,
+            endsAtMs: row.endsAt.getTime(),
+            active: true,
+          },
+        });
+      }
+
+      if (rows.length > 0) {
+        this.logger.log(`Khoi phuc ${rows.length} tran dang chay sau khi khoi dong lai`);
+      }
+    } catch (err) {
+      // A restore failure must not stop the server booting; new battles still work.
+      this.logger.error(`Khong khoi phuc duoc tran dang chay: ${message(err)}`);
+    }
+  }
+
+  /** Write the moved scores of every dirty battle. */
+  private async flush(): Promise<void> {
+    if (this.dirty.size === 0) return;
+
+    const userIds = Array.from(this.dirty);
+    this.dirty.clear();
+
+    for (const userId of userIds) {
+      const battle = this.battles.get(userId);
+      if (!battle) continue;
+
+      try {
+        await this.prisma.$transaction([
+          ...battle.state.teams.map((t) =>
+            this.prisma.battleScore.upsert({
+              where: { battleId_teamKey: { battleId: battle.battleId, teamKey: t.key } },
+              create: {
+                battleId: battle.battleId,
+                teamKey: t.key,
+                score: t.score,
+                castleHp: t.castleHp,
+                soldierCount: t.soldierCount ?? 0,
+              },
+              update: { score: t.score, castleHp: t.castleHp, soldierCount: t.soldierCount ?? 0 },
+            }),
+          ),
+          ...battle.state.topDonors.map((d) =>
+            this.prisma.battleDonor.upsert({
+              where: { battleId_username: { battleId: battle.battleId, username: d.username } },
+              create: {
+                battleId: battle.battleId,
+                username: d.username,
+                nickname: d.nickname,
+                teamKey: d.teamKey,
+                totalScore: d.totalScore,
+              },
+              update: { totalScore: d.totalScore, teamKey: d.teamKey },
+            }),
+          ),
+          this.prisma.battle.update({
+            where: { id: battle.battleId },
+            data: { winnerTeamKey: battle.state.winnerTeamKey ?? null },
+          }),
+        ]);
+      } catch (err) {
+        // Put it back so the next tick retries rather than losing the round.
+        this.dirty.add(userId);
+        this.logger.error(`Khong luu duoc diem tran ${battle.battleId}: ${message(err)}`);
+      }
+    }
+  }
+
+  /**
+   * Spend from a viewer's free-event budget.
+   *
+   * Returns false once they are out. The caller then drops the score while the
+   * overlay still shows a small effect: silence would read as the system being
+   * broken, and scoring would reward holding the button down.
+   */
+  private spendViewerEnergy(battle: ActiveBattle, sender: string, cost: number): boolean {
+    const key = `${battle.userId}:${sender}`;
+    const capacity = battle.config.energy?.capacity ?? 30;
+    const refillPerSec = battle.config.energy?.refillPerSec ?? 0.5;
+    const now = Date.now();
+
+    const entry = this.viewerEnergy.get(key) ?? { left: capacity, at: now };
+    const refilled = Math.min(capacity, entry.left + ((now - entry.at) / 1000) * refillPerSec);
+
+    if (refilled < cost) {
+      this.viewerEnergy.set(key, { left: refilled, at: now });
+      return false;
+    }
+
+    this.viewerEnergy.set(key, { left: refilled - cost, at: now });
+    this.evictIfCrowded(this.viewerEnergy);
+    return true;
+  }
+
+  private evictIfCrowded(map: { size: number; keys(): Iterable<string>; delete(k: string): unknown }): void {
+    if (map.size <= BattleService.MAX_TRACKED_VIEWERS) return;
+    // Map iterates in insertion order, so the front is the least recently added.
+    let excess = map.size - BattleService.MAX_TRACKED_VIEWERS;
+    for (const key of map.keys()) {
+      map.delete(key);
+      if (--excess <= 0) break;
+    }
   }
 
   private tickEnergyRefill() {
@@ -176,11 +364,30 @@ export class BattleService implements OnModuleInit, OnModuleDestroy {
     const initialTeams: BattleTeamState[] = KINGDOM_WAR_DEFAULT_TEAMS.map((t) => ({ ...t }));
 
     const durationSec = config.battle?.durationSec ?? 1800;
+    const endsAt = new Date(Date.now() + durationSec * 1000);
+    const title = applied?.name || 'Cuộc Chiến 4 Vương Quốc (Kingdom War Live)';
+
+    // The row is created up front so the batching flush has something to write
+    // to, and so a restart can find the round and resume it. The config is
+    // snapshotted here: editing the template at 9pm must not change the rules
+    // of a round that started at 8:45 and is on air.
+    const row = await this.prisma.battle.create({
+      data: {
+        userId,
+        templateId: applied?.templateId ?? null,
+        title,
+        status: 'RUNNING',
+        configSnapshot: config as unknown as object,
+        endsAt,
+      },
+      select: { id: true },
+    });
+
     const state: BattleState = {
       kind: 'battle',
-      battleId: `battle_${Date.now()}`,
+      battleId: row.id,
       templateId: applied?.templateId,
-      title: applied?.name || 'Cuộc Chiến 4 Vương Quốc (Kingdom War Live)',
+      title,
       teams: initialTeams,
       // Empty until somebody actually donates. Four invented names with
       // five-figure totals would be shown to a live audience as a real
@@ -188,7 +395,7 @@ export class BattleService implements OnModuleInit, OnModuleDestroy {
       topDonors: [],
       recentEvents: [],
       winnerTeamKey: null,
-      endsAtMs: Date.now() + durationSec * 1000,
+      endsAtMs: endsAt.getTime(),
       active: true,
     };
 
@@ -196,7 +403,7 @@ export class BattleService implements OnModuleInit, OnModuleDestroy {
       userId,
       battleId: state.battleId,
       templateId: applied?.templateId,
-      title: state.title || 'Cuộc Chiến 4 Vương Quốc',
+      title,
       config,
       state,
     });
@@ -205,6 +412,18 @@ export class BattleService implements OnModuleInit, OnModuleDestroy {
   }
 
   async resetBattle(userId: string): Promise<BattleState> {
+    const previous = this.battles.get(userId);
+    if (previous) {
+      // Close the old row instead of leaving it RUNNING, or a restart would
+      // restore a round the streamer has already ended.
+      await this.prisma.battle
+        .update({
+          where: { id: previous.battleId },
+          data: { status: 'CANCELLED', finishedAt: new Date() },
+        })
+        .catch(() => undefined);
+    }
+
     this.battles.delete(userId);
     const state = await this.getOrCreateBattle(userId);
     // Reset initial scores and donors for clean round
@@ -245,17 +464,20 @@ export class BattleService implements OnModuleInit, OnModuleDestroy {
       // power down is not enough on its own — spam still accumulates towards
       // the dragon threshold. Separating the two groups means no amount of
       // tapping produces one.
+      // Free events read the same tier table as gifts, then get capped below.
+      // Hard-coding them to 'soldier'/'castle' made the cap unreachable, so the
+      // rule it expresses was never actually enforced by anything.
       case 'LIKE':
         power = (battle.config.power?.like ?? 1) * giftCount;
-        actionKey = 'soldier';
+        actionKey = this.actionForPower(battle.config, power);
         break;
       case 'SHARE':
         power = (battle.config.power?.share ?? 3) * giftCount;
-        actionKey = 'soldier';
+        actionKey = this.actionForPower(battle.config, power);
         break;
       case 'FOLLOW':
         power = (battle.config.power?.follow ?? 10) * giftCount;
-        actionKey = 'castle';
+        actionKey = this.actionForPower(battle.config, power);
         break;
       case 'GIFT': {
         // Firepower is the coin value the platform reported, not a guess from
@@ -269,6 +491,13 @@ export class BattleService implements OnModuleInit, OnModuleDestroy {
       default:
         power = 1;
         actionKey = 'soldier';
+    }
+
+    // A free event may not buy an expensive effect. Lowering its power alone is
+    // not enough: spam still accumulates towards the dragon threshold. Capping
+    // the tier means no amount of tapping produces one.
+    if (dto.eventType !== 'GIFT') {
+      actionKey = capFreeAction(battle.config, actionKey);
     }
 
     // Apply power & score
@@ -324,6 +553,8 @@ export class BattleService implements OnModuleInit, OnModuleDestroy {
 
     battle.state.recentEvents = [eventLog, ...battle.state.recentEvents.slice(0, 19)];
 
+    // Persisted by the batching timer rather than here.
+    this.dirty.add(userId);
     this.broadcastState(userId);
     return battle.state;
   }
@@ -369,17 +600,39 @@ export class BattleService implements OnModuleInit, OnModuleDestroy {
         });
         break;
 
-      case LiveEventType.LIKE:
-        await this.simulateEvent(battle.userId, { sender, teamKey, eventType: 'LIKE' });
+      case LiveEventType.LIKE: {
+        // `content` carries the batched count the webcast already summed, e.g.
+        // "Tha 15 tim". Charging one unit per frame would let a burst of 15
+        // through for the price of one.
+        const taps = countFrom(event.content) || 1;
+        const cost = (battle.config.power?.like ?? 1) * taps;
+        if (!this.spendViewerEnergy(battle, event.senderUsername, cost)) return;
+        await this.simulateEvent(battle.userId, {
+          sender,
+          teamKey,
+          eventType: 'LIKE',
+          giftCount: taps,
+        });
         break;
+      }
 
-      case LiveEventType.SHARE:
+      case LiveEventType.SHARE: {
+        const cost = battle.config.power?.share ?? 3;
+        if (!this.spendViewerEnergy(battle, event.senderUsername, cost)) return;
         await this.simulateEvent(battle.userId, { sender, teamKey, eventType: 'SHARE' });
         break;
+      }
 
-      case LiveEventType.FOLLOW:
+      case LiveEventType.FOLLOW: {
+        // A follow is worth counting once. It can be undone and redone, so the
+        // guard is a seen-list rather than a budget.
+        const followKey = `${battle.userId}:${event.senderUsername}`;
+        if (this.followed.has(followKey)) return;
+        this.followed.add(followKey);
+        this.evictIfCrowded(this.followed);
         await this.simulateEvent(battle.userId, { sender, teamKey, eventType: 'FOLLOW' });
         break;
+      }
 
       default:
         // Comments and joins carry no firepower in this mode.
@@ -452,4 +705,37 @@ export class BattleService implements OnModuleInit, OnModuleDestroy {
       this.eventEmitter.emit(OVERLAY_STATE_EVENT, dispatch);
     }
   }
+}
+
+function message(err: unknown): string {
+  return err instanceof Error ? err.message : String(err);
+}
+
+/**
+ * Pull the batched tap count out of a like event's text.
+ *
+ * The ingest formats it as "Tha N tim" because `likeCount` in a webcast frame
+ * is already a sum. Reading it back beats charging once per frame.
+ */
+function countFrom(content: string | undefined): number {
+  const match = /(\d+)/.exec(content ?? '');
+  return match ? Number(match[1]) : 0;
+}
+
+/**
+ * Clamp an action to the highest tier a free event may trigger.
+ *
+ * Falls through to the requested action when the template does not name a cap,
+ * so a config written before this existed keeps working.
+ */
+function capFreeAction(config: TeamBattleConfig, requested: string): string {
+  const cap = config.freeEventMaxAction;
+  if (!cap) return requested;
+
+  const tiers = config.actions ?? [];
+  const capTier = tiers.find((t) => t.key === cap);
+  const wanted = tiers.find((t) => t.key === requested);
+  if (!capTier || !wanted) return requested;
+
+  return wanted.minPower > capTier.minPower ? cap : requested;
 }

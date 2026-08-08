@@ -220,7 +220,7 @@ export default function AdminDashboardPage() {
                 placeItems: 'center',
               }}
             >
-              💰
+              <Icon name="money" size={22} />
             </div>
           </div>
           <div style={{ fontSize: '1.65rem', fontWeight: 800, color: 'hsl(var(--foreground))' }}>
@@ -259,7 +259,7 @@ export default function AdminDashboardPage() {
                 placeItems: 'center',
               }}
             >
-              👥
+              <Icon name="users" size={22} />
             </div>
           </div>
           <div style={{ fontSize: '1.65rem', fontWeight: 800, color: 'hsl(var(--foreground))' }}>
@@ -298,7 +298,7 @@ export default function AdminDashboardPage() {
                 placeItems: 'center',
               }}
             >
-              🔴
+              <Icon name="broadcast" size={22} />
             </div>
           </div>
           <div style={{ fontSize: '1.65rem', fontWeight: 800, color: 'hsl(var(--foreground))' }}>
@@ -337,7 +337,7 @@ export default function AdminDashboardPage() {
                 placeItems: 'center',
               }}
             >
-              ⚡
+              <Icon name="spark" size={22} />
             </div>
           </div>
           <div style={{ fontSize: '1.65rem', fontWeight: 800, color: 'hsl(var(--foreground))' }}>
@@ -372,7 +372,7 @@ export default function AdminDashboardPage() {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
               <h2 style={{ fontSize: '1.05rem', fontWeight: 700 }}>
-                📈 Dòng Tiền Doanh Thu & Đốt Xu (7 Ngày)
+                Dòng Tiền Doanh Thu & Đốt Xu (7 Ngày)
               </h2>
               <p style={{ fontSize: '0.8rem', color: 'hsl(var(--muted-foreground))' }}>
                 So sánh GMV nạp tiền (VND) và lượng Credit tiêu hao trong game / TTS
@@ -464,7 +464,7 @@ export default function AdminDashboardPage() {
         >
           <div>
             <h2 style={{ fontSize: '1.05rem', fontWeight: 700 }}>
-              🎁 Cơ Cấu Quà Tặng Kích Hoạt Game LIVE
+              Cơ Cấu Quà Tặng Kích Hoạt Game LIVE
             </h2>
             <p style={{ fontSize: '0.8rem', color: 'hsl(var(--muted-foreground))' }}>
               Phân bổ các gói quà tặng chuyển đổi thành quân lính, bom đạn & kỹ năng
@@ -553,7 +553,7 @@ export default function AdminDashboardPage() {
         >
           <div>
             <h2 style={{ fontSize: '1.05rem', fontWeight: 700 }}>
-              🛡️ Giám Sát Hạ Tầng & Sức Khỏe Ingest Server
+              Giám Sát Hạ Tầng & Sức Khỏe Ingest Server
             </h2>
             <p style={{ fontSize: '0.8rem', color: 'hsl(var(--muted-foreground))' }}>
               Kiểm soát chất lượng WebSocket Cluster, Proxy Pool và TTS engine
@@ -647,7 +647,7 @@ export default function AdminDashboardPage() {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
               <h2 style={{ fontSize: '1.05rem', fontWeight: 700 }}>
-                🏆 Top Streamers Tương Tác Cao Nhất
+                Top Streamers Tương Tác Cao Nhất
               </h2>
               <p style={{ fontSize: '0.8rem', color: 'hsl(var(--muted-foreground))' }}>
                 Danh sách kênh đang hút donate và tạo doanh thu nổi bật
@@ -717,7 +717,7 @@ export default function AdminDashboardPage() {
                       )}
                     </td>
                     <td style={{ padding: '0.75rem 0', fontWeight: 600 }}>
-                      {s.coinsEstimated.toLocaleString('vi-VN')} 🪙
+                      {s.coinsEstimated.toLocaleString('vi-VN')}
                     </td>
                     <td style={{ padding: '0.75rem 0', textAlign: 'right', fontWeight: 700, color: 'hsl(var(--primary))' }}>
                       {s.balance.toLocaleString('vi-VN')} xu
@@ -744,14 +744,14 @@ export default function AdminDashboardPage() {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
               <h2 style={{ fontSize: '1.05rem', fontWeight: 700 }}>
-                📡 Radar Giám Sát Phiên LIVE Đang Chạy
+                Radar Giám Sát Phiên LIVE Đang Chạy
               </h2>
               <p style={{ fontSize: '0.8rem', color: 'hsl(var(--muted-foreground))' }}>
                 Theo dõi thời gian thực các phòng TikTok LIVE kết nối
               </p>
             </div>
             <span style={{ fontSize: '0.75rem', color: '#10b981', fontWeight: 700 }}>
-              🟢 Đang bắt tín hiệu
+              Đang bắt tín hiệu
             </span>
           </div>
 

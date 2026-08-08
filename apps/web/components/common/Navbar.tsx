@@ -1,5 +1,6 @@
 'use client';
 
+import { Icon } from '../ui/Icon';
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -100,7 +101,7 @@ export function Navbar() {
             fontSize: '1.5rem',
           }}
         >
-          {mobileMenuOpen ? '✕' : '☰'}
+          <Icon name={mobileMenuOpen ? 'close' : 'menu'} size={22} />
         </button>
       </div>
     </nav>

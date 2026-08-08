@@ -13,6 +13,12 @@ enum Role {
   ADMIN
 }
 
+enum BattleStatus {
+  RUNNING
+  FINISHED
+  CANCELLED
+}
+
 enum TemplateKind {
   GAME
   MEDIA_PACK
@@ -101,6 +107,7 @@ model User {
   rules         Rule[]
   overlays      Overlay[]
   userTemplates UserTemplate[]
+  battles       Battle[]
   templatesMade Template[]      @relation("TemplateAuthor")
   adminActions  AdminAuditLog[] @relation("AdminActor")
   actionsOnMe   AdminAuditLog[] @relation("AdminTarget")
@@ -435,4 +442,56 @@ model AdminAuditLog {
 
   @@index([adminId, createdAt])
   @@index([targetUserId, createdAt])
+}
+
+/// ─────────────────────────────────────────────────────────────────────────────
+/// Một lượt chơi Kingdom War.
+///
+/// Điểm phải nằm ở DB chứ không chỉ trong RAM: một trận có đồng hồ và có người
+/// thắng, mà người xem đã bỏ tiền thật để tác động vào kết quả. Deploy giữa
+/// trận mà mất sạch điểm là chuyện streamer không giải thích được với khán giả.
+/// ─────────────────────────────────────────────────────────────────────────────
+model Battle {
+  id             String       @id @default(uuid())
+  userId         String
+  templateId     String?
+  title          String
+  status         BattleStatus @default(RUNNING)
+  /// Ảnh chụp cấu hình lúc bắt đầu: sửa mẫu giữa trận không đổi luật trận đang chạy.
+  configSnapshot Json
+  startedAt      DateTime     @default(now())
+  endsAt         DateTime
+  finishedAt     DateTime?
+  winnerTeamKey  String?
+
+  user   User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  scores BattleScore[]
+  donors BattleDonor[]
+
+  @@index([userId, status])
+}
+
+model BattleScore {
+  battleId     String
+  teamKey      String
+  score        Int    @default(0)
+  castleHp     Int    @default(1000)
+  soldierCount Int    @default(0)
+
+  battle Battle @relation(fields: [battleId], references: [id], onDelete: Cascade)
+
+  @@id([battleId, teamKey])
+}
+
+model BattleDonor {
+  battleId   String
+  username   String
+  nickname   String
+  teamKey    String
+  totalScore Int    @default(0)
+
+  battle Battle @relation(fields: [battleId], references: [id], onDelete: Cascade)
+
+  @@id([battleId, username])
+  @@index([battleId, totalScore])
 }
