@@ -12,9 +12,11 @@
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
     "prisma:generate": "prisma generate",
+    "prisma:push": "prisma db push --accept-data-loss",
     "prisma:migrate": "prisma migrate dev",
     "prisma:constraints": "psql \"$DIRECT_URL\" -f prisma/sql/001_constraints.sql",
-    "prisma:studio": "prisma studio"
+    "prisma:studio": "prisma studio",
+    "seed": "ts-node prisma/seed.ts"
   },
   "dependencies": {
     "@livenova/shared": "workspace:*",
@@ -59,6 +61,7 @@
     "nodemon": "^3.1.0",
     "prisma": "^5.20.0",
     "ts-jest": "^29.2.5",
+    "ts-node": "^10.9.2",
     "typescript": "^5.5.0"
   }
 }

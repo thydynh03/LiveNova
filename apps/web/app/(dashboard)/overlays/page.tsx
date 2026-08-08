@@ -21,10 +21,16 @@ const LIVE_RENDERERS: Record<string, string> = {
   CHAT: '/overlays/chat',
   GOAL: '/overlays/goal',
   PK_BAR: '/overlays/pk',
+  GAME_BATTLE: '/overlays/battle',
 };
 
 /** Type codes are database values. Nobody streaming has to see PK_BAR. */
 const DISPLAY: Record<string, { name: string; blurb: string; icon: IconName }> = {
+  GAME_BATTLE: {
+    name: 'Sàn đấu tương tác (Game Battle)',
+    blurb: 'Màn hình chiến trường chia phe (Mèo vs Chó, Kingdom War) đấu điểm quà tặng, thả lính, bắn bom và rồng bay.',
+    icon: 'versus',
+  },
   MEDIA: {
     name: 'Hiệu ứng quà tặng',
     blurb: 'Hiện video hoặc ảnh lên màn hình khi có người tặng quà.',
@@ -54,6 +60,7 @@ const AWAITING_PRODUCER: Record<string, string> = {
   CHAT: 'Cần một kịch bản khung bình luận thì mới có nội dung chạy.',
   GOAL: 'Hiện lên khi có món quà đầu tiên.',
   PK_BAR: 'Hiện lên khi bạn vào trận PK.',
+  GAME_BATTLE: 'Có thể mở Trình mô phỏng hoặc vào trận live để kích hoạt.',
 };
 
 function ObsGuide() {

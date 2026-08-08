@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Icon } from '../ui/Icon';
 import { getPrimaryNavItems, getBottomNavItems, type NavItem } from '../../config/nav';
+import { useAuth } from '../../context/AuthContext';
 
 /**
  * Sidebar navigation.
@@ -46,6 +47,7 @@ function NavLink({ item, active }: { item: NavItem; active: boolean }) {
 
 export function Sidebar() {
   const pathname = usePathname();
+  const { user } = useAuth();
   const isActive = (href: string) =>
     pathname === href || Boolean(pathname?.startsWith(`${href}/`));
 
@@ -98,6 +100,27 @@ export function Sidebar() {
       </nav>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+        {user?.role === 'ADMIN' && (
+          <Link
+            href="/admin"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.75rem',
+              padding: '0.625rem 0.875rem',
+              minHeight: '44px',
+              borderRadius: 'var(--radius)',
+              background: 'hsl(var(--primary) / 0.12)',
+              color: 'hsl(var(--primary))',
+              fontWeight: 700,
+              marginBottom: '0.5rem',
+              border: '1px solid hsl(var(--primary) / 0.25)',
+            }}
+          >
+            <Icon name="spark" size={20} />
+            <span>Khu vực Quản trị</span>
+          </Link>
+        )}
         {getBottomNavItems().map((item) => (
           <NavLink key={item.id} item={item} active={isActive(item.href)} />
         ))}
