@@ -533,6 +533,17 @@ export class BattleService implements OnModuleInit, OnModuleDestroy {
     return active ? active.state : state;
   }
 
+  async setRenderEngine(userId: string, renderEngine: '2d' | '3d'): Promise<BattleState> {
+    const state = await this.getOrCreateBattle(userId);
+    state.renderEngine = renderEngine;
+    const active = this.battles.get(userId);
+    if (active) {
+      active.state.renderEngine = renderEngine;
+    }
+    await this.broadcastState(userId);
+    return active ? active.state : state;
+  }
+
   async resetBattle(userId: string): Promise<BattleState> {
     const previous = this.battles.get(userId);
     if (previous) {

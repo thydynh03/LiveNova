@@ -26,5 +26,13 @@ export default function sitemap(): MetadataRoute.Sitemap {
       changeFrequency: 'monthly',
       priority: 0.5,
     },
+    {
+      // Was missing. Sign-up is the page a searcher who has already decided is
+      // looking for, and it was the only public route not listed.
+      url: absoluteUrl('/register'),
+      lastModified: now,
+      changeFrequency: 'monthly',
+      priority: 0.6,
+    },
   ];
 }

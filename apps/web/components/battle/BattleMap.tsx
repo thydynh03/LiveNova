@@ -10,11 +10,24 @@ import { BATTLE_MAP_PRESETS } from '@livenova/shared';
  * custom admin uploads, or a lightweight fallback SVG vector river.
  */
 
+/**
+ * Where each stronghold stands, in percent of the field.
+ *
+ * These are not free choices — they are measured off the painted map, which
+ * already has four castles on it. The overlay's job is to label the artwork,
+ * not to draw a second castle on top of it. Read from
+ * `map_kingdom_fantasy.jpg` (768x1376): purple keep upper-left, blue upper-
+ * right, timber hall lower-left, green citadel lower-right.
+ *
+ * The numbers only line up in portrait. TikTok Live is 1080x1920 and the map
+ * art is cut for it; viewed in a landscape window the browser crops away the
+ * top and bottom thirds, taking all four castles with them.
+ */
 export const CASTLE_ANCHORS: Record<string, { x: number; y: number }> = {
-  cat: { x: 16, y: 20 },
-  dog: { x: 84, y: 20 },
-  bear: { x: 16, y: 74 },
-  capy: { x: 84, y: 74 },
+  cat: { x: 18, y: 20 },
+  dog: { x: 82, y: 18 },
+  bear: { x: 20, y: 77 },
+  capy: { x: 81, y: 78 },
 };
 
 export const CLASH_POINT = { x: 50, y: 47 };

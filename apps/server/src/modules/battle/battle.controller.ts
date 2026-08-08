@@ -34,4 +34,12 @@ export class BattleController {
   ) {
     return this.battleService.setMapTheme(userId, body.mapTheme);
   }
+
+  @Post('render-engine')
+  async setRenderEngine(
+    @CurrentUserId() userId: string,
+    @Body() body: { renderEngine: '2d' | '3d' },
+  ) {
+    return this.battleService.setRenderEngine(userId, body.renderEngine);
+  }
 }
