@@ -21,8 +21,29 @@ interface MediaPopupItem {
 }
 
 function MediaOverlayContent() {
-  const token = useSearchParams().get('token');
+  const searchParams = useSearchParams();
+  const token = searchParams.get('token');
+  const customDefaultVideoFromQuery = searchParams.get('defaultVideo');
+
+  const [overlayDefaultVideo, setOverlayDefaultVideo] = useState<string | null>(null);
   const [activePopup, setActivePopup] = useState<MediaPopupItem | null>(null);
+
+  // Fetch overlay public config by token to retrieve per-user default idle video setting
+  useEffect(() => {
+    if (!token) return;
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api';
+    fetch(`${apiUrl}/public/overlays/${token}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data?.config?.defaultVideo) {
+          setOverlayDefaultVideo(data.config.defaultVideo);
+        }
+      })
+      .catch(() => {});
+  }, [token]);
+
+  // Priority: 1. User config in DB -> 2. URL parameter -> 3. Fallback /DogDefault.mp4
+  const defaultVideoUrl = overlayDefaultVideo || customDefaultVideoFromQuery || '/DogDefault.mp4';
 
   useEffect(() => {
     // Transparent background for OBS chromakey
@@ -66,6 +87,9 @@ function MediaOverlayContent() {
       payload.url?.endsWith('.webm') ||
       payload.mediaType === 'video';
 
+    // If url is missing or points to old asset, default to /DogDonate.mp4
+    const popupUrl = payload.url || '/DogDonate.mp4';
+
     const item: MediaPopupItem = {
       id: action.id,
       senderDisplayName: event.senderDisplayName,
@@ -73,7 +97,7 @@ function MediaOverlayContent() {
       giftCoinValue: event.giftCoinValue,
       content: event.content,
       mediaType: isVideoUrl ? 'video' : 'image',
-      url: payload.url || '',
+      url: popupUrl,
       position: payload.position || 'center',
       volume: payload.volume ?? 0.8,
       caption,
@@ -156,13 +180,15 @@ function MediaOverlayContent() {
             color: '#fff',
             fontFamily: 'sans-serif',
             fontSize: '0.85rem',
+            zIndex: 100,
           }}
         >
           {statusMessage}
         </div>
       )}
 
-      {activePopup && (
+      {/* Donate Popup Reaction Video / Image */}
+      {activePopup ? (
         <div
           className="media-popup"
           style={{
@@ -177,9 +203,10 @@ function MediaOverlayContent() {
             color: 'white',
             textAlign: 'center',
             maxWidth: '600px',
+            zIndex: 10,
           }}
         >
-          {/* Caption text floating with glow - like TikTok gift text */}
+          {/* Caption text floating with glow */}
           <div style={{
             fontSize: '1.3rem',
             fontWeight: 800,
@@ -233,6 +260,26 @@ function MediaOverlayContent() {
             )
           )}
         </div>
+      ) : (
+        /* Default Idle Video: DogDefault.mp4 plays continuously on loop */
+        <video
+          src={defaultVideoUrl}
+          autoPlay
+          loop
+          muted
+          playsInline
+          style={{
+            maxWidth: '100%',
+            maxHeight: '450px',
+            objectFit: 'contain',
+            filter: 'drop-shadow(0 0 15px rgba(255, 255, 255, 0.2))',
+          }}
+          ref={(el) => {
+            if (el) {
+              el.play().catch(() => {});
+            }
+          }}
+        />
       )}
     </div>
   );
