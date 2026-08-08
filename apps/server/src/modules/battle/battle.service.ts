@@ -244,6 +244,56 @@ export class BattleService implements OnModuleInit, OnModuleDestroy {
   }
 
   /**
+   * Close a round and write the result.
+   *
+   * `reason` distinguishes the two ways a match can end: a kingdom levelled
+   * every other castle, or the clock ran out and the highest score takes it.
+   * Both mark the row FINISHED — the status existed in the schema from the
+   * start and nothing had ever written it, so every round stayed RUNNING and a
+   * restart would happily resume a match that ended hours ago.
+   */
+  private async finishBattle(battle: ActiveBattle, reason: 'time' | 'conquest'): Promise<void> {
+    if (!battle.state.active) return;
+
+    battle.state.active = false;
+
+    if (!battle.state.winnerTeamKey) {
+      // Decided on score. Ties keep `null` rather than picking whichever team
+      // happens to sort first: declaring an arbitrary winner in front of an
+      // audience that paid for the result is worse than admitting a draw.
+      const ranked = [...battle.state.teams].sort((a, b) => b.score - a.score);
+      const top = ranked[0];
+      const tied = ranked.length > 1 && ranked[1].score === top?.score;
+      battle.state.winnerTeamKey = top && !tied && top.score > 0 ? top.key : null;
+    }
+
+    this.logger.log(
+      `Tran ${battle.battleId} ket thuc (${reason}), thang: ${battle.state.winnerTeamKey ?? 'hoa'}`,
+    );
+
+    // Flush first so the final scores are on disk before the row is closed;
+    // marking it FINISHED with stale scores would lose the last two seconds of
+    // a match at the exact moment they matter most.
+    this.dirty.add(battle.userId);
+    await this.flush();
+
+    await this.prisma.battle
+      .update({
+        where: { id: battle.battleId },
+        data: {
+          status: 'FINISHED',
+          finishedAt: new Date(),
+          winnerTeamKey: battle.state.winnerTeamKey ?? null,
+        },
+      })
+      .catch((err) => {
+        this.logger.error(`Khong dong duoc tran ${battle.battleId}: ${message(err)}`);
+      });
+
+    this.broadcastState(battle.userId);
+  }
+
+  /**
    * Template media as a flat `key -> url` map.
    *
    * Returns an empty map rather than throwing: a template with no artwork
@@ -355,6 +405,15 @@ export class BattleService implements OnModuleInit, OnModuleDestroy {
 
   private tickEnergyRefill() {
     for (const battle of this.battles.values()) {
+      // Nothing checked `endsAtMs`, so the countdown reached 00:00 and the round
+      // simply carried on — no winner, no result, gifts still scoring into a
+      // match that had visibly ended. A timer that runs out and changes nothing
+      // is worse than no timer.
+      if (battle.state.active && Date.now() >= battle.state.endsAtMs) {
+        void this.finishBattle(battle, 'time');
+        continue;
+      }
+
       if (!battle.state.active || battle.state.winnerTeamKey) continue;
       const refill = battle.config.energy?.refillPerSec ?? 0.5;
       const maxCap = battle.config.energy?.capacity ?? 100;
@@ -485,6 +544,10 @@ export class BattleService implements OnModuleInit, OnModuleDestroy {
     const battle = this.battles.get(userId);
     if (!battle) return this.getOrCreateBattle(userId);
 
+    // A finished round must not keep scoring. Somebody gifting a second after
+    // the horn should not move a result that has already been announced.
+    if (!battle.state.active) return battle.state;
+
     // No silent fallback to the first team: an unknown key used to quietly
     // credit whichever side happened to be listed first, so a typo in the
     // config moved points to the wrong kingdom with nothing to show for it.
@@ -560,6 +623,9 @@ export class BattleService implements OnModuleInit, OnModuleDestroy {
     const aliveOpponents = opponents.filter((t) => t.castleHp > 0);
     if (opponents.length > 0 && aliveOpponents.length === 0) {
       battle.state.winnerTeamKey = team.key;
+      // Ends the round rather than leaving it running with a winner already
+      // declared, which let later gifts keep scoring into a decided match.
+      void this.finishBattle(battle, 'conquest');
     }
 
     // Update Top Donors

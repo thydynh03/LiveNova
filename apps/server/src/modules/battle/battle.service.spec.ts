@@ -346,4 +346,119 @@ describe('BattleService (Kingdom War 4-Way)', () => {
       expect(['soldier', 'castle']).toContain(fired);
     });
   });
+  describe('ending a round', () => {
+    /** Drives the service's own one-second tick. */
+    async function tick(svc: BattleService) {
+      svc['tickEnergyRefill']();
+      await new Promise((r) => setImmediate(r));
+    }
+
+    it('ends the match when the clock runs out', async () => {
+      await service.getOrCreateBattle('user_1');
+      const battle = service['battles'].get('user_1')!;
+      battle.state.teams.find((t) => t.key === 'dog')!.score = 900;
+
+      // Nothing checked endsAtMs, so the countdown reached 00:00 and the round
+      // simply carried on — no winner, no result, gifts still scoring.
+      battle.state.endsAtMs = Date.now() - 1;
+      await tick(service);
+
+      expect(battle.state.active).toBe(false);
+      expect(battle.state.winnerTeamKey).toBe('dog');
+    });
+
+    it('writes the result to the row instead of leaving it RUNNING forever', async () => {
+      await service.getOrCreateBattle('user_1');
+      const battle = service['battles'].get('user_1')!;
+      battle.state.teams.find((t) => t.key === 'cat')!.score = 50;
+      battle.state.endsAtMs = Date.now() - 1;
+
+      await tick(service);
+
+      // FINISHED existed in the schema from the start and nothing wrote it, so
+      // a restart would happily resume a match that ended hours ago.
+      expect(prisma.battle.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ status: 'FINISHED', winnerTeamKey: 'cat' }),
+        }),
+      );
+    });
+
+    it('admits a draw rather than inventing a winner', async () => {
+      await service.getOrCreateBattle('user_1');
+      const battle = service['battles'].get('user_1')!;
+      battle.state.teams.find((t) => t.key === 'cat')!.score = 500;
+      battle.state.teams.find((t) => t.key === 'dog')!.score = 500;
+      battle.state.endsAtMs = Date.now() - 1;
+
+      await tick(service);
+
+      // Picking whichever team sorts first, in front of an audience that paid
+      // for the result, is worse than saying it was tied.
+      expect(battle.state.winnerTeamKey).toBeNull();
+    });
+
+    it('leaves a scoreless round without a winner', async () => {
+      await service.getOrCreateBattle('user_1');
+      const battle = service['battles'].get('user_1')!;
+      battle.state.endsAtMs = Date.now() - 1;
+
+      await tick(service);
+
+      expect(battle.state.winnerTeamKey).toBeNull();
+      expect(battle.state.active).toBe(false);
+    });
+
+    it('closes the round the moment the last castle falls', async () => {
+      await service.getOrCreateBattle('user_1');
+
+      await service.simulateEvent('user_1', {
+        sender: '@whale',
+        teamKey: 'cat',
+        eventType: 'GIFT',
+        giftName: 'Universe',
+        coinValue: 34_999,
+      });
+      await new Promise((r) => setImmediate(r));
+
+      const battle = service['battles'].get('user_1')!;
+      expect(battle.state.winnerTeamKey).toBe('cat');
+      expect(battle.state.active).toBe(false);
+    });
+
+    it('stops scoring once the round is over', async () => {
+      await service.getOrCreateBattle('user_1');
+      const battle = service['battles'].get('user_1')!;
+      battle.state.endsAtMs = Date.now() - 1;
+      await tick(service);
+
+      await service.simulateEvent('user_1', {
+        sender: '@latecomer',
+        teamKey: 'dog',
+        eventType: 'GIFT',
+        giftName: 'Rose',
+        coinValue: 5000,
+      });
+
+      // Somebody gifting a second after the horn must not move a result that
+      // has already been announced.
+      expect(battle.state.teams.find((t) => t.key === 'dog')!.score).toBe(0);
+      expect(battle.state.topDonors).toHaveLength(0);
+    });
+
+    it('closes only once, however many times the tick runs', async () => {
+      await service.getOrCreateBattle('user_1');
+      const battle = service['battles'].get('user_1')!;
+      battle.state.endsAtMs = Date.now() - 1;
+
+      await tick(service);
+      (prisma.battle.update as jest.Mock).mockClear();
+      await tick(service);
+      await tick(service);
+
+      expect(prisma.battle.update).not.toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ status: 'FINISHED' }) }),
+      );
+    });
+  });
 });
