@@ -563,6 +563,54 @@ export function castleAssetKey(
   return undefined;
 }
 
+/**
+ * Artwork shipped with the app, used when a template supplies none.
+ *
+ * Placeholder work, deliberately: it exists so a streamer who applies the game
+ * template sees a playable battle before anyone commissions art, and so the
+ * asset pipeline is exercised by real files rather than only by uploads that
+ * may never happen. An admin upload of the same key wins.
+ *
+ * SVG rather than PNG on purpose — canvas `drawImage` accepts an SVG through
+ * `<img>` when it declares intrinsic dimensions, and these are a few hundred
+ * bytes each against a broadcast's bandwidth.
+ */
+export const BATTLE_DEFAULT_ASSETS: Record<string, string> = {
+  sprite_troop_cat: '/battle/sprite_troop_cat.svg',
+  sprite_troop_dog: '/battle/sprite_troop_dog.svg',
+  sprite_troop_bear: '/battle/sprite_troop_bear.svg',
+  sprite_troop_capy: '/battle/sprite_troop_capy.svg',
+
+  castle_cat: '/battle/castle_cat.svg',
+  castle_cat_damaged: '/battle/castle_cat_damaged.svg',
+  castle_cat_ruined: '/battle/castle_cat_ruined.svg',
+
+  castle_dog: '/battle/castle_dog.svg',
+  castle_dog_damaged: '/battle/castle_dog_damaged.svg',
+  castle_dog_ruined: '/battle/castle_dog_ruined.svg',
+
+  castle_bear: '/battle/castle_bear.svg',
+  castle_bear_damaged: '/battle/castle_bear_damaged.svg',
+  castle_bear_ruined: '/battle/castle_bear_ruined.svg',
+
+  castle_capy: '/battle/castle_capy.svg',
+  castle_capy_damaged: '/battle/castle_capy_damaged.svg',
+  castle_capy_ruined: '/battle/castle_capy_ruined.svg',
+};
+
+/**
+ * Template media laid over the built-in defaults.
+ *
+ * Merged on the client rather than baked into the state the server sends: the
+ * defaults are static files this app owns, and sending sixteen known paths over
+ * a socket on every state frame would be paying for nothing.
+ */
+export function resolveBattleAssets(
+  templateAssets: Record<string, string> | undefined,
+): Record<string, string> {
+  return { ...BATTLE_DEFAULT_ASSETS, ...(templateAssets ?? {}) };
+}
+
 /** Sprite sheet for a kingdom's foot soldiers, if the template supplies one. */
 export function troopSpriteUrl(
   teamKey: string,

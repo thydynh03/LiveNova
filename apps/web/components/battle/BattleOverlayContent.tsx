@@ -10,7 +10,7 @@
 
 import { useCallback, useEffect, useState, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { OverlayState, BattleState, CINEMATIC_ACTIONS, troopSpriteUrl } from '@livenova/shared';
+import { OverlayState, BattleState, CINEMATIC_ACTIONS, troopSpriteUrl, resolveBattleAssets } from '@livenova/shared';
 import { useOverlaySocket } from '../../lib/use-overlay-socket';
 import { BattleMap, type LaneKey } from './BattleMap';
 import { TroopCanvas, type TroopCanvasHandle, type Troop } from './TroopCanvas';
@@ -134,6 +134,10 @@ export function BattleOverlayContent({
   const searchParams = useSearchParams();
   const token = searchParams ? searchParams.get('token') : null;
   const [battle, setBattle] = useState<BattleState>(customState || DEFAULT_4_KINGDOMS_STATE);
+  // Template media over the built-in defaults, so a round is playable before
+  // anyone commissions art and an upload still wins.
+  const assets = resolveBattleAssets(battle.assets);
+
   const troopCanvasRef = useRef<TroopCanvasHandle | null>(null);
   const [cinematic, setCinematic] = useState<CinematicRequest | null>(null);
   const cinematicQueueRef = useRef<CinematicRequest[]>([]);
@@ -212,7 +216,7 @@ export function BattleOverlayContent({
           progress: i * -0.08,
           speed: isBig ? 0.85 : 0.55,
           offset: (Math.random() - 0.5) * 22,
-          spriteUrl: troopSpriteUrl(newEvt.teamKey, battle.assets),
+          spriteUrl: troopSpriteUrl(newEvt.teamKey, assets),
         }));
         troopCanvasRef.current?.spawn(squad);
 
@@ -282,11 +286,12 @@ export function BattleOverlayContent({
     return () => clearInterval(timer);
   }, []);
 
+
   // Decode the artwork while the round is quiet. A dragon that finishes
   // loading after the gift summoning it has passed may as well not exist.
-  const assetKey = Object.values(battle.assets ?? {}).join('|');
+  const assetKey = Object.values(assets).join('|');
   useEffect(() => {
-    preload(Object.values(battle.assets ?? {}));
+    preload(Object.values(assets));
     // Compared by value through assetKey; depending on the object itself would
     // re-run on every state frame the socket delivers.
   }, [assetKey]);
@@ -323,7 +328,7 @@ export function BattleOverlayContent({
       <BattleMap backgroundUrl={battle.assets?.map_background} mapTheme={battle.mapTheme} />
 
       {/* Layer 2: the four strongholds, drawn at their map anchors. */}
-      <CastleLayer teams={battle.teams} assets={battle.assets} />
+      <CastleLayer teams={battle.teams} assets={assets} />
 
       {/* Layer 4: the moment an expensive gift buys. */}
       <SkillCinematic request={cinematic} onDone={handleCinematicDone} />
