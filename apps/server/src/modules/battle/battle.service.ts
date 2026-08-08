@@ -14,7 +14,17 @@ import {
 } from '@livenova/shared';
 import { SimulateBattleEventDto } from './dto/battle.dto';
 
+type BattleDonorState = BattleState['topDonors'][number];
+
 interface ActiveBattle {
+  /**
+   * Every donor this round, keyed by username.
+   *
+   * `state.topDonors` is a view over this — the head of it, sorted. Keeping the
+   * full set here is what stops a donor's total resetting when they drop off
+   * the visible board.
+   */
+  donors: Map<string, BattleDonorState>;
   userId: string;
   battleId: string;
   templateId?: string;
@@ -208,6 +218,19 @@ export class BattleService implements OnModuleInit, OnModuleDestroy {
         });
 
         this.battles.set(row.userId, {
+          // Restored from the rows, so a resumed round keeps totals for donors
+          // who are not currently on the visible board.
+          donors: new Map(
+            row.donors.map((d) => [
+              d.username,
+              {
+                username: d.username,
+                nickname: d.nickname,
+                teamKey: d.teamKey,
+                totalScore: d.totalScore,
+              },
+            ]),
+          ),
           userId: row.userId,
           battleId: row.id,
           templateId: row.templateId ?? undefined,
@@ -341,7 +364,7 @@ export class BattleService implements OnModuleInit, OnModuleDestroy {
               update: { score: t.score, castleHp: t.castleHp, soldierCount: t.soldierCount ?? 0 },
             }),
           ),
-          ...battle.state.topDonors.map((d) =>
+          ...[...battle.donors.values()].map((d) =>
             this.prisma.battleDonor.upsert({
               where: { battleId_username: { battleId: battle.battleId, username: d.username } },
               create: {
@@ -487,6 +510,7 @@ export class BattleService implements OnModuleInit, OnModuleDestroy {
     };
 
     this.battles.set(userId, {
+      donors: new Map(),
       userId,
       battleId: state.battleId,
       templateId: applied?.templateId,
@@ -532,6 +556,7 @@ export class BattleService implements OnModuleInit, OnModuleDestroy {
       t.soldierCount = 0;
     });
     state.topDonors = [];
+    this.battles.get(userId)?.donors.clear();
     state.recentEvents = [];
     state.winnerTeamKey = null;
 
@@ -628,20 +653,35 @@ export class BattleService implements OnModuleInit, OnModuleDestroy {
       void this.finishBattle(battle, 'conquest');
     }
 
-    // Update Top Donors
-    const existingDonor = battle.state.topDonors.find((d) => d.username === dto.sender && d.teamKey === team.key);
-    if (existingDonor) {
-      existingDonor.totalScore += power;
+    // Every donor is kept; the board is only the head of the list.
+    //
+    // Truncating the stored array to five meant a donor pushed out of the top
+    // five lost their running total, so their next gift started them from zero
+    // and the board understated what they had actually given. The person most
+    // likely to notice is the one who gave the most.
+    //
+    // Matched on username alone, not username-and-team: switching sides is
+    // allowed, and keying on both put the same person on the board twice with
+    // their total split across the rows.
+    const existing = battle.donors.get(dto.sender);
+    if (existing) {
+      existing.totalScore += power;
+      existing.teamKey = team.key;
+      if (dto.senderDisplayName) existing.nickname = dto.senderDisplayName;
     } else {
-      battle.state.topDonors.push({
+      battle.donors.set(dto.sender, {
         username: dto.sender,
-        nickname: dto.sender.replace('@', ''),
+        // The platform's display name when we have it. Stripping the '@' off a
+        // handle showed "ngochan" where the audience knows "Ngọc Hân".
+        nickname: dto.senderDisplayName || dto.sender.replace('@', ''),
         teamKey: team.key,
         totalScore: power,
       });
     }
-    battle.state.topDonors.sort((a, b) => b.totalScore - a.totalScore);
-    battle.state.topDonors = battle.state.topDonors.slice(0, battle.config.battle?.showTopDonors ?? 5);
+
+    battle.state.topDonors = [...battle.donors.values()]
+      .sort((a, b) => b.totalScore - a.totalScore)
+      .slice(0, battle.config.battle?.showTopDonors ?? 5);
 
     // Event Log
     const eventLog: BattleEventLog = {
@@ -697,6 +737,7 @@ export class BattleService implements OnModuleInit, OnModuleDestroy {
         this.allegiance.set(`${battle.userId}:${event.senderUsername}`, teamKey);
         await this.simulateEvent(battle.userId, {
           sender,
+          senderDisplayName: event.senderDisplayName,
           teamKey,
           eventType: 'GIFT',
           giftName: event.giftName,

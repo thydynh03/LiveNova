@@ -1,4 +1,4 @@
-import { IsString, IsNotEmpty, IsOptional, IsNumber, Min } from 'class-validator';
+import { IsString, IsNotEmpty, IsOptional, IsNumber, Min, MaxLength } from 'class-validator';
 
 export class SimulateBattleEventDto {
   @IsString()
@@ -12,6 +12,17 @@ export class SimulateBattleEventDto {
   @IsString()
   @IsNotEmpty()
   eventType!: 'GIFT' | 'LIKE' | 'SHARE' | 'FOLLOW' | 'COMMENT';
+
+  /**
+   * The platform's display name for the sender.
+   *
+   * Without it the donor board falls back to stripping '@' off the handle, so
+   * it showed "ngochan" where the audience knows "Ngọc Hân".
+   */
+  @IsString()
+  @IsOptional()
+  @MaxLength(80)
+  senderDisplayName?: string;
 
   @IsString()
   @IsOptional()
