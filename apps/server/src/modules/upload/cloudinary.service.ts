@@ -57,22 +57,34 @@ export class CloudinaryService {
 
     // Local Disk Storage Fallback
     try {
-      const ext = path.extname(file.originalname) || (file.mimetype.startsWith('video/') ? '.mp4' : '.png');
-      const filename = `${uuidv4()}${ext}`;
+      const allowedExts = ['.png', '.jpg', '.jpeg', '.webp', '.gif', '.svg', '.mp4', '.webm'];
+      const rawExt = path.extname(file.originalname || '').toLowerCase();
+      const ext = allowedExts.includes(rawExt)
+        ? rawExt
+        : file.mimetype.startsWith('video/')
+        ? '.mp4'
+        : '.png';
 
+      const safeFilename = `${uuidv4()}${ext}`;
       const targetDir = path.resolve(process.cwd(), '../web/public/uploads');
+
       if (!fs.existsSync(targetDir)) {
         fs.mkdirSync(targetDir, { recursive: true });
       }
-      const filePath = path.join(targetDir, filename);
+
+      const filePath = path.resolve(targetDir, safeFilename);
+      if (!filePath.startsWith(targetDir)) {
+        throw new BadRequestException('Path traversal security validation failed');
+      }
+
       fs.writeFileSync(filePath, file.buffer);
 
-      const localUrl = `/uploads/${filename}`;
+      const localUrl = `/uploads/${safeFilename}`;
       this.logger.log(`Local file saved successfully at: ${localUrl}`);
 
       return {
         secure_url: localUrl,
-        public_id: filename,
+        public_id: safeFilename,
         format: ext.replace('.', ''),
         bytes: file.size,
       } as UploadApiResponse;

@@ -106,7 +106,7 @@ function ObsGuide() {
 }
 
 function MediaIdleVideoSection({ overlay, reload }: { overlay: Overlay; reload: () => void }) {
-  const currentVideo = (overlay.config as any)?.defaultVideo || '/DogDefault.mp4';
+  const currentVideo = (overlay.config as Record<string, string> | undefined)?.defaultVideo || '/DogDefault.mp4';
   const [videoUrl, setVideoUrl] = useState(currentVideo);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -114,7 +114,7 @@ function MediaIdleVideoSection({ overlay, reload }: { overlay: Overlay; reload: 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    setVideoUrl((overlay.config as any)?.defaultVideo || '/DogDefault.mp4');
+    setVideoUrl((overlay.config as Record<string, string> | undefined)?.defaultVideo || '/DogDefault.mp4');
   }, [overlay.config]);
 
   async function handleSave() {
@@ -123,15 +123,16 @@ function MediaIdleVideoSection({ overlay, reload }: { overlay: Overlay; reload: 
     try {
       await api.patch(`/overlays/${overlay.id}/config`, {
         config: {
-          ...(overlay.config as object),
+          ...(overlay.config as Record<string, unknown>),
           defaultVideo: videoUrl,
         },
       });
       setMessage('✅ Đã lưu Video chờ riêng cho tài khoản!');
       setTimeout(() => setMessage(null), 3000);
       reload();
-    } catch (err: any) {
-      setMessage(`❌ Lỗi: ${err?.message || 'Không lưu được'}`);
+    } catch (err: unknown) {
+      const errMsg = err instanceof Error ? err.message : 'Không lưu được';
+      setMessage(`❌ Lỗi: ${errMsg}`);
     } finally {
       setSaving(false);
     }
@@ -148,8 +149,9 @@ function MediaIdleVideoSection({ overlay, reload }: { overlay: Overlay; reload: 
         setVideoUrl(res.url);
         setMessage('✅ Đã tải file lên! Bấm nút "Lưu" để cập nhật.');
       }
-    } catch (err: any) {
-      setMessage(`❌ Tải file thất bại: ${err?.message || 'Lỗi không xác định'}`);
+    } catch (err: unknown) {
+      const errMsg = err instanceof Error ? err.message : 'Lỗi không xác định';
+      setMessage(`❌ Tải file thất bại: ${errMsg}`);
     } finally {
       setUploading(false);
     }
@@ -412,6 +414,10 @@ export default function OverlaysPage() {
                 )}
                 {!url && <span className="pill">Đang phát triển</span>}
               </div>
+
+              {overlay.type === 'MEDIA' && (
+                <MediaIdleVideoSection overlay={overlay} reload={reload} />
+              )}
 
               {url ? (
                 <>

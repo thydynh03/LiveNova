@@ -34,7 +34,7 @@ export interface Overlay {
   type: string;
   publicToken: string;
   enabled: boolean;
-  config?: Record<string, any>;
+  config?: Record<string, unknown>;
 }
 
 export type Platform = 'TIKTOK' | 'FACEBOOK' | 'YOUTUBE';
