@@ -23,9 +23,18 @@ const FALLBACK_SIZE = 108;
 export function CastleLayer({
   teams,
   assets,
+  /**
+   * The map artwork already has castles painted at the anchors.
+   *
+   * When it does, drawing our own sprite there puts a second, worse castle on
+   * top of a good one. So the layer stops rendering buildings and renders only
+   * what the painting cannot: whose keep it is and how much of it is left.
+   */
+  paintedCastles = false,
 }: {
   teams: BattleTeamState[];
   assets?: Record<string, string>;
+  paintedCastles?: boolean;
 }) {
   return (
     <div aria-hidden="true" style={{ position: 'absolute', inset: 0, zIndex: 20, pointerEvents: 'none' }}>
@@ -36,6 +45,10 @@ export function CastleLayer({
         const maxHp = team.maxHp || 1000;
         const ratio = Math.max(0, Math.min(1, (team.castleHp ?? maxHp) / maxHp));
         const url = castleAssetKey(team.key, team.castleHp ?? maxHp, maxHp, assets);
+
+        if (paintedCastles) {
+          return <CastlePlate key={team.key} team={team} anchor={anchor} ratio={ratio} />;
+        }
 
         return (
           <div
@@ -71,6 +84,92 @@ export function CastleLayer({
           </div>
         );
       })}
+    </div>
+  );
+}
+
+/**
+ * Name and health, sitting on the painted keep.
+ *
+ * This replaces the four glass panels that used to live in the screen corners.
+ * They carried the same three facts, but they carried them a long way from the
+ * castle they described — and at portrait they landed directly on top of it. A
+ * plate under the keep ties the number to the building without hiding it.
+ */
+function CastlePlate({
+  team,
+  anchor,
+  ratio,
+}: {
+  team: BattleTeamState;
+  anchor: { x: number; y: number };
+  ratio: number;
+}) {
+  const hp = team.castleHp ?? team.maxHp ?? 1000;
+  const falling = ratio <= 0.33;
+  // Plates hang below the two northern keeps and above the two southern ones.
+  // A fixed downward offset put the bottom pair underneath the gift deck, where
+  // the audience reads the health of a castle it cannot see.
+  const below = anchor.y < 50;
+
+  return (
+    <div
+      style={{
+        position: 'absolute',
+        left: `${anchor.x}%`,
+        top: `${anchor.y}%`,
+        // Clear of the keep, not over it. The artwork is the thing being sold.
+        transform: below ? 'translate(-50%, 46px)' : 'translate(-50%, -108px)',
+        width: 'clamp(96px, 26vw, 150px)',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 3,
+        padding: '4px 7px',
+        borderRadius: 9,
+        background: 'rgba(8, 12, 24, 0.72)',
+        border: `1px solid ${team.color}99`,
+        boxShadow: `0 3px 12px rgba(0,0,0,0.55)`,
+        textAlign: 'center',
+      }}
+    >
+      <div
+        style={{
+          fontSize: 'clamp(0.56rem, 2.1vw, 0.72rem)',
+          fontWeight: 900,
+          color: team.color,
+          textShadow: '0 1px 3px rgba(0,0,0,0.9)',
+          whiteSpace: 'nowrap',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+        }}
+      >
+        {team.name}
+      </div>
+
+      <div style={{ height: 6, background: 'rgba(0,0,0,0.65)', borderRadius: 3, overflow: 'hidden' }}>
+        <div
+          style={{
+            height: '100%',
+            width: `${ratio * 100}%`,
+            // Red overrides the kingdom colour near the end: a castle about to
+            // fall has to shout, and it must not be mistaken for a healthy bar
+            // that merely happens to be short.
+            background: falling ? '#ef4444' : team.color,
+            transition: 'width 500ms ease-out',
+          }}
+        />
+      </div>
+
+      <div
+        style={{
+          fontSize: 'clamp(0.5rem, 1.8vw, 0.62rem)',
+          fontWeight: 700,
+          color: falling ? '#fca5a5' : '#e2e8f0',
+        }}
+      >
+        🏰 {hp}/{team.maxHp || 1000}
+        {typeof team.soldierCount === 'number' && <> · ⚔️ {team.soldierCount}</>}
+      </div>
     </div>
   );
 }

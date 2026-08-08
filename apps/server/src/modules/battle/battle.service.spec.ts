@@ -461,4 +461,94 @@ describe('BattleService (Kingdom War 4-Way)', () => {
       );
     });
   });
+  describe('top donors', () => {
+    const give = (sender: string, coins: number, team = 'cat', displayName?: string) =>
+      service.simulateEvent('user_1', {
+        sender,
+        senderDisplayName: displayName,
+        teamKey: team,
+        eventType: 'GIFT',
+        giftName: 'Rose',
+        coinValue: coins,
+      });
+
+    beforeEach(async () => {
+      await service.getOrCreateBattle('user_1');
+    });
+
+    it('keeps a total after the donor drops off the visible board', async () => {
+      await give('@small', 10);
+      // Five bigger donors push @small out of the top five.
+      for (let i = 0; i < 5; i += 1) await give(`@big${i}`, 500 + i);
+
+      const board = () => service['battles'].get('user_1')!.state.topDonors;
+      expect(board().some((d) => d.username === '@small')).toBe(false);
+
+      await give('@small', 5000);
+
+      // Truncating the stored list meant @small restarted from zero, so the
+      // board understated the person most likely to notice.
+      expect(board().find((d) => d.username === '@small')?.totalScore).toBe(5010);
+    });
+
+    it('counts a donor once when they switch sides', async () => {
+      await give('@switcher', 100, 'cat');
+      await give('@switcher', 200, 'dog');
+
+      const rows = service['battles']
+        .get('user_1')!
+        .state.topDonors.filter((d) => d.username === '@switcher');
+
+      // Keying on username *and* team put the same person on the board twice
+      // with their total split between the rows.
+      expect(rows).toHaveLength(1);
+      expect(rows[0].totalScore).toBe(300);
+      expect(rows[0].teamKey).toBe('dog');
+    });
+
+    it('shows the platform display name rather than the handle', async () => {
+      await give('@ngochan', 50, 'cat', 'Ngọc Hân');
+
+      const row = service['battles']
+        .get('user_1')!
+        .state.topDonors.find((d) => d.username === '@ngochan');
+      expect(row?.nickname).toBe('Ngọc Hân');
+    });
+
+    it('falls back to the handle when the platform sent no name', async () => {
+      await give('@anon', 50);
+
+      const row = service['battles']
+        .get('user_1')!
+        .state.topDonors.find((d) => d.username === '@anon');
+      expect(row?.nickname).toBe('anon');
+    });
+
+    it('shows only as many rows as the template asks for', async () => {
+      for (let i = 0; i < 12; i += 1) await give(`@d${i}`, 100 + i);
+
+      const battle = service['battles'].get('user_1')!;
+      expect(battle.state.topDonors).toHaveLength(battle.config.battle.showTopDonors);
+      // …while still tracking everyone underneath.
+      expect(battle.donors.size).toBe(12);
+    });
+
+    it('persists every donor, not only the visible ones', async () => {
+      for (let i = 0; i < 8; i += 1) await give(`@d${i}`, 100 + i);
+
+      await service['flush']();
+
+      const upserts = (prisma.battleDonor.upsert as jest.Mock).mock.calls.length;
+      expect(upserts).toBe(8);
+    });
+
+    it('clears the board when the round is reset', async () => {
+      await give('@someone', 100);
+      await service.resetBattle('user_1');
+
+      const battle = service['battles'].get('user_1')!;
+      expect(battle.state.topDonors).toHaveLength(0);
+      expect(battle.donors.size).toBe(0);
+    });
+  });
 });

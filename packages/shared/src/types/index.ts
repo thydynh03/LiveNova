@@ -495,6 +495,7 @@ export interface BattleState {
   battleId: string;
   templateId?: string;
   mapTheme?: string;
+  renderEngine?: '2d' | '3d';
   title?: string;
   teams: BattleTeamState[];
   topDonors: BattleDonor[];
@@ -566,16 +567,19 @@ export function castleAssetKey(
 /**
  * Artwork shipped with the app, used when a template supplies none.
  *
- * Placeholder work, deliberately: it exists so a streamer who applies the game
- * template sees a playable battle before anyone commissions art, and so the
- * asset pipeline is exercised by real files rather than only by uploads that
- * may never happen. An admin upload of the same key wins.
- *
- * SVG rather than PNG on purpose — canvas `drawImage` accepts an SVG through
- * `<img>` when it declares intrinsic dimensions, and these are a few hundred
- * bytes each against a broadcast's bandwidth.
+ * Defaults to the AI-generated 6-frame running sprite sheets for 4 kingdoms.
  */
 export const BATTLE_DEFAULT_ASSETS: Record<string, string> = {
+  // The hand-built strips, not the generated ones under /sprites.
+  //
+  // Three of the four generated images are not horizontal strips: the dog sheet
+  // has cell borders and "Frame 1 (Contact)" captions drawn into the picture,
+  // the bear is a two-row grid of seven poses, the capybara a 3x2 grid. Only
+  // the cat came back as six figures in a row. The loader refuses the other
+  // three rather than marching a grid, which would leave three kingdoms on the
+  // drawn fallback and one on painted art — worse on stream than four
+  // consistent kingdoms. Point these back at /sprites once the three files are
+  // regenerated as single-row strips with no text and no borders.
   sprite_troop_cat: '/battle/sprite_troop_cat.svg',
   sprite_troop_dog: '/battle/sprite_troop_dog.svg',
   sprite_troop_bear: '/battle/sprite_troop_bear.svg',
