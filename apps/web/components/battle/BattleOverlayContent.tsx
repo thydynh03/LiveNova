@@ -10,10 +10,12 @@
 
 import { useCallback, useEffect, useState, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { OverlayState, BattleState, CINEMATIC_ACTIONS } from '@livenova/shared';
+import { OverlayState, BattleState, CINEMATIC_ACTIONS, troopSpriteUrl } from '@livenova/shared';
 import { useOverlaySocket } from '../../lib/use-overlay-socket';
 import { BattleMap, type LaneKey } from './BattleMap';
 import { TroopCanvas, type TroopCanvasHandle, type Troop } from './TroopCanvas';
+import { CastleLayer } from './CastleLayer';
+import { preload } from '../../lib/image-cache';
 import { SkillCinematic, type CinematicRequest } from './SkillCinematic';
 
 /** Lane each kingdom marches down, and the colour its units are drawn in. */
@@ -210,6 +212,7 @@ export function BattleOverlayContent({
           progress: i * -0.08,
           speed: isBig ? 0.85 : 0.55,
           offset: (Math.random() - 0.5) * 22,
+          spriteUrl: troopSpriteUrl(newEvt.teamKey, battle.assets),
         }));
         troopCanvasRef.current?.spawn(squad);
 
@@ -279,6 +282,15 @@ export function BattleOverlayContent({
     return () => clearInterval(timer);
   }, []);
 
+  // Decode the artwork while the round is quiet. A dragon that finishes
+  // loading after the gift summoning it has passed may as well not exist.
+  const assetKey = Object.values(battle.assets ?? {}).join('|');
+  useEffect(() => {
+    preload(Object.values(battle.assets ?? {}));
+    // Compared by value through assetKey; depending on the object itself would
+    // re-run on every state frame the socket delivers.
+  }, [assetKey]);
+
   const handleCinematicDone = useCallback(() => {
     setCinematic(cinematicQueueRef.current.shift() ?? null);
   }, []);
@@ -307,9 +319,11 @@ export function BattleOverlayContent({
         transition: 'transform 0.05s ease',
       }}
     >
-      {/* Layer 1: the battlefield. A template-supplied image when there is
-          one, the built-in SVG otherwise. */}
-      <BattleMap backgroundUrl={battle.assets?.map_background} />
+      {/* Layer 1: the battlefield. High-res generated map or vector fallback */}
+      <BattleMap backgroundUrl={battle.assets?.map_background} mapTheme={battle.mapTheme} />
+
+      {/* Layer 2: the four strongholds, drawn at their map anchors. */}
+      <CastleLayer teams={battle.teams} assets={battle.assets} />
 
       {/* Layer 4: the moment an expensive gift buys. */}
       <SkillCinematic request={cinematic} onDone={handleCinematicDone} />
@@ -339,83 +353,6 @@ export function BattleOverlayContent({
           100% { filter: drop-shadow(0 0 4px #facc15); }
         }
       `}</style>
-
-      {/* ── BACKGROUND MAP: 4-WAY CROSS RIVER & STONE RUNIC BRIDGES ────────── */}
-      <div
-        style={{
-          position: 'absolute',
-          inset: 0,
-          pointerEvents: 'none',
-          opacity: 0.92,
-        }}
-      >
-        <svg width="100%" height="100%" viewBox="0 0 1000 1000" preserveAspectRatio="none">
-          <defs>
-            {/* Water Linear Gradients */}
-            <linearGradient id="riverVertical" x1="0" y1="0" x2="1" y2="0">
-              <stop offset="0%" stopColor="#0f172a" />
-              <stop offset="25%" stopColor="#0369a1" />
-              <stop offset="50%" stopColor="#38bdf8" />
-              <stop offset="75%" stopColor="#0369a1" />
-              <stop offset="100%" stopColor="#0f172a" />
-            </linearGradient>
-            <linearGradient id="riverHorizontal" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#0f172a" />
-              <stop offset="25%" stopColor="#0369a1" />
-              <stop offset="50%" stopColor="#38bdf8" />
-              <stop offset="75%" stopColor="#0369a1" />
-              <stop offset="100%" stopColor="#0f172a" />
-            </linearGradient>
-
-            {/* Stone Bridges Texture Gradients */}
-            <linearGradient id="bridgeCat" x1="0" y1="0" x2="1" y2="1">
-              <stop offset="0%" stopColor="#475569" />
-              <stop offset="50%" stopColor="#334155" />
-              <stop offset="100%" stopColor="#1e293b" />
-            </linearGradient>
-            <linearGradient id="bridgeDog" x1="1" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#475569" />
-              <stop offset="50%" stopColor="#334155" />
-              <stop offset="100%" stopColor="#1e293b" />
-            </linearGradient>
-          </defs>
-
-          {/* Grass & Terrain Base */}
-          <rect width="1000" height="1000" fill="#1b382b" />
-
-          {/* Decorative Terrain Contours */}
-          <circle cx="200" cy="200" r="160" fill="#162e24" />
-          <circle cx="800" cy="200" r="160" fill="#162e24" />
-          <circle cx="200" cy="800" r="160" fill="#162e24" />
-          <circle cx="800" cy="800" r="160" fill="#162e24" />
-
-          {/* 4 Diagonal Stone Bridges (Fortress to Center) */}
-          {/* Top-Left (Cat) */}
-          <polygon points="120,120 180,80 520,480 480,520" fill="url(#bridgeCat)" stroke="#64748b" strokeWidth="4" />
-          <line x1="150" y1="100" x2="500" y2="500" stroke="#c084fc" strokeWidth="3" strokeDasharray="8,6" opacity="0.65" />
-
-          {/* Top-Right (Dog) */}
-          <polygon points="880,120 820,80 480,480 520,520" fill="url(#bridgeDog)" stroke="#64748b" strokeWidth="4" />
-          <line x1="850" y1="100" x2="500" y2="500" stroke="#60a5fa" strokeWidth="3" strokeDasharray="8,6" opacity="0.65" />
-
-          {/* Bottom-Left (Bear) */}
-          <polygon points="120,880 180,920 520,520 480,480" fill="url(#bridgeDog)" stroke="#64748b" strokeWidth="4" />
-          <line x1="150" y1="900" x2="500" y2="500" stroke="#fb923c" strokeWidth="3" strokeDasharray="8,6" opacity="0.65" />
-
-          {/* Bottom-Right (Capy) */}
-          <polygon points="880,880 820,920 480,520 520,480" fill="url(#bridgeCat)" stroke="#64748b" strokeWidth="4" />
-          <line x1="850" y1="900" x2="500" y2="500" stroke="#34d399" strokeWidth="3" strokeDasharray="8,6" opacity="0.65" />
-
-          {/* Cross Rivers flowing under bridges */}
-          <path d="M 440,0 Q 530,280 480,500 T 560,1000 L 460,1000 Q 380,720 420,500 T 360,0 Z" fill="url(#riverVertical)" opacity="0.9" />
-          <path d="M 0,440 Q 280,530 500,480 T 1000,560 L 1000,460 Q 720,380 500,420 T 0,360 Z" fill="url(#riverHorizontal)" opacity="0.9" />
-
-          {/* Central Nexus Arena Pedestal */}
-          <circle cx="500" cy="500" r="100" fill="#1e293b" stroke="#f59e0b" strokeWidth="5" />
-          <circle cx="500" cy="500" r="85" fill="#0f172a" stroke="#38bdf8" strokeWidth="3" strokeDasharray="12,8" />
-          <circle cx="500" cy="500" r="68" fill="#020617" />
-        </svg>
-      </div>
 
       {/* ── TOP HEADER HUD: LIVE STATS & FLOATING SCORE CLASH CAPSULE ──────── */}
       <header

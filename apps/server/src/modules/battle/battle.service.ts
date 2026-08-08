@@ -416,11 +416,9 @@ export class BattleService implements OnModuleInit, OnModuleDestroy {
       kind: 'battle',
       battleId: row.id,
       templateId: applied?.templateId,
+      mapTheme: 'fantasy_kingdoms',
       title,
       teams: initialTeams,
-      // Empty until somebody actually donates. Four invented names with
-      // five-figure totals would be shown to a live audience as a real
-      // leaderboard.
       topDonors: [],
       recentEvents: [],
       winnerTeamKey: null,
@@ -439,6 +437,17 @@ export class BattleService implements OnModuleInit, OnModuleDestroy {
     });
 
     return state;
+  }
+
+  async setMapTheme(userId: string, mapTheme: string): Promise<BattleState> {
+    const state = await this.getOrCreateBattle(userId);
+    state.mapTheme = mapTheme;
+    const active = this.battles.get(userId);
+    if (active) {
+      active.state.mapTheme = mapTheme;
+    }
+    await this.broadcastState(userId);
+    return active ? active.state : state;
   }
 
   async resetBattle(userId: string): Promise<BattleState> {

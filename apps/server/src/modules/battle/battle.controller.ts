@@ -26,4 +26,12 @@ export class BattleController {
   async resetBattle(@CurrentUserId() userId: string) {
     return this.battleService.resetBattle(userId);
   }
+
+  @Post('map-theme')
+  async setMapTheme(
+    @CurrentUserId() userId: string,
+    @Body() body: { mapTheme: string },
+  ) {
+    return this.battleService.setMapTheme(userId, body.mapTheme);
+  }
 }

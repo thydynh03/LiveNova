@@ -1,25 +1,15 @@
 'use client';
 
 import React from 'react';
+import { BATTLE_MAP_PRESETS } from '@livenova/shared';
 
 /**
  * The battlefield background.
  *
- * Two modes. When the template supplies a `map_background` asset that image is
- * used; otherwise this hand-authored SVG stands in.
- *
- * The SVG is deliberately a placeholder, not the goal. Painted artwork will
- * always beat vector shapes for a map like this, and it can be swapped without
- * touching code. What this file really provides is the **coordinate contract**:
- * castles at the four corners, lanes converging on a bridge in the middle. Real
- * artwork drawn to `LANES` and `CASTLE_ANCHORS` drops straight in, and the
- * troop canvas keeps working because it reads the same numbers.
- *
- * Percentages, not pixels: a Browser Source is a fixed 1920×1080 but the
- * simulator renders the same component in a smaller box.
+ * Supports high-resolution generated map illustrations (Fantasy Kingdoms, Lava & Frost, Classic Cartoon),
+ * custom admin uploads, or a lightweight fallback SVG vector river.
  */
 
-/** Where each kingdom sits, in percent of the viewport. */
 export const CASTLE_ANCHORS: Record<string, { x: number; y: number }> = {
   cat: { x: 16, y: 20 },
   dog: { x: 84, y: 20 },
@@ -27,37 +17,57 @@ export const CASTLE_ANCHORS: Record<string, { x: number; y: number }> = {
   capy: { x: 84, y: 74 },
 };
 
-/** Where the armies meet. Everything marches here. */
 export const CLASH_POINT = { x: 50, y: 47 };
 
 export type LaneKey = keyof typeof CASTLE_ANCHORS;
 
-const RIVER = '#1e3a5f';
-const GRASS_DARK = '#1c3122';
 const GRASS_LIGHT = '#27452f';
-const STONE = '#6b6157';
 
-export function BattleMap({ backgroundUrl }: { backgroundUrl?: string }) {
-  if (backgroundUrl) {
+export function BattleMap({
+  backgroundUrl,
+  mapTheme = 'fantasy_kingdoms',
+}: {
+  backgroundUrl?: string;
+  mapTheme?: string;
+}) {
+  let resolvedUrl = backgroundUrl;
+  if (!resolvedUrl) {
+    const preset = BATTLE_MAP_PRESETS.find((p) => p.id === mapTheme);
+    if (preset?.backgroundUrl) {
+      resolvedUrl = preset.backgroundUrl;
+    }
+  }
+
+  if (resolvedUrl && mapTheme !== 'vector_runic_river') {
     return (
       <div
         aria-hidden="true"
         style={{
           position: 'absolute',
           inset: 0,
-          backgroundImage: `url(${backgroundUrl})`,
+          backgroundImage: `url(${resolvedUrl})`,
           backgroundSize: 'cover',
           backgroundPosition: 'center',
           zIndex: 0,
         }}
-      />
+      >
+        {/* Subtle dark vignette overlay for optimal text & HUD contrast */}
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            background: 'radial-gradient(circle at center, rgba(0,0,0,0.1) 0%, rgba(0,0,0,0.45) 80%, rgba(0,0,0,0.7) 100%)',
+            pointerEvents: 'none',
+          }}
+        />
+      </div>
     );
   }
 
   return (
     <svg
       aria-hidden="true"
-      viewBox="0 0 100 100"
+      viewBox="0 0 1000 1000"
       preserveAspectRatio="none"
       style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', zIndex: 0 }}
     >
@@ -66,58 +76,44 @@ export function BattleMap({ backgroundUrl }: { backgroundUrl?: string }) {
           <stop offset="0%" stopColor={GRASS_LIGHT} />
           <stop offset="100%" stopColor="#0d1a12" />
         </radialGradient>
-        <linearGradient id="ln-river" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#2c5c8a" />
-          <stop offset="100%" stopColor={RIVER} />
+        <linearGradient id="ln-river-v" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%" stopColor="#0f172a" />
+          <stop offset="30%" stopColor="#0369a1" />
+          <stop offset="50%" stopColor="#38bdf8" />
+          <stop offset="70%" stopColor="#0369a1" />
+          <stop offset="100%" stopColor="#0f172a" />
         </linearGradient>
-        {/* Cheap paper grain. A flat fill reads as a placeholder even when the
-            shapes are right. */}
-        <filter id="ln-grain">
-          <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" />
-          <feColorMatrix type="saturate" values="0" />
-          <feComponentTransfer>
-            <feFuncA type="linear" slope="0.06" />
-          </feComponentTransfer>
-          <feComposite operator="over" in2="SourceGraphic" />
-        </filter>
+        <linearGradient id="ln-river-h" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#0f172a" />
+          <stop offset="30%" stopColor="#0369a1" />
+          <stop offset="50%" stopColor="#38bdf8" />
+          <stop offset="70%" stopColor="#0369a1" />
+          <stop offset="100%" stopColor="#0f172a" />
+        </linearGradient>
       </defs>
 
-      <rect width="100" height="100" fill="url(#ln-field)" />
+      <rect width="1000" height="1000" fill="url(#ln-field)" />
 
-      {/* River: a cross through the middle, which is what makes four corners
-          read as four separate kingdoms rather than one field. */}
-      <rect x="0" y="43" width="100" height="9" fill="url(#ln-river)" opacity="0.85" />
-      <rect x="45" y="0" width="9" height="100" fill="url(#ln-river)" opacity="0.85" />
+      {/* Decorative Terrain Contours */}
+      <circle cx="200" cy="200" r="160" fill="#162e24" />
+      <circle cx="800" cy="200" r="160" fill="#162e24" />
+      <circle cx="200" cy="800" r="160" fill="#162e24" />
+      <circle cx="800" cy="800" r="160" fill="#162e24" />
 
-      {/* Banks */}
-      <rect x="0" y="42" width="100" height="1.2" fill={GRASS_DARK} />
-      <rect x="0" y="51.8" width="100" height="1.2" fill={GRASS_DARK} />
-      <rect x="43.8" y="0" width="1.2" height="100" fill={GRASS_DARK} />
-      <rect x="53.8" y="0" width="1.2" height="100" fill={GRASS_DARK} />
+      {/* 4 Diagonal Stone Bridges */}
+      <line x1="150" y1="100" x2="500" y2="500" stroke="#c084fc" strokeWidth="8" strokeDasharray="14,10" opacity="0.75" />
+      <line x1="850" y1="100" x2="500" y2="500" stroke="#60a5fa" strokeWidth="8" strokeDasharray="14,10" opacity="0.75" />
+      <line x1="150" y1="900" x2="500" y2="500" stroke="#fb923c" strokeWidth="8" strokeDasharray="14,10" opacity="0.75" />
+      <line x1="850" y1="900" x2="500" y2="500" stroke="#34d399" strokeWidth="8" strokeDasharray="14,10" opacity="0.75" />
 
-      {/* The four march lanes, drawn so the troop canvas has something under it. */}
-      {(Object.keys(CASTLE_ANCHORS) as LaneKey[]).map((key) => {
-        const a = CASTLE_ANCHORS[key];
-        return (
-          <line
-            key={key}
-            x1={a.x}
-            y1={a.y}
-            x2={CLASH_POINT.x}
-            y2={CLASH_POINT.y}
-            stroke={STONE}
-            strokeWidth="3.2"
-            strokeLinecap="round"
-            opacity="0.5"
-          />
-        );
-      })}
+      {/* Cross Rivers flowing under bridges */}
+      <path d="M 440,0 Q 530,280 480,500 T 560,1000 L 460,1000 Q 380,720 420,500 T 360,0 Z" fill="url(#ln-river-v)" opacity="0.9" />
+      <path d="M 0,440 Q 280,530 500,480 T 1000,560 L 1000,460 Q 720,380 500,420 T 0,360 Z" fill="url(#ln-river-h)" opacity="0.9" />
 
-      {/* Central bridge crossing */}
-      <rect x="41" y="43.5" width="18" height="8" rx="1" fill={STONE} opacity="0.9" />
-      <rect x="46" y="38" width="8" height="19" rx="1" fill={STONE} opacity="0.9" />
-
-      <rect width="100" height="100" filter="url(#ln-grain)" opacity="0.5" />
+      {/* Central Nexus Arena Pedestal */}
+      <circle cx="500" cy="500" r="100" fill="#1e293b" stroke="#f59e0b" strokeWidth="5" />
+      <circle cx="500" cy="500" r="85" fill="#0f172a" stroke="#38bdf8" strokeWidth="3" strokeDasharray="12,8" />
+      <circle cx="500" cy="500" r="68" fill="#020617" />
     </svg>
   );
 }

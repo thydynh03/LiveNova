@@ -445,11 +445,56 @@ export interface BattleEventLog {
   timestamp: number;
 }
 
+export interface BattleMapPreset {
+  id: string;
+  name: string;
+  thumbnail: string;
+  description: string;
+  category: 'fantasy' | 'elemental' | 'cartoon' | 'vector';
+  backgroundUrl: string;
+}
+
+export const BATTLE_MAP_PRESETS: BattleMapPreset[] = [
+  {
+    id: 'fantasy_kingdoms',
+    name: 'Vương Quốc Huyền Ảo (AI Gen)',
+    thumbnail: '/maps/map_kingdom_fantasy.jpg',
+    backgroundUrl: '/maps/map_kingdom_fantasy.jpg',
+    category: 'fantasy',
+    description: 'Chiến trường 4 lâu đài thần thoại với sông thập tự pha lê và đài ấn chú trung tâm.',
+  },
+  {
+    id: 'lava_frost',
+    name: 'Dung Nham & Băng Tuyết (AI Gen)',
+    thumbnail: '/maps/map_lava_frost.jpg',
+    backgroundUrl: '/maps/map_lava_frost.jpg',
+    category: 'elemental',
+    description: 'Cuộc chiến 4 nguyên tố: Núi lửa, Băng hà, Sa mạc sấm sét và Rừng cổ thụ.',
+  },
+  {
+    id: 'classic_kingdoms',
+    name: 'Đại Chiến 4 Vương Quốc (Classic Cartoon)',
+    thumbnail: '/maps/map_kingdom_classic.png',
+    backgroundUrl: '/maps/map_kingdom_classic.png',
+    category: 'cartoon',
+    description: 'Phong cách vẽ tay hoạt hình 2.5D sống động đặc trưng của các streamer TikTok hàng đầu.',
+  },
+  {
+    id: 'vector_runic_river',
+    name: 'Sông Runic Tối Giản (Vector 60FPS)',
+    thumbnail: '/maps/map_kingdom_fantasy.jpg',
+    backgroundUrl: '',
+    category: 'vector',
+    description: 'Đồ họa vector SVG siêu nhẹ, độ phân giải sắc nét 4K không tốn băng thông.',
+  },
+];
+
 /** Continuous state for a GAME_BATTLE overlay. */
 export interface BattleState {
   kind: 'battle';
   battleId: string;
   templateId?: string;
+  mapTheme?: string;
   title?: string;
   teams: BattleTeamState[];
   topDonors: BattleDonor[];
@@ -457,14 +502,6 @@ export interface BattleState {
   winnerTeamKey?: string | null;
   endsAtMs: number;
   active: boolean;
-  /**
-   * Media the overlay should render, keyed by the logical name the config uses
-   * (`fx_dragon`, `map_background`, `castle_cat`, …).
-   *
-   * Resolved server-side from the template's assets so the browser source never
-   * has to fetch anything: it holds a public token and no credential that would
-   * let it read a template.
-   */
   assets?: Record<string, string>;
 }
 
@@ -477,12 +514,71 @@ export type OverlayState = GoalState | PkState | BattleState;
  * template does not supply falls back to a built-in drawing rather than leaving
  * a hole on the broadcast.
  */
+/**
+ * How a troop sprite sheet is laid out.
+ *
+ * Frames run left to right in a single row, each frame square. The count is
+ * derived from `width / height` rather than declared in config: an artist who
+ * exports a different number of frames should not have to remember to update a
+ * JSON field, and a mismatch there would show as a sheet that animates wrong
+ * with nothing pointing at why.
+ */
+export const SPRITE_SHEET = {
+  /** Frames per second the walk cycle plays at. */
+  FPS: 8,
+  /** Sheets wider than this many frames are almost certainly not a sheet. */
+  MAX_FRAMES: 24,
+} as const;
+
+/** Castle artwork tiers, picked by remaining hit points. */
+export const CASTLE_DAMAGE_TIERS = [
+  { suffix: '', minHpPercent: 0.66 },
+  { suffix: '_damaged', minHpPercent: 0.33 },
+  { suffix: '_ruined', minHpPercent: 0 },
+] as const;
+
+/**
+ * Asset key for a castle at its current health.
+ *
+ * Falls back through the tiers so a template that only supplies the intact
+ * artwork still renders — a missing damaged sprite must not blank the castle
+ * at the exact moment it is being attacked.
+ */
+export function castleAssetKey(
+  teamKey: string,
+  hp: number,
+  maxHp: number,
+  assets: Record<string, string> | undefined,
+): string | undefined {
+  if (!assets) return undefined;
+  const ratio = maxHp > 0 ? Math.max(0, Math.min(1, hp / maxHp)) : 1;
+
+  const tier = CASTLE_DAMAGE_TIERS.find((t) => ratio >= t.minHpPercent) ?? CASTLE_DAMAGE_TIERS[2];
+  const ordered = [tier, ...CASTLE_DAMAGE_TIERS.filter((t) => t !== tier)];
+
+  for (const candidate of ordered) {
+    const key = `castle_${teamKey}${candidate.suffix}`;
+    if (assets[key]) return assets[key];
+  }
+  return undefined;
+}
+
+/** Sprite sheet for a kingdom's foot soldiers, if the template supplies one. */
+export function troopSpriteUrl(
+  teamKey: string,
+  assets: Record<string, string> | undefined,
+): string | undefined {
+  return assets?.[`sprite_troop_${teamKey}`];
+}
+
 export const BATTLE_ASSET_KEYS = {
   MAP_BACKGROUND: 'map_background',
   /** `castle_<teamKey>`, optionally suffixed `_damaged` / `_ruined`. */
   CASTLE_PREFIX: 'castle_',
   /** `fx_<actionKey>` — the WebM-with-alpha cinematic for a big skill. */
   FX_PREFIX: 'fx_',
+  /** `sprite_troop_<teamKey>` — horizontal walk-cycle sheet. */
+  TROOP_SPRITE_PREFIX: 'sprite_troop_',
 } as const;
 
 /**

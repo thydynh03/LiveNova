@@ -1,6 +1,8 @@
 'use client';
 
 import React, { useEffect, useImperativeHandle, useRef, forwardRef } from 'react';
+import { SPRITE_SHEET } from '@livenova/shared';
+import { getImage } from '../../lib/image-cache';
 import { CASTLE_ANCHORS, CLASH_POINT, type LaneKey } from './BattleMap';
 
 /**
@@ -29,6 +31,8 @@ export interface Troop {
   speed: number;
   /** Small vertical scatter so a squad does not march as one dot. */
   offset: number;
+  /** Walk-cycle sheet for this kingdom, when the template supplies one. */
+  spriteUrl?: string;
 }
 
 export interface TroopCanvasHandle {
@@ -114,7 +118,7 @@ export const TroopCanvas = forwardRef<TroopCanvasHandle, Props>(function TroopCa
         const y =
           ((from.y + (CLASH_POINT.y - from.y) * progress) / 100) * height + troop.offset;
 
-        drawUnit(ctx, x, y, troop);
+        drawUnit(ctx, x, y, troop, now);
         survivors.push({ ...troop, progress });
       }
       troopsRef.current = survivors;
@@ -149,17 +153,61 @@ export const TroopCanvas = forwardRef<TroopCanvasHandle, Props>(function TroopCa
 /**
  * One unit.
  *
- * Drawn rather than blitted from a sprite sheet: there is no sprite sheet yet,
- * and a shape that reads correctly beats a placeholder image that does not.
- * Swapping this for `drawImage` later touches only this function.
+ * Blits a frame from the kingdom's walk-cycle sheet when the template supplies
+ * one, and falls back to a drawn shape otherwise. The fallback is not a
+ * placeholder to be embarrassed about: a template with no artwork still has to
+ * produce a readable battle, and a shape that reads correctly beats a missing
+ * image.
  */
-function drawUnit(ctx: CanvasRenderingContext2D, x: number, y: number, troop: Troop) {
+function drawUnit(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  troop: Troop,
+  now: number,
+) {
   const big = troop.type === 'meteor' || troop.type === 'dragon' || troop.type === 'cannon';
+  const sheet = getImage(troop.spriteUrl);
+
+  if (sheet && sheet.height > 0) {
+    // Frames run left to right and are square, so the count comes from the
+    // aspect ratio. Asking an artist to also declare it in JSON is one more
+    // thing to get out of sync, and a mismatch would animate wrong with
+    // nothing pointing at why.
+    const frames = Math.max(
+      1,
+      Math.min(SPRITE_SHEET.MAX_FRAMES, Math.round(sheet.width / sheet.height)),
+    );
+    // Offset by id so a squad of three does not step in perfect unison.
+    const phase = troop.id.length;
+    const frame = Math.floor((now / 1000) * SPRITE_SHEET.FPS + phase) % frames;
+    const frameWidth = sheet.width / frames;
+    const size = big ? 54 : 30;
+
+    ctx.save();
+    if (big) {
+      ctx.shadowColor = troop.colour;
+      ctx.shadowBlur = 16;
+    }
+    ctx.drawImage(
+      sheet,
+      frame * frameWidth,
+      0,
+      frameWidth,
+      sheet.height,
+      x - size / 2,
+      y - size / 2,
+      size,
+      size,
+    );
+    ctx.restore();
+    return;
+  }
+
   const radius = big ? 9 : 4.5;
 
   ctx.save();
-
-  // Glow, so a unit stays visible over any background the map happens to use.
+  // Glow, so a unit stays visible over whatever background the map uses.
   ctx.shadowColor = troop.colour;
   ctx.shadowBlur = big ? 18 : 8;
 

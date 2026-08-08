@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback, Suspense } from 'react';
 import { api } from '../../../../lib/api-client';
-import { BattleState, BattleTeamState } from '@livenova/shared';
+import { BattleState, BattleTeamState, BATTLE_MAP_PRESETS } from '@livenova/shared';
 import { BattleOverlayContent } from '../../../../components/battle/BattleOverlayContent';
 import { Icon } from '../../../../components/ui/Icon';
 import { useAuth } from '../../../../context/AuthContext';
@@ -15,6 +15,7 @@ export default function BattleSimulatorPage() {
   const [sender, setSender] = useState('@meo_cutee');
   const [copied, setCopied] = useState(false);
   const [simulating, setSimulating] = useState(false);
+  const [switchingMap, setSwitchingMap] = useState(false);
   const [publicToken, setPublicToken] = useState<string | null>(null);
 
   const fetchState = useCallback(async () => {
@@ -68,6 +69,20 @@ export default function BattleSimulatorPage() {
     }
   };
 
+  const handleMapChange = async (mapThemeId: string) => {
+    setSwitchingMap(true);
+    try {
+      const updated = await api.post<BattleState>('/battle/map-theme', {
+        mapTheme: mapThemeId,
+      });
+      setBattleState(updated);
+    } catch (err) {
+      console.error('Map switch error:', err);
+    } finally {
+      setSwitchingMap(false);
+    }
+  };
+
   const handleReset = async () => {
     if (!confirm('Bạn có chắc muốn đặt lại toàn bộ hiệp đấu 4 Vương Quốc?')) return;
     try {
@@ -98,6 +113,8 @@ export default function BattleSimulatorPage() {
       maxHp: 1000,
       giftNames: [],
     };
+
+  const activeMapId = battleState?.mapTheme || 'fantasy_kingdoms';
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', minHeight: '100%' }}>
@@ -133,7 +150,7 @@ export default function BattleSimulatorPage() {
             </h1>
           </div>
           <p style={{ margin: '0.25rem 0 0', fontSize: '0.875rem', color: 'hsl(var(--muted-foreground))' }}>
-            Trình mô phỏng chiến sự chia 4 phe (Mèo 🐱 vs Chó 🐶 vs Gấu 🐻 vs Capybara 🦫), triệu hồi rồng nước, ném bom và bắn đại bác.
+            Trình mô phỏng chiến sự chia 4 phe (Mèo 🐱 vs Chó 🐶 vs Gấu 🐻 vs Capybara 🦫), hỗ trợ đổi bản đồ AI Gen, triệu hồi rồng nước, ném bom và bắn đại bác.
           </p>
         </div>
 
@@ -205,6 +222,91 @@ export default function BattleSimulatorPage() {
             <Icon name="preview" size={16} />
             <span>Mở toàn màn hình OBS</span>
           </a>
+        </div>
+      </div>
+
+      {/* ── MAP THEME SELECTOR TOOLBAR ──────────────────────────────────────── */}
+      <div
+        className="card"
+        style={{
+          background: 'hsl(var(--card))',
+          border: '1px solid hsl(var(--border))',
+          padding: '1rem',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '0.75rem',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <span style={{ fontSize: '1.25rem' }}>🗺️</span>
+            <strong style={{ fontSize: '0.95rem', color: 'hsl(var(--foreground))' }}>
+              Chọn Bản Đồ Chiến Trường (AI Gen Map Themes)
+            </strong>
+          </div>
+          <span style={{ fontSize: '0.78rem', color: 'hsl(var(--muted-foreground))' }}>
+            {switchingMap ? 'Đang cập nhật bản đồ...' : 'Thay đổi ngay lập tức trên OBS & Livestream'}
+          </span>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '0.75rem' }}>
+          {BATTLE_MAP_PRESETS.map((preset) => {
+            const isActive = activeMapId === preset.id;
+            return (
+              <button
+                key={preset.id}
+                type="button"
+                disabled={switchingMap}
+                onClick={() => handleMapChange(preset.id)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.75rem',
+                  padding: '0.625rem',
+                  borderRadius: 'var(--radius)',
+                  border: isActive ? '2px solid hsl(var(--primary))' : '1px solid hsl(var(--border))',
+                  background: isActive ? 'hsl(var(--accent-surface))' : 'hsl(var(--background))',
+                  boxShadow: isActive ? '0 0 16px hsl(var(--primary) / 0.25)' : 'none',
+                  cursor: 'pointer',
+                  textAlign: 'left',
+                  transition: 'all 0.15s ease',
+                }}
+              >
+                <div style={{ position: 'relative', width: 64, height: 48, borderRadius: 'var(--radius-sm)', overflow: 'hidden', flexShrink: 0 }}>
+                  <img
+                    src={preset.thumbnail}
+                    alt={preset.name}
+                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                  />
+                  {isActive && (
+                    <div
+                      style={{
+                        position: 'absolute',
+                        inset: 0,
+                        background: 'rgba(124, 58, 237, 0.4)',
+                        display: 'grid',
+                        placeItems: 'center',
+                        color: '#fff',
+                        fontSize: '0.75rem',
+                        fontWeight: 800,
+                      }}
+                    >
+                      ✓
+                    </div>
+                  )}
+                </div>
+
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: '0.85rem', fontWeight: 700, color: isActive ? 'hsl(var(--primary-hover))' : 'hsl(var(--foreground))', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {preset.name}
+                  </div>
+                  <div style={{ fontSize: '0.72rem', color: 'hsl(var(--muted-foreground))', marginTop: '0.15rem', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                    {preset.description}
+                  </div>
+                </div>
+              </button>
+            );
+          })}
         </div>
       </div>
 
@@ -400,7 +502,7 @@ export default function BattleSimulatorPage() {
             </div>
           </div>
 
-          {/* 3. Skill & Gift Actions (6 Cards corresponding to TikTok Gifts) */}
+          {/* 3. Skill & Gift Actions */}
           <div
             style={{
               background: 'hsl(var(--card))',
