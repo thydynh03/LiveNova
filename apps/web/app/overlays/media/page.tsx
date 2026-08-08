@@ -23,12 +23,27 @@ interface MediaPopupItem {
 function MediaOverlayContent() {
   const searchParams = useSearchParams();
   const token = searchParams.get('token');
-  const customDefaultVideo = searchParams.get('defaultVideo');
+  const customDefaultVideoFromQuery = searchParams.get('defaultVideo');
 
-  // Default idle video that runs continuously on loop when no popup is active
-  const defaultVideoUrl = customDefaultVideo || '/DogDefault.mp4';
-
+  const [overlayDefaultVideo, setOverlayDefaultVideo] = useState<string | null>(null);
   const [activePopup, setActivePopup] = useState<MediaPopupItem | null>(null);
+
+  // Fetch overlay public config by token to retrieve per-user default idle video setting
+  useEffect(() => {
+    if (!token) return;
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api';
+    fetch(`${apiUrl}/public/overlays/${token}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data?.config?.defaultVideo) {
+          setOverlayDefaultVideo(data.config.defaultVideo);
+        }
+      })
+      .catch(() => {});
+  }, [token]);
+
+  // Priority: 1. User config in DB -> 2. URL parameter -> 3. Fallback /DogDefault.mp4
+  const defaultVideoUrl = overlayDefaultVideo || customDefaultVideoFromQuery || '/DogDefault.mp4';
 
   useEffect(() => {
     // Transparent background for OBS chromakey
