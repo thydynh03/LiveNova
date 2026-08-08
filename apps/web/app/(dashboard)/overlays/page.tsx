@@ -180,35 +180,36 @@ function MediaIdleVideoSection({ overlay, reload }: { overlay: Overlay; reload: 
       <label style={{ fontSize: '0.85rem', fontWeight: 600 }}>
         🎥 Video chờ riêng (Chạy khi chưa có donate):
       </label>
-      <div style={{ display: 'flex', gap: '0.375rem' }}>
-        <input
-          type="text"
-          value={videoUrl}
-          onChange={(e) => setVideoUrl(e.target.value)}
-          placeholder="/DogDefault.mp4 hoặc dán Link URL video..."
-          style={{
-            flex: 1,
-            padding: '0.4rem 0.6rem',
-            borderRadius: 'var(--radius)',
-            border: '1px solid hsl(var(--border))',
-            background: 'hsl(var(--background))',
-            color: 'inherit',
-            fontSize: '0.8125rem',
-          }}
-        />
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/*,video/*"
-          onChange={handleFileUpload}
-          style={{ display: 'none' }}
-        />
+      <input
+        type="text"
+        value={videoUrl}
+        onChange={(e) => setVideoUrl(e.target.value)}
+        placeholder="/DogDefault.mp4 hoặc dán Link URL video..."
+        style={{
+          width: '100%',
+          padding: '0.45rem 0.6rem',
+          borderRadius: 'var(--radius)',
+          border: '1px solid hsl(var(--border))',
+          background: 'hsl(var(--background))',
+          color: 'inherit',
+          fontSize: '0.8125rem',
+          boxSizing: 'border-box',
+        }}
+      />
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*,video/*"
+        onChange={handleFileUpload}
+        style={{ display: 'none' }}
+      />
+      <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.2rem' }}>
         <button
           type="button"
           disabled={uploading}
           onClick={() => fileInputRef.current?.click()}
           className="btn btn-secondary"
-          style={{ padding: '0.4rem 0.6rem', fontSize: '0.8125rem', whiteSpace: 'nowrap' }}
+          style={{ flex: 1, padding: '0.4rem 0.5rem', fontSize: '0.8125rem', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.3rem' }}
         >
           {uploading ? 'Đang tải...' : 'Tải video lên'}
         </button>
@@ -217,9 +218,9 @@ function MediaIdleVideoSection({ overlay, reload }: { overlay: Overlay; reload: 
           disabled={saving || videoUrl === currentVideo}
           onClick={handleSave}
           className="btn btn-primary"
-          style={{ padding: '0.4rem 0.75rem', fontSize: '0.8125rem', whiteSpace: 'nowrap' }}
+          style={{ flex: 1, padding: '0.4rem 0.5rem', fontSize: '0.8125rem', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.3rem' }}
         >
-          {saving ? 'Đang lưu...' : 'Lưu'}
+          {saving ? 'Đang lưu...' : 'Lưu video chờ'}
         </button>
       </div>
       {message && (
