@@ -457,9 +457,40 @@ export interface BattleState {
   winnerTeamKey?: string | null;
   endsAtMs: number;
   active: boolean;
+  /**
+   * Media the overlay should render, keyed by the logical name the config uses
+   * (`fx_dragon`, `map_background`, `castle_cat`, …).
+   *
+   * Resolved server-side from the template's assets so the browser source never
+   * has to fetch anything: it holds a public token and no credential that would
+   * let it read a template.
+   */
+  assets?: Record<string, string>;
 }
 
 export type OverlayState = GoalState | PkState | BattleState;
+
+/**
+ * Asset keys the battle renderer looks for.
+ *
+ * Named here so the admin editor, the seed and the renderer agree. A key the
+ * template does not supply falls back to a built-in drawing rather than leaving
+ * a hole on the broadcast.
+ */
+export const BATTLE_ASSET_KEYS = {
+  MAP_BACKGROUND: 'map_background',
+  /** `castle_<teamKey>`, optionally suffixed `_damaged` / `_ruined`. */
+  CASTLE_PREFIX: 'castle_',
+  /** `fx_<actionKey>` — the WebM-with-alpha cinematic for a big skill. */
+  FX_PREFIX: 'fx_',
+} as const;
+
+/**
+ * Which actions are worth interrupting the screen for.
+ *
+ * A soldier arriving every second must not dim the broadcast; a dragon should.
+ */
+export const CINEMATIC_ACTIONS: readonly string[] = ['dragon', 'cannon', 'meteor'];
 
 /**
  * Internal bus event carrying a PK battle scoreboard.

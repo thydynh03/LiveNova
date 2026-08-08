@@ -10,18 +10,26 @@
 
 import { useCallback, useEffect, useState, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { OverlayState, BattleState } from '@livenova/shared';
+import { OverlayState, BattleState, CINEMATIC_ACTIONS } from '@livenova/shared';
 import { useOverlaySocket } from '../../lib/use-overlay-socket';
+import { BattleMap, type LaneKey } from './BattleMap';
+import { TroopCanvas, type TroopCanvasHandle, type Troop } from './TroopCanvas';
+import { SkillCinematic, type CinematicRequest } from './SkillCinematic';
 
-interface MarchingTroop {
-  id: string;
-  teamKey: string;
-  sender: string;
-  progress: number; // 0 to 1 (0 = fortress, 1 = center)
-  lane: 'tl' | 'tr' | 'bl' | 'br';
-  type: 'soldier' | 'bomb' | 'dragon' | 'cannon' | 'meteor' | 'castle';
-  offsetY: number;
-}
+/** Lane each kingdom marches down, and the colour its units are drawn in. */
+const LANE_OF: Record<string, string> = {
+  cat: 'cat',
+  dog: 'dog',
+  bear: 'bear',
+  capy: 'capy',
+};
+
+const TEAM_COLOUR: Record<string, string> = {
+  cat: '#c084fc',
+  dog: '#60a5fa',
+  bear: '#fb923c',
+  capy: '#34d399',
+};
 
 interface Shockwave {
   id: string;
@@ -124,7 +132,9 @@ export function BattleOverlayContent({
   const searchParams = useSearchParams();
   const token = searchParams ? searchParams.get('token') : null;
   const [battle, setBattle] = useState<BattleState>(customState || DEFAULT_4_KINGDOMS_STATE);
-  const [troops, setTroops] = useState<MarchingTroop[]>([]);
+  const troopCanvasRef = useRef<TroopCanvasHandle | null>(null);
+  const [cinematic, setCinematic] = useState<CinematicRequest | null>(null);
+  const cinematicQueueRef = useRef<CinematicRequest[]>([]);
   const [shockwaves, setShockwaves] = useState<Shockwave[]>([]);
   const [floatingTexts, setFloatingTexts] = useState<FloatingText[]>([]);
   const [screenShake, setScreenShake] = useState(false);
@@ -171,36 +181,50 @@ export function BattleOverlayContent({
     if (battle.recentEvents.length > lastEventCountRef.current) {
       const newEvt = battle.recentEvents[0];
       if (newEvt) {
-        let lane: MarchingTroop['lane'] = 'tl';
         let startX = 22;
         let startY = 22;
 
         if (newEvt.teamKey === 'dog') {
-          lane = 'tr';
           startX = 78;
           startY = 22;
         } else if (newEvt.teamKey === 'bear') {
-          lane = 'bl';
           startX = 22;
           startY = 72;
         } else if (newEvt.teamKey === 'capy') {
-          lane = 'br';
           startX = 78;
           startY = 72;
         }
 
-        // Spawn a squad of 3 marching units
-        const newTroops: MarchingTroop[] = Array.from({ length: 3 }).map((_, i) => ({
-          id: `${newEvt.id}_${i}_${Math.random()}`,
+        // Stage 2 of the response: the march. This is where the audience sees
+        // a gift turn into force, so it starts immediately and takes a second
+        // or two rather than snapping to the middle.
+        const colour = TEAM_COLOUR[newEvt.teamKey] ?? '#e2e8f0';
+        const isBig = CINEMATIC_ACTIONS.includes(newEvt.actionKey);
+        const squad: Troop[] = Array.from({ length: isBig ? 6 : 3 }).map((_, i) => ({
+          id: `${newEvt.id}_${i}`,
           teamKey: newEvt.teamKey,
-          sender: newEvt.sender,
-          progress: i * -0.09,
-          lane,
-          type: (newEvt.actionKey as MarchingTroop['type']) || 'soldier',
-          offsetY: (Math.random() - 0.5) * 14,
+          lane: (LANE_OF[newEvt.teamKey] ?? 'cat') as LaneKey,
+          type: newEvt.actionKey || 'soldier',
+          colour,
+          // Negative start staggers the squad so it reads as a column, not a dot.
+          progress: i * -0.08,
+          speed: isBig ? 0.85 : 0.55,
+          offset: (Math.random() - 0.5) * 22,
         }));
+        troopCanvasRef.current?.spawn(squad);
 
-        setTroops((prev) => [...prev.slice(-35), ...newTroops]);
+        // Stage 3 for the expensive tiers: the screen itself reacts. Queued so
+        // two whales in the same second do not fight over the video element.
+        const fxUrl = battle.assets?.[`fx_${newEvt.actionKey}`];
+        if (isBig && fxUrl) {
+          cinematicQueueRef.current.push({
+            id: newEvt.id,
+            actionKey: newEvt.actionKey,
+            videoUrl: fxUrl,
+            senderLabel: `${newEvt.sender} · ${newEvt.giftName ?? ''}`.trim(),
+          });
+          setCinematic((current) => current ?? cinematicQueueRef.current.shift() ?? null);
+        }
 
         // Spawn floating combat text
         const powerText = newEvt.actionKey === 'meteor' ? '☄️ METEOR +999!' : newEvt.actionKey === 'dragon' ? '🐉 DRAGON +99!' : newEvt.actionKey === 'bomb' ? '💣 BOOM +50!' : `+${newEvt.powerAdded} ⚔️`;
@@ -244,24 +268,19 @@ export function BattleOverlayContent({
     lastEventCountRef.current = battle.recentEvents.length;
   }, [battle.recentEvents]);
 
-  // Game Loop: March troops towards center
+  // Housekeeping only. Motion lives in TroopCanvas, driven by
+  // requestAnimationFrame — the old 30ms setInterval re-rendered the whole
+  // React tree 33 times a second while OBS was encoding.
   useEffect(() => {
     const timer = setInterval(() => {
-      setTroops((prev) =>
-        prev
-          .map((t) => ({
-            ...t,
-            progress: t.progress + (t.type === 'meteor' ? 0.04 : t.type === 'dragon' ? 0.03 : t.type === 'bomb' ? 0.025 : 0.015),
-          }))
-          .filter((t) => t.progress < 1.05),
-      );
-
-      // Clean up floating texts older than 1.5s
       setFloatingTexts((prev) => prev.filter((ft) => Date.now() - ft.createdAt < 1500));
-      // Clean up shockwaves older than 1s
       setShockwaves((prev) => prev.filter((sw) => Date.now() - sw.createdAt < 1000));
-    }, 30);
+    }, 200);
     return () => clearInterval(timer);
+  }, []);
+
+  const handleCinematicDone = useCallback(() => {
+    setCinematic(cinematicQueueRef.current.shift() ?? null);
   }, []);
 
   // Format time mm:ss
@@ -288,6 +307,13 @@ export function BattleOverlayContent({
         transition: 'transform 0.05s ease',
       }}
     >
+      {/* Layer 1: the battlefield. A template-supplied image when there is
+          one, the built-in SVG otherwise. */}
+      <BattleMap backgroundUrl={battle.assets?.map_background} />
+
+      {/* Layer 4: the moment an expensive gift buys. */}
+      <SkillCinematic request={cinematic} onDone={handleCinematicDone} />
+
       <style>{`
         @keyframes runeSpin {
           from { transform: rotate(0deg); }
@@ -1022,87 +1048,9 @@ export function BattleOverlayContent({
           zIndex: 35,
         }}
       >
-        {troops.map((t) => {
-          let startX = 22;
-          let startY = 22;
-          if (t.lane === 'tr') {
-            startX = 78;
-            startY = 22;
-          } else if (t.lane === 'bl') {
-            startX = 22;
-            startY = 72;
-          } else if (t.lane === 'br') {
-            startX = 78;
-            startY = 72;
-          }
+        {/* Layer 3: every marching unit on one canvas. */}
+        <TroopCanvas ref={troopCanvasRef} />
 
-          const curX = startX + (50 - startX) * Math.max(0, Math.min(1, t.progress));
-          const curY = startY + (50 - startY) * Math.max(0, Math.min(1, t.progress)) + t.offsetY / 10;
-
-          const team = battle.teams.find((tm) => tm.key === t.teamKey) || teamCat;
-          const isCat = t.teamKey === 'cat';
-          const isDog = t.teamKey === 'dog';
-          const isBear = t.teamKey === 'bear';
-
-          const icon =
-            t.type === 'meteor'
-              ? '☄️'
-              : t.type === 'cannon'
-                ? '💥'
-                : t.type === 'dragon'
-                  ? '🐉'
-                  : t.type === 'bomb'
-                    ? '💣'
-                    : isCat
-                      ? '🐱⚔️'
-                      : isDog
-                        ? '🐶🔫'
-                        : isBear
-                          ? '🐻🪓'
-                          : '🦫🛡️';
-
-          return (
-            <div
-              key={t.id}
-              style={{
-                position: 'absolute',
-                left: `${curX}%`,
-                top: `${curY}%`,
-                transform: 'translate(-50%, -50%)',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                transition: 'all 0.03s linear',
-              }}
-            >
-              {/* Sender Tag */}
-              <div
-                style={{
-                  background: team?.color || '#c084fc',
-                  color: '#000000',
-                  padding: '1px 4px',
-                  borderRadius: 4,
-                  fontSize: '0.55rem',
-                  fontWeight: 800,
-                  whiteSpace: 'nowrap',
-                  boxShadow: '0 2px 5px rgba(0,0,0,0.6)',
-                }}
-              >
-                {t.sender}
-              </div>
-
-              {/* Sprite Icon */}
-              <div
-                style={{
-                  fontSize: t.type === 'meteor' ? '2.5rem' : t.type === 'dragon' ? '2.2rem' : t.type === 'bomb' ? '1.8rem' : '1.4rem',
-                  filter: `drop-shadow(0 0 6px ${team?.color || '#fff'})`,
-                }}
-              >
-                {icon}
-              </div>
-            </div>
-          );
-        })}
 
         {/* Floating Combat Text */}
         {floatingTexts.map((ft) => (

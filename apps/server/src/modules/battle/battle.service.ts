@@ -196,6 +196,7 @@ export class BattleService implements OnModuleInit, OnModuleDestroy {
 
       for (const row of rows) {
         const config = row.configSnapshot as unknown as TeamBattleConfig;
+        const assets = await this.loadAssets(row.templateId);
         const teams = KINGDOM_WAR_DEFAULT_TEAMS.map((t) => {
           const saved = row.scores.find((sc) => sc.teamKey === t.key);
           return {
@@ -228,6 +229,7 @@ export class BattleService implements OnModuleInit, OnModuleDestroy {
             winnerTeamKey: row.winnerTeamKey,
             endsAtMs: row.endsAt.getTime(),
             active: true,
+            assets,
           },
         });
       }
@@ -238,6 +240,28 @@ export class BattleService implements OnModuleInit, OnModuleDestroy {
     } catch (err) {
       // A restore failure must not stop the server booting; new battles still work.
       this.logger.error(`Khong khoi phuc duoc tran dang chay: ${message(err)}`);
+    }
+  }
+
+  /**
+   * Template media as a flat `key -> url` map.
+   *
+   * Returns an empty map rather than throwing: a template with no artwork
+   * yet still has to produce a playable round, and the renderer falls back to
+   * its built-in drawings.
+   */
+  private async loadAssets(templateId: string | null): Promise<Record<string, string>> {
+    if (!templateId) return {};
+
+    try {
+      const rows = await this.prisma.templateAsset.findMany({
+        where: { templateId },
+        select: { key: true, url: true },
+      });
+      return Object.fromEntries(rows.map((a) => [a.key, a.url]));
+    } catch (err) {
+      this.logger.warn(`Khong tai duoc media cua mau ${templateId}: ${message(err)}`);
+      return {};
     }
   }
 
@@ -361,6 +385,11 @@ export class BattleService implements OnModuleInit, OnModuleDestroy {
     });
 
     const config: TeamBattleConfig = (applied?.config as unknown as TeamBattleConfig) || DEFAULT_CONFIG;
+
+    // Media travels with the state. The browser source authenticates with a
+    // public token and has no credential that would let it read a template, so
+    // it cannot fetch these itself.
+    const assets = await this.loadAssets(applied?.templateId ?? null);
     const initialTeams: BattleTeamState[] = KINGDOM_WAR_DEFAULT_TEAMS.map((t) => ({ ...t }));
 
     const durationSec = config.battle?.durationSec ?? 1800;
@@ -397,6 +426,7 @@ export class BattleService implements OnModuleInit, OnModuleDestroy {
       winnerTeamKey: null,
       endsAtMs: endsAt.getTime(),
       active: true,
+      assets,
     };
 
     this.battles.set(userId, {
