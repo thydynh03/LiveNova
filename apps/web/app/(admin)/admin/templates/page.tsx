@@ -6,17 +6,22 @@ import { api } from '../../../../lib/api-client';
 import { LoadingState, ErrorState, EmptyState } from '../../../../components/common/States';
 import { Icon } from '../../../../components/ui/Icon';
 import { ConfirmAction } from '../../../../components/common/ConfirmAction';
+import { TemplateEditorModal, type TemplateData } from '../../../../components/templates/TemplateEditorModal';
+import { TemplateAssetManager } from '../../../../components/templates/TemplateAssetManager';
+import type { TeamBattleConfig } from '@livenova/shared';
 
 interface AdminTemplate {
   id: string;
   slug: string | null;
   kind: 'GAME' | 'MEDIA_PACK' | 'RULE_PACK';
-  gameMode: string | null;
+  gameMode: 'TEAM_BATTLE' | null;
   name: string;
   description: string | null;
+  thumbnailUrl: string | null;
   published: boolean;
-  config: Record<string, unknown>;
-  assets: { id: string; key: string; url: string; mediaType: string }[];
+  config: unknown;
+  editableFields: string[];
+  assets: { id: string; key: string; url: string; mediaType: string; createdAt: string }[];
   _count: { applied: number };
 }
 
@@ -24,7 +29,11 @@ export default function AdminTemplatesPage() {
   const { data, loading, error, reload } = useApi<AdminTemplate[]>('/admin/templates');
   const [busyId, setBusyId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
-  const [creating, setCreating] = useState(false);
+
+  // Modals state
+  const [editorModalOpen, setEditorModalOpen] = useState(false);
+  const [editingTemplate, setEditingTemplate] = useState<TemplateData | null>(null);
+  const [assetManagerTemplate, setAssetManagerTemplate] = useState<AdminTemplate | null>(null);
 
   async function togglePublished(template: AdminTemplate) {
     setActionError(null);
@@ -35,9 +44,6 @@ export default function AdminTemplatesPage() {
       });
       reload();
     } catch (err) {
-      // Publishing re-validates the config, so this is where a broken template
-      // is most likely to be caught. The message from the server lists every
-      // problem at once.
       setActionError(err instanceof Error ? err.message : 'Không đổi được trạng thái');
     } finally {
       setBusyId(null);
@@ -57,17 +63,42 @@ export default function AdminTemplatesPage() {
     }
   }
 
+  function handleOpenCreate() {
+    setEditingTemplate(null);
+    setEditorModalOpen(true);
+  }
+
+  function handleOpenEdit(template: AdminTemplate) {
+    setEditingTemplate({
+      id: template.id,
+      kind: template.kind,
+      gameMode: template.gameMode,
+      name: template.name,
+      description: template.description,
+      thumbnailUrl: template.thumbnailUrl,
+      config: template.config,
+      editableFields: template.editableFields,
+      published: template.published,
+      assets: template.assets,
+    });
+    setEditorModalOpen(true);
+  }
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
-        <h1 style={{ fontSize: '1.5rem', fontWeight: 700, flex: 1 }}>Mẫu</h1>
-        <button type="button" className="btn btn-primary" onClick={() => setCreating((v) => !v)}>
-          <Icon name={creating ? 'close' : 'plus'} size={16} />
-          {creating ? 'Đóng' : 'Tạo mẫu'}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap' }}>
+        <div>
+          <h1 style={{ fontSize: '1.5rem', fontWeight: 700, margin: 0 }}>Kho mẫu hệ thống</h1>
+          <p style={{ color: 'hsl(var(--muted-foreground))', fontSize: '0.85rem', marginTop: '0.25rem' }}>
+            Tạo và cấu hình các bộ game, kịch bản phản ứng hoặc hiệu ứng để streamer áp dụng trực tiếp.
+          </p>
+        </div>
+
+        <button type="button" className="btn btn-primary" onClick={handleOpenCreate}>
+          <Icon name="plus" size={16} />
+          Tạo mẫu mới
         </button>
       </div>
-
-      {creating && <CreateTemplateForm onCreated={() => { setCreating(false); reload(); }} />}
 
       {actionError && (
         <p role="alert" style={{ color: 'hsl(var(--destructive))', whiteSpace: 'pre-wrap' }}>
@@ -80,232 +111,243 @@ export default function AdminTemplatesPage() {
       {!loading && !error && (data?.length ?? 0) === 0 && (
         <EmptyState
           title="Chưa có mẫu nào"
-          description="Tạo mẫu đầu tiên, hoặc chạy seed để nạp ba mẫu khởi đầu."
+          description="Tạo mẫu đầu tiên hoặc chạy seed để nạp các mẫu khởi đầu."
         />
       )}
 
-      <div style={{ display: 'grid', gap: '0.75rem' }}>
-        {data?.map((template) => (
-          <article key={template.id} className="card" style={{ display: 'grid', gap: '0.6rem' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
-              <strong style={{ fontSize: '1.05rem', flex: '1 1 200px' }}>{template.name}</strong>
+      <div style={{ display: 'grid', gap: '1rem' }}>
+        {data?.map((template) => {
+          const isGame = template.kind === 'GAME';
+          const battleConfig = isGame ? (template.config as TeamBattleConfig) : null;
 
-              <span
-                style={{
-                  fontSize: '0.72rem',
-                  fontWeight: 700,
-                  padding: '0.15rem 0.5rem',
-                  borderRadius: 'var(--radius-sm)',
-                  border: `1px solid ${
-                    template.published ? 'hsl(var(--success))' : 'hsl(var(--muted-foreground))'
-                  }`,
-                  color: template.published
-                    ? 'hsl(var(--success))'
-                    : 'hsl(var(--muted-foreground))',
-                }}
-              >
-                {template.published ? 'ĐANG HIỆN' : 'BẢN NHÁP'}
-              </span>
-
-              <span
-                className="tabular"
-                style={{ fontSize: '0.8rem', color: 'hsl(var(--muted-foreground))' }}
-              >
-                {template._count.applied} người dùng
-              </span>
-            </div>
-
-            {template.description && (
-              <p style={{ color: 'hsl(var(--muted-foreground))', fontSize: '0.9rem' }}>
-                {template.description}
-              </p>
-            )}
-
-            <div
+          return (
+            <article
+              key={template.id}
+              className="card"
               style={{
-                fontSize: '0.78rem',
-                color: 'hsl(var(--muted-foreground))',
-                fontFamily: 'var(--font-mono), monospace',
+                display: 'grid',
+                gap: '0.85rem',
+                border: '1px solid hsl(var(--border))',
+                backgroundColor: 'hsl(var(--card))',
               }}
             >
-              {template.kind}
-              {template.gameMode ? ` · ${template.gameMode}` : ''}
-              {template.slug ? ` · ${template.slug}` : ''}
-              {template.assets.length > 0 ? ` · ${template.assets.length} asset` : ''}
-            </div>
+              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+                  <div
+                    style={{
+                      width: '40px',
+                      height: '40px',
+                      borderRadius: 'var(--radius)',
+                      backgroundColor: 'hsl(var(--secondary))',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: 'hsl(var(--primary))',
+                      flexShrink: 0,
+                    }}
+                  >
+                    <Icon
+                      name={template.kind === 'GAME' ? 'versus' : template.kind === 'RULE_PACK' ? 'rule' : 'spark'}
+                      size={20}
+                    />
+                  </div>
 
-            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-              <button
-                type="button"
-                className="btn btn-secondary"
-                onClick={() => togglePublished(template)}
-                disabled={busyId === template.id}
-              >
-                <Icon name={template.published ? 'eyeSlash' : 'eye'} size={16} />
-                {template.published ? 'Ẩn đi' : 'Cho hiện'}
-              </button>
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                      <strong style={{ fontSize: '1.1rem' }}>{template.name}</strong>
+                      <span
+                        style={{
+                          fontSize: '0.7rem',
+                          fontWeight: 700,
+                          padding: '0.15rem 0.5rem',
+                          borderRadius: 'var(--radius-sm)',
+                          border: `1px solid ${
+                            template.published ? 'hsl(var(--success))' : 'hsl(var(--muted-foreground))'
+                          }`,
+                          color: template.published
+                            ? 'hsl(var(--success))'
+                            : 'hsl(var(--muted-foreground))',
+                          backgroundColor: template.published
+                            ? 'hsl(var(--success) / 0.1)'
+                            : 'hsl(var(--muted) / 0.3)',
+                        }}
+                      >
+                        {template.published ? 'ĐANG HIỆN' : 'BẢN NHÁP'}
+                      </span>
+                    </div>
 
-              {/* Deleting is refused server-side while anyone is using it, so the
-                  control is hidden rather than offered and then rejected. */}
-              {template._count.applied === 0 && (
-                <ConfirmAction
-                  label="Xoá"
-                  question="Xoá hẳn mẫu này?"
-                  confirmLabel="Xoá"
-                  busyLabel="Đang xoá…"
-                  onConfirm={() => remove(template)}
-                  disabled={busyId === template.id}
-                />
+                    <div
+                      style={{
+                        fontSize: '0.75rem',
+                        color: 'hsl(var(--muted-foreground))',
+                        fontFamily: 'var(--font-mono), monospace',
+                        marginTop: '0.2rem',
+                      }}
+                    >
+                      {template.kind}
+                      {template.gameMode ? ` · ${template.gameMode}` : ''}
+                      {template.slug ? ` · [slug: ${template.slug}]` : ''}
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                  <span
+                    className="tabular"
+                    style={{
+                      fontSize: '0.8rem',
+                      padding: '0.25rem 0.6rem',
+                      borderRadius: 'var(--radius-sm)',
+                      backgroundColor: 'hsl(var(--secondary))',
+                      color: 'hsl(var(--muted-foreground))',
+                    }}
+                  >
+                    <Icon name="user" size={14} style={{ display: 'inline', verticalAlign: 'middle', marginRight: '4px' }} />
+                    {template._count.applied} streamer đang dùng
+                  </span>
+                </div>
+              </div>
+
+              {template.description && (
+                <p style={{ color: 'hsl(var(--muted-foreground))', fontSize: '0.88rem', margin: 0 }}>
+                  {template.description}
+                </p>
               )}
-            </div>
-          </article>
-        ))}
+
+              {/* GAME BATTLE PREVIEW SUMMARY */}
+              {isGame && battleConfig?.teams && (
+                <div
+                  style={{
+                    backgroundColor: 'hsl(var(--secondary) / 0.4)',
+                    padding: '0.75rem 1rem',
+                    borderRadius: 'var(--radius-sm)',
+                    border: '1px solid hsl(var(--border))',
+                    display: 'grid',
+                    gap: '0.5rem',
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.8rem' }}>
+                    <span style={{ fontWeight: 600 }}>
+                      Sàn đấu {battleConfig.teams.length} phe tham chiến:
+                    </span>
+                    <span style={{ color: 'hsl(var(--muted-foreground))' }}>
+                      Thời lượng: {Math.round((battleConfig.battle?.durationSec ?? 1200) / 60)} phút · {battleConfig.actions?.length ?? 0} bậc hoả lực
+                    </span>
+                  </div>
+
+                  <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                    {battleConfig.teams.map((t, idx) => (
+                      <div
+                        key={idx}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.4rem',
+                          padding: '0.25rem 0.6rem',
+                          borderRadius: 'var(--radius-sm)',
+                          backgroundColor: 'hsl(var(--card))',
+                          border: `1px solid ${t.color || 'hsl(var(--border))'}`,
+                          fontSize: '0.78rem',
+                        }}
+                      >
+                        <span
+                          style={{
+                            width: '10px',
+                            height: '10px',
+                            borderRadius: '50%',
+                            backgroundColor: t.color || '#a78bfa',
+                          }}
+                        />
+                        <strong>{t.name || t.key}</strong>
+                        <span style={{ color: 'hsl(var(--muted-foreground))', fontSize: '0.72rem' }}>
+                          ({(t.giftNames || []).join(', ') || 'Chưa gán quà'})
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* ACTION BUTTONS */}
+              <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center', borderTop: '1px solid hsl(var(--border))', paddingTop: '0.75rem' }}>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => handleOpenEdit(template)}
+                  disabled={busyId === template.id}
+                  style={{ fontSize: '0.82rem' }}
+                >
+                  <Icon name="settings" size={15} />
+                  Sửa cấu hình
+                </button>
+
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => setAssetManagerTemplate(template)}
+                  disabled={busyId === template.id}
+                  style={{ fontSize: '0.82rem' }}
+                >
+                  <Icon name="spark" size={15} />
+                  Tài nguyên ({template.assets.length})
+                </button>
+
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => togglePublished(template)}
+                  disabled={busyId === template.id}
+                  style={{ fontSize: '0.82rem' }}
+                >
+                  <Icon name={template.published ? 'eyeSlash' : 'eye'} size={15} />
+                  {template.published ? 'Ẩn đi' : 'Phát hành'}
+                </button>
+
+                {template._count.applied === 0 && (
+                  <div style={{ marginLeft: 'auto' }}>
+                    <ConfirmAction
+                      label="Xoá"
+                      question={`Xoá hẳn mẫu "${template.name}" khỏi hệ thống?`}
+                      confirmLabel="Xoá"
+                      busyLabel="Đang xoá…"
+                      onConfirm={() => remove(template)}
+                      disabled={busyId === template.id}
+                    />
+                  </div>
+                )}
+              </div>
+            </article>
+          );
+        })}
       </div>
+
+      {/* Template Create / Edit Modal */}
+      {editorModalOpen && (
+        <TemplateEditorModal
+          initialData={editingTemplate}
+          onSaved={() => {
+            setEditorModalOpen(false);
+            reload();
+          }}
+          onClose={() => setEditorModalOpen(false)}
+        />
+      )}
+
+      {/* Asset Manager Modal */}
+      {assetManagerTemplate && (
+        <TemplateAssetManager
+          templateId={assetManagerTemplate.id}
+          templateName={assetManagerTemplate.name}
+          assets={assetManagerTemplate.assets}
+          onChanged={() => {
+            reload();
+            // Update local open state if template reloaded
+            const updated = data?.find((t) => t.id === assetManagerTemplate.id);
+            if (updated) setAssetManagerTemplate(updated);
+          }}
+          onClose={() => setAssetManagerTemplate(null)}
+        />
+      )}
     </div>
   );
 }
-
-/**
- * Minimal creation form: kind, name, and the config as JSON.
- *
- * A visual editor for the battle config belongs with the game itself — until
- * that engine exists there is nothing for it to edit, and building it now would
- * mean guessing at fields that are still being decided.
- */
-function CreateTemplateForm({ onCreated }: { onCreated: () => void }) {
-  const [kind, setKind] = useState<'RULE_PACK' | 'MEDIA_PACK' | 'GAME'>('RULE_PACK');
-  const [name, setName] = useState('');
-  const [description, setDescription] = useState('');
-  const [config, setConfig] = useState('{\n  "rules": []\n}');
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  async function submit(e: React.FormEvent) {
-    e.preventDefault();
-
-    let parsed: Record<string, unknown>;
-    try {
-      parsed = JSON.parse(config) as Record<string, unknown>;
-    } catch {
-      // Caught here rather than sent to the server: a JSON syntax error has
-      // nothing to do with the template's validity and the server's message
-      // would be less useful than this one.
-      setError('Cấu hình không phải JSON hợp lệ');
-      return;
-    }
-
-    setBusy(true);
-    setError(null);
-    try {
-      await api.post('/admin/templates', {
-        kind,
-        name: name.trim(),
-        description: description.trim() || undefined,
-        gameMode: kind === 'GAME' ? 'TEAM_BATTLE' : undefined,
-        config: parsed,
-      });
-      onCreated();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Tạo mẫu thất bại');
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  return (
-    <form onSubmit={submit} className="card" style={{ display: 'grid', gap: '0.7rem' }}>
-      <strong>Mẫu mới</strong>
-
-      <label htmlFor="t-kind" style={labelStyle}>
-        Loại
-      </label>
-      <select
-        id="t-kind"
-        value={kind}
-        onChange={(e) => {
-          const next = e.target.value as typeof kind;
-          setKind(next);
-          // Seed the editor with the right shape, so the first save is not a
-          // guess at what the server expects.
-          setConfig(
-            next === 'GAME'
-              ? JSON.stringify(BATTLE_SKELETON, null, 2)
-              : next === 'MEDIA_PACK'
-                ? '{\n  "assetKeys": []\n}'
-                : '{\n  "rules": []\n}',
-          );
-        }}
-        style={inputStyle}
-      >
-        <option value="RULE_PACK">Bộ kịch bản</option>
-        <option value="MEDIA_PACK">Bộ hiệu ứng</option>
-        <option value="GAME">Trò chơi</option>
-      </select>
-
-      <label htmlFor="t-name" style={labelStyle}>
-        Tên
-      </label>
-      <input id="t-name" value={name} onChange={(e) => setName(e.target.value)} style={inputStyle} />
-
-      <label htmlFor="t-desc" style={labelStyle}>
-        Mô tả
-      </label>
-      <input
-        id="t-desc"
-        value={description}
-        onChange={(e) => setDescription(e.target.value)}
-        style={inputStyle}
-      />
-
-      <label htmlFor="t-config" style={labelStyle}>
-        Cấu hình (JSON)
-      </label>
-      <textarea
-        id="t-config"
-        value={config}
-        onChange={(e) => setConfig(e.target.value)}
-        rows={12}
-        spellCheck={false}
-        style={{ ...inputStyle, fontFamily: 'var(--font-mono), monospace', fontSize: '0.85rem' }}
-      />
-
-      {error && (
-        <p role="alert" style={{ color: 'hsl(var(--destructive))', whiteSpace: 'pre-wrap' }}>
-          {error}
-        </p>
-      )}
-
-      <button type="submit" className="btn btn-primary" disabled={busy || name.trim() === ''}>
-        {busy ? 'Đang tạo…' : 'Tạo'}
-      </button>
-    </form>
-  );
-}
-
-/** Starting point matching PLAN_GAME_MODES_AND_TEMPLATES.md §4.2. */
-const BATTLE_SKELETON = {
-  teams: [
-    { key: 'cat', name: 'Vương quốc Mèo', color: '#a78bfa', giftNames: ['Rose'] },
-    { key: 'dog', name: 'Vương quốc Chó', color: '#60a5fa', giftNames: ['Finger Heart'] },
-  ],
-  power: { like: 1, share: 3, follow: 10 },
-  energy: { capacity: 30, refillPerSec: 0.5 },
-  freeEventMaxAction: 'castle',
-  actions: [
-    { minPower: 1, key: 'soldier' },
-    { minPower: 10, key: 'castle' },
-    { minPower: 99, key: 'dragon' },
-  ],
-  battle: { durationSec: 1200, showTopDonors: 4 },
-};
-
-const labelStyle: React.CSSProperties = { fontSize: '0.85rem', fontWeight: 600 };
-
-const inputStyle: React.CSSProperties = {
-  minHeight: '44px',
-  padding: '0.6rem 0.9rem',
-  borderRadius: 'var(--radius)',
-  border: '1px solid hsl(var(--input))',
-  background: 'hsl(var(--background))',
-  color: 'inherit',
-};

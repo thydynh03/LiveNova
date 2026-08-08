@@ -89,6 +89,7 @@ export const ICONS = {
   rotate: ArrowClockwise,
   preview: Eye,
   pending: Clock,
+  clock: Clock,
   queue: QueueIcon,
   eye: Eye,
   eyeSlash: EyeSlash,

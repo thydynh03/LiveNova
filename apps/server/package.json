@@ -12,6 +12,7 @@
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
     "prisma:generate": "prisma generate",
+    "prisma:push": "prisma db push --accept-data-loss",
     "prisma:migrate": "prisma migrate dev",
     "prisma:constraints": "psql \"$DIRECT_URL\" -f prisma/sql/001_constraints.sql",
     "prisma:studio": "prisma studio",

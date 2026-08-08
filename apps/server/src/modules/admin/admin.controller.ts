@@ -32,6 +32,11 @@ import { AdjustCreditDto, ListUsersQuery, SetSuspendedDto } from './dto/admin.dt
 export class AdminController {
   constructor(private readonly adminService: AdminService) {}
 
+  @Get('metrics')
+  getMetrics() {
+    return this.adminService.getMetrics();
+  }
+
   @Get('users')
   listUsers(@Query() query: ListUsersQuery) {
     return this.adminService.listUsers(query);

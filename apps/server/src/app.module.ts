@@ -15,6 +15,7 @@ import { WebsocketModule } from './modules/websocket/websocket.module';
 import { UploadModule } from './modules/upload/upload.module';
 import { AdminModule } from './modules/admin/admin.module';
 import { TemplateModule } from './modules/template/template.module';
+import { BattleModule } from './modules/battle/battle.module';
 
 @Module({
   imports: [
@@ -35,6 +36,7 @@ import { TemplateModule } from './modules/template/template.module';
     UploadModule,
     AdminModule,
     TemplateModule,
+    BattleModule,
   ],
   providers: [
     {

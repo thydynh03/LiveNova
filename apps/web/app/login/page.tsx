@@ -12,7 +12,12 @@ const ALLOWED_REDIRECTS = new Set([
   '/tts',
   '/billing',
   '/overlays',
+  '/battle/simulator',
   '/settings/profile',
+  '/admin',
+  '/admin/users',
+  '/admin/templates',
+  '/admin/audit',
 ]);
 
 const inputStyle: React.CSSProperties = {
@@ -27,7 +32,7 @@ const inputStyle: React.CSSProperties = {
 };
 
 function LoginForm() {
-  const { status, signIn } = useAuth();
+  const { status, user, signIn } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -39,11 +44,15 @@ function LoginForm() {
   const [submitting, setSubmitting] = useState(false);
 
   const requested = searchParams.get('next');
-  const destination = requested && ALLOWED_REDIRECTS.has(requested) ? requested : '/dashboard';
+  const defaultTarget = user?.role === 'ADMIN' ? '/admin' : '/dashboard';
+  const destination = requested && ALLOWED_REDIRECTS.has(requested) ? requested : defaultTarget;
 
   useEffect(() => {
-    if (status === 'authenticated') router.replace(destination);
-  }, [status, destination, router]);
+    if (status === 'authenticated') {
+      const target = user?.role === 'ADMIN' && (!requested || !requested.startsWith('/admin')) ? '/admin' : destination;
+      router.replace(target);
+    }
+  }, [status, user, destination, requested, router]);
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -51,7 +60,6 @@ function LoginForm() {
     setSubmitting(true);
     try {
       await signIn(email, password, rememberMe);
-      router.replace(destination);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Đăng nhập thất bại');
     } finally {

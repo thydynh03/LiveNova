@@ -60,6 +60,7 @@ enum OverlayType {
   LEADERBOARD
   ROOM_ENTRY
   MEDIA
+  GAME_BATTLE
 }
 
 enum LiveEventType {
@@ -156,6 +157,7 @@ model Channel {
   platformChannelId String
   handle            String
   avatarUrl         String?
+  broadcastSource   String?
   verified          Boolean       @default(false)
   verificationCode  String?
   isLive            Boolean       @default(false)

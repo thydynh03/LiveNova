@@ -65,6 +65,7 @@ export type TemplateConfig = RulePackConfig | MediaPackConfig | TeamBattleConfig
 
 export const TEMPLATE_LIMITS = {
   MAX_RULES_PER_PACK: 50,
+  MAX_ASSETS_PER_PACK: 50,
   MAX_TEAMS: 8,
   MIN_TEAMS: 2,
   MAX_ACTION_TIERS: 20,

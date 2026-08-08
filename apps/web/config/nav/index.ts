@@ -5,6 +5,7 @@ import type { NavItem } from './types';
 // Do not reorder, reformat, or refactor this file — that is how merge conflicts
 // get manufactured. Ordering on screen comes from NavItem.order, not from here.
 // ─────────────────────────────────────────────────────────────────────────────
+import { battleNav } from './battle.nav';
 import { billingNav } from './billing.nav';
 import { channelsNav } from './channels.nav';
 import { dashboardNav } from './dashboard.nav';
@@ -15,6 +16,7 @@ import { templatesNav } from './templates.nav';
 import { ttsNav } from './tts.nav';
 
 const registry: NavItem[] = [
+  battleNav,
   billingNav,
   channelsNav,
   dashboardNav,

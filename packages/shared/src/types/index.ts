@@ -404,7 +404,62 @@ export interface PkState {
   active: boolean;
 }
 
-export type OverlayState = GoalState | PkState;
+/** One side of a multi-team interactive battle. */
+export interface BattleTeamState {
+  key: string;
+  name: string;
+  color: string;
+  score: number;
+  energy: number;
+  castleHp: number;
+  maxHp: number;
+  giftNames: string[];
+  castleAsset?: string;
+  avatarUrl?: string;
+  quote?: string;
+  motto?: string;
+  position?: 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
+  soldierCount?: number;
+}
+
+/** Top donor contributor to a team in the battle. */
+export interface BattleDonor {
+  username: string;
+  nickname: string;
+  avatarUrl?: string;
+  teamKey: string;
+  totalScore: number;
+}
+
+/** Live combat event triggered during the battle. */
+export interface BattleEventLog {
+  id: string;
+  teamKey: string;
+  sender: string;
+  actionKey: string;
+  giftName?: string;
+  giftCount?: number;
+  powerAdded: number;
+  quote?: string;
+  targetTeamKey?: string;
+  timestamp: number;
+}
+
+/** Continuous state for a GAME_BATTLE overlay. */
+export interface BattleState {
+  kind: 'battle';
+  battleId: string;
+  templateId?: string;
+  title?: string;
+  teams: BattleTeamState[];
+  topDonors: BattleDonor[];
+  recentEvents: BattleEventLog[];
+  winnerTeamKey?: string | null;
+  endsAtMs: number;
+  active: boolean;
+}
+
+export type OverlayState = GoalState | PkState | BattleState;
 
 /**
  * Internal bus event carrying a PK battle scoreboard.

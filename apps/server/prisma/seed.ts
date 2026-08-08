@@ -12,7 +12,7 @@
  *
  * Idempotent: safe to re-run. Templates are matched on `slug`.
  */
-import { PrismaClient, Role, TemplateKind } from '@prisma/client';
+import { PrismaClient, Role, TemplateKind, GameMode } from '@prisma/client';
 // Rule JSON is compared by the shared evaluator, so it must use the shared
 // enums ("gift"), not Prisma's ("GIFT"). They are different vocabularies for
 // different layers and mixing them produces rules that silently never match.
@@ -74,17 +74,23 @@ async function seedAdmin(): Promise<string> {
   return user.id;
 }
 
+interface StarterTemplateDef {
+  slug: string;
+  kind?: TemplateKind;
+  gameMode?: GameMode;
+  name: string;
+  description: string;
+  config: Record<string, unknown>;
+}
+
 /**
- * The three presets that used to live hard-coded in `RuleService.applyPreset`.
- *
- * They are data now, so an admin can change the wording or the gift name
- * without a deploy. `slug` keeps the old `POST /rules/presets/:slug` endpoint
- * working and makes re-running this script idempotent.
+ * The starter templates: Rule packs and interactive Game templates.
  */
-function starterTemplates(assets: string) {
+function starterTemplates(assets: string): StarterTemplateDef[] {
   return [
     {
       slug: 'rose-popup',
+      kind: TemplateKind.RULE_PACK,
       name: 'Cảm ơn khi được tặng Hoa Hồng',
       description: 'Hiện ảnh cảm ơn mỗi khi có người tặng Hoa Hồng.',
       config: {
@@ -112,6 +118,7 @@ function starterTemplates(assets: string) {
     },
     {
       slug: 'dragon-gift',
+      kind: TemplateKind.RULE_PACK,
       name: 'Hiệu ứng siêu quà (từ 1000 xu)',
       description: 'Chạy video hoành tráng khi có món quà lớn.',
       config: {
@@ -139,6 +146,7 @@ function starterTemplates(assets: string) {
     },
     {
       slug: 'comment-welcome',
+      kind: TemplateKind.RULE_PACK,
       name: 'Tự động chào người bình luận',
       description: 'Đọc lời chào khi khán giả gõ "chào", "hi", "hello".',
       config: {
@@ -161,6 +169,41 @@ function starterTemplates(assets: string) {
         ],
       },
     },
+    {
+      slug: 'cat-vs-dog-battle',
+      kind: TemplateKind.GAME,
+      gameMode: GameMode.TEAM_BATTLE,
+      name: 'Đại chiến Vương quốc Mèo vs Chó',
+      description: 'Sàn đấu tương tác 2 phe Mèo và Chó tính điểm theo quà tặng TikTok LIVE.',
+      config: {
+        teams: [
+          {
+            key: 'cat',
+            name: 'Vương quốc Mèo',
+            color: '#a78bfa',
+            castleAsset: 'castle_cat',
+            giftNames: ['Rose', 'Hoa hồng'],
+          },
+          {
+            key: 'dog',
+            name: 'Vương quốc Chó',
+            color: '#60a5fa',
+            castleAsset: 'castle_dog',
+            giftNames: ['Finger Heart', 'Bắn tim'],
+          },
+        ],
+        power: { like: 1, share: 3, follow: 10 },
+        energy: { capacity: 30, refillPerSec: 0.5 },
+        freeEventMaxAction: 'castle',
+        actions: [
+          { minPower: 1, key: 'soldier', asset: 'fx_soldier' },
+          { minPower: 10, key: 'castle', asset: 'fx_castle' },
+          { minPower: 50, key: 'bomb', asset: 'fx_bomb' },
+          { minPower: 99, key: 'dragon', asset: 'fx_dragon' },
+        ],
+        battle: { durationSec: 1200, showTopDonors: 4 },
+      },
+    },
   ];
 }
 
@@ -168,14 +211,18 @@ async function seedTemplates(adminId: string) {
   const assets = publicWebUrl();
 
   for (const template of starterTemplates(assets)) {
+    const kind = template.kind ?? TemplateKind.RULE_PACK;
+    const gameMode = template.gameMode ?? null;
+
     await prisma.template.upsert({
       where: { slug: template.slug },
       create: {
         slug: template.slug,
-        kind: TemplateKind.RULE_PACK,
+        kind,
+        gameMode,
         name: template.name,
         description: template.description,
-        config: template.config,
+        config: template.config as any,
         published: true,
         createdById: adminId,
       },
@@ -184,10 +231,11 @@ async function seedTemplates(adminId: string) {
       update: {
         name: template.name,
         description: template.description,
-        config: template.config,
+        config: template.config as any,
+        gameMode,
       },
     });
-    console.log(`Mẫu: ${template.slug}`);
+    console.log(`Mẫu: ${template.slug} (${kind})`);
   }
 }
 
