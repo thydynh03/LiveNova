@@ -123,6 +123,10 @@ jobs:
           NEXT_TELEMETRY_DISABLED: 1
           NEXT_PUBLIC_API_URL: http://localhost:4001
           NEXT_PUBLIC_WS_URL: ws://localhost:4001
+          # A production build refuses to start without this, so that a deploy
+          # can never ship canonical tags pointing at localhost. CI supplies the
+          # real origin; the hosting platform must set its own.
+          NEXT_PUBLIC_SITE_URL: https://livenova.website
 
   # ─────────────────────────────────────────
   # Go Desktop App (Wails) — vet, test & build
