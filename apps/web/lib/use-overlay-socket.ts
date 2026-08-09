@@ -132,7 +132,10 @@ export function useOverlaySocket(
     setRejectionCode(null);
 
     const socket: Socket = io(`${base}${OVERLAY_SOCKET.NAMESPACE}`, {
-      transports: ['websocket'],
+      // Studio browser sources and HTTPS tunnels do not always permit a direct
+      // WebSocket handshake. Start with polling, then let Socket.IO upgrade to
+      // WebSocket when the embedded browser supports it.
+      transports: ['polling', 'websocket'],
       withCredentials: false,
       query: { token },
       reconnection: true,
