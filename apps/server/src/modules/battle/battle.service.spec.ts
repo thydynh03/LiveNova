@@ -2,6 +2,7 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { LiveEventType } from '@livenova/shared';
 import { BattleService } from './battle.service';
 import { BattleCoordinatorService } from './battle-coordinator.service';
+import { MetricsService } from '../../common/metrics/metrics.service';
 import { PrismaService } from '../../prisma/prisma.service';
 
 describe('BattleService (Kingdom War 4-Way)', () => {
@@ -9,6 +10,7 @@ describe('BattleService (Kingdom War 4-Way)', () => {
   let prisma: PrismaService;
   let emitter: EventEmitter2;
   let coordinator: BattleCoordinatorService;
+  let metrics: MetricsService;
 
   beforeEach(() => {
     prisma = {
@@ -47,7 +49,16 @@ describe('BattleService (Kingdom War 4-Way)', () => {
       forward: jest.fn(),
     } as unknown as BattleCoordinatorService;
 
-    service = new BattleService(prisma, emitter, coordinator);
+    metrics = {
+      setActiveBattles: jest.fn(),
+      socketConnected: jest.fn(),
+      socketDisconnected: jest.fn(),
+      recordFlush: jest.fn(),
+      recordGiftLatency: jest.fn(),
+      render: jest.fn().mockReturnValue(''),
+    } as unknown as MetricsService;
+
+    service = new BattleService(prisma, emitter, coordinator, metrics);
   });
 
   afterEach(() => {
@@ -233,7 +244,7 @@ describe('BattleService (Kingdom War 4-Way)', () => {
         },
       ]);
 
-      const fresh = new BattleService(prisma, emitter, coordinator);
+      const fresh = new BattleService(prisma, emitter, coordinator, metrics);
       fresh.onModuleInit();
       await new Promise((r) => setImmediate(r));
 
@@ -252,7 +263,7 @@ describe('BattleService (Kingdom War 4-Way)', () => {
     it('does not resume a round whose clock has already run out', async () => {
       (prisma.battle.findMany as jest.Mock).mockResolvedValue([]);
 
-      const fresh = new BattleService(prisma, emitter, coordinator);
+      const fresh = new BattleService(prisma, emitter, coordinator, metrics);
       fresh.onModuleInit();
       await new Promise((r) => setImmediate(r));
 

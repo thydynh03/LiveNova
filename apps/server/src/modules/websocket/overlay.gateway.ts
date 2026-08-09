@@ -15,6 +15,7 @@ import {
   OverlayStateDispatch,
 } from '@livenova/shared';
 import { OverlayService } from '../overlay/overlay.service';
+import { MetricsService } from '../../common/metrics/metrics.service';
 
 interface OverlaySocket extends Socket {
   overlayId?: string;
@@ -54,7 +55,10 @@ export class OverlayGateway implements OnGatewayConnection, OnGatewayDisconnect 
 
   private readonly logger = new Logger(OverlayGateway.name);
 
-  constructor(private readonly overlayService: OverlayService) {}
+  constructor(
+    private readonly overlayService: OverlayService,
+    private readonly metrics: MetricsService,
+  ) {}
 
   /** Room holding every overlay belonging to one user. */
   static userRoom(userId: string): string {
@@ -110,11 +114,19 @@ export class OverlayGateway implements OnGatewayConnection, OnGatewayDisconnect 
       config: overlay.config ?? {},
     });
 
+    // Counted only after the token check passes and the rooms are joined, so
+    // the gauge reflects overlays that can actually receive a broadcast rather
+    // than every socket that opened. A frozen overlay with this at zero is a
+    // different bug from a frozen overlay with this at one.
+    this.metrics.socketConnected();
     this.logger.log(`Overlay ${overlay.id} connected (${overlay.type})`);
   }
 
   handleDisconnect(client: OverlaySocket) {
     if (client.overlayId) {
+      // Guarded on overlayId to stay paired with the connect hook: a handshake
+      // rejected before authentication never incremented the gauge.
+      this.metrics.socketDisconnected();
       this.logger.log(`Overlay ${client.overlayId} disconnected`);
     }
   }

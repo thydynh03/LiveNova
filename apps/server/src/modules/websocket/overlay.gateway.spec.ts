@@ -1,6 +1,16 @@
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import { OverlayGateway } from './overlay.gateway';
+import { MetricsService } from '../../common/metrics/metrics.service';
+
+const metrics = {
+  setActiveBattles: jest.fn(),
+  socketConnected: jest.fn(),
+  socketDisconnected: jest.fn(),
+  recordFlush: jest.fn(),
+  recordGiftLatency: jest.fn(),
+  render: jest.fn().mockReturnValue(''),
+} as unknown as MetricsService;
 import { OverlayService } from '../overlay/overlay.service';
 import { OVERLAY_SOCKET, RuleActionType, LiveEventType, OverlayAction } from '@livenova/shared';
 
@@ -50,7 +60,7 @@ describe('OverlayGateway', () => {
 
   beforeEach(() => {
     overlayService = { findByPublicToken: jest.fn() };
-    gateway = new OverlayGateway(overlayService as unknown as OverlayService);
+    gateway = new OverlayGateway(overlayService as unknown as OverlayService, metrics);
 
     emit = jest.fn();
     to = jest.fn().mockReturnValue({ emit });

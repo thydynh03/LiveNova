@@ -20,6 +20,7 @@ import {
 } from '@livenova/shared';
 import { SimulateBattleEventDto } from './dto/battle.dto';
 import { BattleCoordinatorService } from './battle-coordinator.service';
+import { MetricsService } from '../../common/metrics/metrics.service';
 
 type BattleDonorState = BattleState['topDonors'][number];
 
@@ -179,6 +180,7 @@ export class BattleService implements OnModuleInit, OnModuleDestroy {
     private readonly prisma: PrismaService,
     private readonly eventEmitter: EventEmitter2,
     private readonly coordinator: BattleCoordinatorService,
+    private readonly metrics: MetricsService,
   ) {}
 
   onModuleInit() {
@@ -416,8 +418,10 @@ export class BattleService implements OnModuleInit, OnModuleDestroy {
             data: { winnerTeamKey: battle.state.winnerTeamKey ?? null },
           }),
         ]);
+        this.metrics.recordFlush(true);
       } catch (err) {
         // Put it back so the next tick retries rather than losing the round.
+        this.metrics.recordFlush(false);
         this.dirty.add(userId);
         this.logger.error(`Khong luu duoc diem tran ${battle.battleId}: ${message(err)}`);
       }
@@ -461,6 +465,16 @@ export class BattleService implements OnModuleInit, OnModuleDestroy {
   }
 
   private tickEnergyRefill() {
+    // Counts what this instance is responsible for, not what it happens to
+    // hold in memory: a battle whose lease moved elsewhere is another
+    // instance's number now, and double-counting it across a fleet would make
+    // the gauge unreadable.
+    this.metrics.setActiveBattles(
+      [...this.battles.values()].filter(
+        (b) => b.state.active && this.coordinator.isOwner(b.userId),
+      ).length,
+    );
+
     for (const battle of this.battles.values()) {
       // The clock belongs to the owner alone. Two instances ticking the same
       // battle refill energy at twice the configured rate — a bug that looks
@@ -696,6 +710,10 @@ export class BattleService implements OnModuleInit, OnModuleDestroy {
   }
 
   private async simulateEventLocal(userId: string, dto: SimulateBattleEventDto): Promise<BattleState> {
+    // Timed from accepting the gift to pushing the new state. This is the
+    // number a streamer actually feels: the gap between a viewer paying and
+    // the screen reacting.
+    const acceptedAt = Date.now();
     await this.getOrCreateBattle(userId);
     const battle = this.battles.get(userId);
     if (!battle) return this.getOrCreateBattle(userId);
@@ -832,6 +850,7 @@ export class BattleService implements OnModuleInit, OnModuleDestroy {
     // Persisted by the batching timer rather than here.
     this.dirty.add(userId);
     this.broadcastState(userId);
+    this.metrics.recordGiftLatency(Date.now() - acceptedAt);
     return battle.state;
   }
 

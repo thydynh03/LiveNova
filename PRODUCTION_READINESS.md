@@ -16,11 +16,11 @@ thái chứ không phải ở tầng giao diện.
 | 1 | Trạng thái trận trong RAM tiến trình | ✅ Đã chặn phân kỳ bằng quyền sở hữu (xem bên dưới) |
 | 2 | Socket.IO không có Redis adapter | ✅ Đã làm |
 | 3 | Không có migration có phiên bản | ✅ Đã làm |
-| 4 | Hạn mức theo từng streamer | ⬜ Chưa |
-| 5 | Quan sát được trận đấu | ⬜ Chưa |
+| 4 | Hạn mức theo từng streamer | ✅ Đã làm |
+| 5 | Quan sát được trận đấu | ✅ Đã làm |
 | 6 | Ngưỡng tài nguyên overlay | ⬜ Chưa |
-| 7 | Sinh lại 3 sprite sheet | ⬜ Chưa (cần ảnh mới) |
-| 8 | Đo 3D trên máy yếu | ⬜ Chưa |
+| 7 | Sinh lại 3 sprite sheet | ✅ Đã làm (nắn lại từ chính ảnh AI) |
+| 8 | Đo 3D | ⚠️ Đã sửa lỗi không hiển thị; FPS vẫn chưa đo được |
 
 ---
 
@@ -135,7 +135,18 @@ Hướng dẫn baseline cho database đang chạy nằm ở `prisma/migrations/R
 tự đẩy mình vào giới hạn đó và làm hỏng trận của chính họ, trong khi một tài
 khoản lạm dụng vẫn có thể mở nhiều kênh mà không bị chặn.
 
-Cần: hạn mức theo `userId` và theo kênh, tách riêng cho đường ingest quà.
+**Đã làm.** `UserThrottlerGuard` khoá theo `userId` khi có phiên đăng nhập, lùi
+về IP cho lưu lượng ẩn danh (đăng nhập, đăng ký — đúng chỗ cần chặn người chưa
+có tài khoản). Đằng sau proxy thì đọc `x-forwarded-for`, nếu không mọi request
+ẩn danh sẽ bị gộp chung vào địa chỉ của load balancer.
+
+Hai tầng thay vì một: `short` 20 lần/giây chặn cơn bùng phát, `long` 300
+lần/phút là trần bền vững. Một ngưỡng không làm được cả hai — đặt thấp đủ để bắt
+bùng phát thì dùng dashboard bình thường cũng dính, đặt cao đủ để dùng bình
+thường thì một vòng lặp hỏng chạy tự do cả phút.
+
+Lưu lượng overlay được miễn: nguồn OBS tự kết nối lại theo nhịp riêng và xác
+thực bằng token chứ không phải phiên, chặn nó là cắt sóng.
 
 ### 5. Chưa có quan sát được trận đấu
 
@@ -143,7 +154,23 @@ Hiện chỉ có log của Nest. Không có metric nào cho: số trận đang c
 lúc nhận quà tới lúc overlay đổi, tỉ lệ `flush()` lỗi, số socket đang mở.
 
 Khi một streamer báo "overlay đứng", hôm nay không có cách nào trả lời ngoài đọc
-log thủ công. Cần Prometheus metrics + một dashboard tối thiểu bốn chỉ số trên.
+log thủ công.
+
+**Đã làm.** `GET /metrics` ở định dạng Prometheus, đúng bốn chỉ số đó:
+
+- `livenova_battles_active` — trận instance này **đang sở hữu** (không đếm trận
+  đã chuyển lease đi, nếu không cả cụm sẽ đếm trùng)
+- `livenova_gift_to_broadcast_ms` — histogram từ lúc nhận quà tới lúc đẩy state
+- `livenova_battle_flush_total` / `_failures_total`
+- `livenova_overlay_sockets`
+
+Chúng tách được ba kiểu hỏng khác nhau: overlay đứng mà số socket bằng 0 là một
+lỗi khác hẳn overlay đứng khi có socket nhưng không có mẫu độ trễ.
+
+Không dùng `prom-client`: bốn chuỗi số không đáng thêm một phụ thuộc, và định
+dạng phơi bày chỉ là chục dòng ghép chuỗi. Endpoint không cần xác thực và
+**phải giữ nguyên như vậy** — trong đó không có tên người dùng, tên kênh hay nội
+dung quà. Thêm bất cứ thứ gì định danh vào đây là biến nó thành chỗ rò rỉ.
 
 ### 6. Chi phí tài nguyên của overlay chưa có ngưỡng
 
@@ -162,17 +189,34 @@ Chi tiết ở `packages/shared/src/types/index.ts` (`BATTLE_DEFAULT_ASSETS`). C
 khung lưới và chữ "Frame 1 (Contact)" in trong ảnh; gấu là lưới 2 hàng 7 tư thế;
 capy là lưới 3×2. Chỉ mèo đúng dải ngang 6 khung.
 
-Bộ nạp (`components/battle/sprite-sheet-prep.ts`) đã từ chối sheet sai thay vì
-render ra rác, nên hiện cả bốn phe dùng bộ SVG vẽ tay cho đồng bộ. Chỉ cần sinh
-lại 3 file đúng chuẩn **một hàng ngang, không chữ, không viền khung** là đổi
-đường dẫn về `/sprites` — sửa một dòng.
+**Đã làm — nắn lại chính ảnh AI, không sinh ảnh mới.** Tranh vẽ vốn tốt, chỉ bố
+cục sai, nên vứt đi thì phí. Mỗi ảnh được đo rồi dựng lại: dò hàng và cột nhân
+vật theo khoảng trống, tách hai nhân vật dính nhau bằng cách cắt ở cột mỏng
+nhất, xoá nét lưới in trong ảnh (đường xám trung tính chạy suốt chiều cao ô — hạ
+ngưỡng chung sẽ đục thủng mõm trắng của chó, nên phải nhắm riêng), bỏ mảnh vụn
+bằng cách chỉ giữ khối liền mạch lớn nhất mỗi ô, rồi xếp vào 6 ô vuông cùng tỉ
+lệ, canh chân theo một đường đất chung.
+
+Kết quả là `walk_*.png` (900×150, nền trong). Ảnh gốc còn trong git history.
 
 ### 8. Chế độ 3D chưa được kiểm chứng trên máy yếu
 
-`BattleArena3D.tsx` (503 dòng) đã được chuyển sang `next/dynamic` nên three.js
-không còn nằm trong bundle của người dùng 2D. Nhưng chưa ai đo FPS của nó khi
-OBS đang encode. Trước khi quảng bá như một tính năng, cần đo trên máy tầm trung
-và ghi rõ yêu cầu cấu hình.
+**Đo mới phát hiện nó không hiển thị gì cả.** File viết bằng class Tailwind
+(`absolute inset-0 w-full h-full`) trong khi dự án **không có Tailwind** — không
+có config, mọi component khác dùng `style` inline. Không class nào có tác dụng,
+div gắn canvas không có chiều cao, three.js dựng canvas 900×0. Chế độ 3D là một
+màn hình đen: không lỗi, không cảnh báo. Đã thay bằng style inline; giờ nó vẽ ra.
+
+**Chi phí cảnh (đo được):** 12 lệnh vẽ, ~1.314 tam giác mỗi khung khi chưa có
+lính — nhẹ với bất kỳ GPU nào. GPU không phải là rủi ro của tính năng này.
+
+**FPS vẫn chưa đo được.** Cửa sổ tự động hoá giữ trang ở trạng thái `hidden`, mà
+trình duyệt hãm `requestAnimationFrame` khi trang ẩn, nên mọi con số FPS đo
+trong môi trường này đều là số bịa. Cần đo trên máy thật với cửa sổ hiển thị,
+song song OBS đang encode 1080p60.
+
+Một điểm đáng lưu ý phát hiện lúc đo: vòng lặp vẫn vẽ 616 khung trong lúc trang
+**đang ẩn**. Nó không tự dừng khi không hiển thị.
 
 ---
 
@@ -191,15 +235,38 @@ nên phần logic điều phối được kiểm chứng bằng một Redis gi�
 `battle-coordinator.service.spec.ts`: hai coordinator dùng chung một lease store,
 tranh nhau một trận, chuyển lệnh cho nhau, mất lease, và tắt máy.
 
-Cái *chưa* được kiểm chứng là tầng dây nối: ioredis nói chuyện với Redis thật, và
-`@socket.io/redis-adapter` thật sự đẩy broadcast qua hai tiến trình. Trước khi
-mở cho nhiều instance, phải chạy đúng phép thử này:
+**Đã chạy với Redis thật, và phép thử đó tìm ra hai lỗi chặn:**
 
-1. Bật Redis, chạy hai instance ở hai cổng khác nhau.
-2. Mở overlay trỏ vào instance A.
-3. Gọi `POST /battle/simulate` vào instance B.
-4. Overlay ở A phải nhúc nhích. Nếu không, adapter chưa hoạt động — và đó chính
-   là lỗi âm thầm mà toàn bộ mục 2 sinh ra để chặn.
+1. **Adapter chưa bao giờ gắn được.** `main.ts` dựng adapter bằng
+   `app.get(RedisService)` *trước* `app.listen()`, mà Nest chạy `onModuleInit`
+   trong `listen` chứ không phải trong `create`. Nên lúc adapter hỏi kết nối,
+   `client` vẫn là null; nó ghi log "một instance" rồi lặng lẽ gắn adapter bộ
+   nhớ — trong khi Redis kết nối thành công một giây sau đó. Tính năng cụm được
+   nối dây và tắt cùng lúc, kèm một dòng log trông như lời giải thích. Đã chuyển
+   phần mở kết nối vào constructor.
+
+2. **Sập ngay khi khởi động.** Cặp pub/sub thừa kế `enableOfflineQueue: false`
+   từ client chính. Adapter phát `SUBSCRIBE` ngay khi được tạo, trước lúc socket
+   ghi được, nên ném "Stream isn't writeable" *bên trong* quá trình tạo gateway
+   và kéo sập cả server. Cấu hình đó đúng cho client chính (thà lỗi nhanh còn
+   hơn dồn lệnh khi Redis chết) nhưng sai cho adapter; nay `duplicate()` bật lại
+   hàng đợi và dùng `lazyConnect` để chờ kết nối xong mới dựng factory.
+
+Sau khi sửa, đã kiểm chứng bằng Redis thật:
+
+- `PING`, `SET NX` (lần hai trả null = khoá đang giữ), `EVAL` — chạy đúng.
+- Hai `BattleCoordinatorService` thật: chỉ một bên giành được lease, lệnh chuyển
+  tiếp **chạy trên đúng instance sở hữu**, và lease được trả lại ngay khi tắt.
+- Hai server Socket.IO ở hai tiến trình: broadcast phát từ B **tới được** client
+  đang nối vào A. Kiểm chứng ngược — bỏ adapter đi thì timeout. Nếu không có
+  bước ngược này thì phép thử chẳng chứng minh điều gì.
+- Hai instance ứng dụng thật (cổng 4001/4002) đều khởi động và log
+  `Realtime: Redis adapter dang hoat dong`.
+
+**Mắt xích cuối vẫn còn hở**, vì lý do không liên quan tới Redis: gọi
+`POST /battle/simulate` trả 500 do **bảng `Battle` không tồn tại trong database
+đang kết nối**. Cần đồng bộ schema (xem `prisma/migrations/README.md`) rồi chạy
+lại phép thử overlay-trên-A / sự kiện-vào-B để đóng nốt.
 
 `ALLOW_SINGLE_INSTANCE=true` là đường thoát hợp lệ cho tới khi phép thử trên
 chạy được: production sẽ **từ chối khởi động** nếu không có Redis mà cũng không

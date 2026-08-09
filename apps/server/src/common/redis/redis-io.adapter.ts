@@ -44,10 +44,22 @@ export class RedisIoAdapter extends IoAdapter {
       return false;
     }
 
-    await Promise.all([
-      pub.connect().catch(() => undefined),
-      sub.connect().catch(() => undefined),
-    ]);
+    // Both connections must be up before the factory is built. Attaching an
+    // adapter over a socket that is still dialling is what produced a boot
+    // crash inside gateway creation rather than a degraded-but-running server.
+    try {
+      await Promise.all([pub.connect(), sub.connect()]);
+    } catch (err) {
+      this.logger.warn(
+        `Khong noi duoc Redis cho Socket.IO (${
+          err instanceof Error ? err.message : String(err)
+        }) — chay adapter trong bo nho, chi dung cho mot instance.`,
+      );
+      pub.disconnect();
+      sub.disconnect();
+      return false;
+    }
+
     this.adapterFactory = createAdapter(pub, sub);
     this.logger.log(
       'Socket.IO dung Redis adapter — broadcast di duoc qua nhieu instance.',
