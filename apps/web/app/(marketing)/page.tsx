@@ -5,6 +5,7 @@ import { Hero } from '../../components/marketing/Hero';
 import { Reveal, RevealGroup, RevealItem } from '../../components/ui/motion-primitives';
 import { Icon, type IconName } from '../../components/ui/Icon';
 import { SITE_NAME, SITE_DESCRIPTION, absoluteUrl } from '../../lib/site';
+import { GUIDES } from '../../lib/guides';
 
 export const metadata: Metadata = {
   title: 'Tự động hoá livestream TikTok',
@@ -296,6 +297,45 @@ export default function LandingPage() {
             </RevealItem>
           ))}
         </RevealGroup>
+      </section>
+
+      {/* Liên kết nội bộ tới bộ hướng dẫn.
+          Một trang chỉ nằm trong sitemap mà không được liên kết từ đâu cả thì
+          Google coi là ít quan trọng — và người đọc cũng không có đường tới. */}
+      <section
+        style={{
+          borderTop: '1px solid hsl(var(--border))',
+          padding: 'clamp(2.5rem, 5vw, 3.5rem) 1.5rem',
+          maxWidth: '1000px',
+          margin: '0 auto',
+        }}
+      >
+        <Reveal>
+          <h2
+            style={{
+              fontSize: 'clamp(1.4rem, 2.8vw, 1.9rem)',
+              fontWeight: 700,
+              marginBottom: '0.6rem',
+            }}
+          >
+            Hướng dẫn
+          </h2>
+          <p style={{ color: 'hsl(var(--muted-foreground))', marginBottom: '1.5rem' }}>
+            Những thứ cần biết trước khi lên sóng, viết theo đúng thứ tự bạn sẽ gặp chúng.
+          </p>
+          <ul style={{ listStyle: 'none', padding: 0, display: 'grid', gap: '0.6rem' }}>
+            {GUIDES.map((g) => (
+              <li key={g.slug}>
+                <Link
+                  href={`/huong-dan/${g.slug}`}
+                  style={{ color: 'hsl(var(--primary))', fontWeight: 600 }}
+                >
+                  {g.title}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </Reveal>
       </section>
 
       {/* Layout family 5: full-width closing band. */}
