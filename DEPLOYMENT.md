@@ -60,6 +60,33 @@ trạng thái một-instance là một quyết định được ghi ra chứ kh�
 việc quên đặt biến — xem `PRODUCTION_READINESS.md` mục 1 và 2 về chuyện hai
 tiến trình không có Redis sẽ hỏng thế nào.
 
+### Render: lệnh build và lệnh chạy
+
+```
+Build:  pnpm install --frozen-lockfile && pnpm --filter @livenova/shared build && pnpm --filter @livenova/server build
+Start:  pnpm --filter @livenova/server start:prod
+```
+
+`start:prod` chạy `node dist/main`. `tsconfig.build.json` ghim `rootDir: ./src`
+để giữ đúng đường đó — nếu không, `prisma/seed.ts` nằm trong phạm vi biên dịch
+sẽ đẩy toàn bộ kết quả xuống `dist/src/`, và lệnh khởi động chết với
+`Cannot find module '.../dist/main'`. Build vẫn báo thành công, lỗi chỉ hiện lúc
+tiến trình khởi động.
+
+### ⚠️ Gói Free của Render không dùng được cho dịch vụ này
+
+Render Free tự ngủ khi không có lưu lượng và mất ~50 giây để tỉnh lại. Với một
+API bình thường thì đó là phiền toái. Với dịch vụ này thì đó là hỏng hẳn:
+
+- Kết nối TikTok đang bám phòng live **đứt** khi tiến trình ngủ. Nó không tự
+  bám lại cho tới khi có ai đó gọi vào — mà giữa buổi live thì không ai gọi.
+- Trạng thái trận nằm trong RAM của tiến trình sở hữu. Ngủ là mất, và lease
+  Redis hết hạn sau 15 giây.
+- Khán giả tặng quà trong lúc đó: điểm không được tính, overlay đứng yên.
+
+Dịch vụ này phải chạy liên tục. Cần gói trả phí có "always on", hoặc chuyển sang
+nền tảng không ngủ.
+
 ### Migration
 
 Chạy `prisma:deploy`, không bao giờ `db push`. Với một database đã tồn tại từ

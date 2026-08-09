@@ -35,6 +35,20 @@ export function siteUrl(): string {
   const configured = process.env.NEXT_PUBLIC_SITE_URL;
   if (configured) return configured.replace(/\/$/, '');
 
+  // Vercel knows its own address, so ask it rather than failing a deploy over a
+  // value the platform can supply. The production hostname first, then the
+  // per-deployment one — which is what a preview build should be advertising
+  // anyway. A preview whose canonical points at the production domain tells
+  // Google that a throwaway build is the real page.
+  //
+  // Server-only, like the guard below: these are system variables, absent in
+  // the browser bundle.
+  if (typeof window === 'undefined') {
+    const vercel =
+      process.env.VERCEL_PROJECT_PRODUCTION_URL ?? process.env.VERCEL_URL;
+    if (vercel) return `https://${vercel.replace(/\/$/, '')}`;
+  }
+
   if (process.env.NODE_ENV === 'production' && typeof window === 'undefined') {
     throw new Error(
       '[site] NEXT_PUBLIC_SITE_URL chua duoc dat cho ban build production.\n' +
