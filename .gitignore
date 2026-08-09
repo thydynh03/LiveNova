@@ -23,3 +23,6 @@ next-env.d.ts
 
 # Test output
 coverage/
+
+# Bản build dùng để kiểm chứng khi dev server đang chạy (xem apps/web/next.config.mjs).
+.next-verify/
