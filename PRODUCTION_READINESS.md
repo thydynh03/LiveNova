@@ -263,10 +263,29 @@ Sau khi sửa, đã kiểm chứng bằng Redis thật:
 - Hai instance ứng dụng thật (cổng 4001/4002) đều khởi động và log
   `Realtime: Redis adapter dang hoat dong`.
 
-**Mắt xích cuối vẫn còn hở**, vì lý do không liên quan tới Redis: gọi
-`POST /battle/simulate` trả 500 do **bảng `Battle` không tồn tại trong database
-đang kết nối**. Cần đồng bộ schema (xem `prisma/migrations/README.md`) rồi chạy
-lại phép thử overlay-trên-A / sự kiện-vào-B để đóng nốt.
+**Mắt xích cuối đã đóng.** Lần chạy đầu trả 500 vì bảng `Battle` không tồn tại
+trong database — không liên quan tới Redis. Đã đồng bộ schema bằng chính bộ
+migration này (xem bên dưới) rồi chạy lại:
+
+- overlay nối vào **instance A** (cổng 4001)
+- `POST /battle/simulate` gửi vào **instance B** (cổng 4002) → 201
+- overlay trên A nhận được `overlay.state` với **toàn bộ state thật**, điểm phe
+  Mèo đúng bằng số vừa cộng
+
+Điều làm phép thử này có giá trị là ai đã làm việc, đọc từ `/metrics` của hai
+instance ngay sau đó:
+
+| | instance A | instance B |
+|---|---|---|
+| `battles_active` | 0 | **1** |
+| `gift_to_broadcast_ms_count` | 0 | **2** |
+
+Và lease trong Redis: `battle:owner:<userId> -> inst-B`.
+
+Nghĩa là A **không hề chạm vào trận đấu** — nó chỉ giữ socket. Toàn bộ phần chơi
+diễn ra trên B, và state đi từ B sang socket của A qua Redis adapter. Nếu A cũng
+tự xử lý thì `battles_active` của A đã không phải 0, và phép thử sẽ không chứng
+minh được gì.
 
 `ALLOW_SINGLE_INSTANCE=true` là đường thoát hợp lệ cho tới khi phép thử trên
 chạy được: production sẽ **từ chối khởi động** nếu không có Redis mà cũng không

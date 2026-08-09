@@ -39,6 +39,24 @@ pnpm --filter @livenova/server prisma:baseline
 
 Then `prisma:deploy` from that point on.
 
+## Đã chạy thật một lần
+
+Database Supabase đang dùng đã được đồng bộ bằng đúng quy trình trên, ngày
+2026-08-09:
+
+1. `prisma migrate diff --from-url <DIRECT_URL>` để xem trước — 9 câu lệnh, toàn
+   bộ là thêm mới, không có `DROP` nào. Bước xem trước này không nên bỏ khi đích
+   là một database dùng chung.
+2. `prisma:baseline` đánh dấu `00000000000000_init` đã áp dụng, vì các bảng
+   trong đó đã tồn tại từ thời `db push`.
+3. `20260809000000_add_battle_tables` — chính nội dung của bước 1 — được tạo
+   thành migration và chạy bằng `prisma:deploy`.
+
+Sau đó `migrate diff` trả về "empty migration" và `migrate status` báo
+"Database schema is up to date!". Ba bảng `Battle`, `BattleScore`, `BattleDonor`
+trước đó **không tồn tại** dù mã đã đọc ghi chúng từ lâu — đó là cái giá của
+việc không có migration: không ai biết môi trường nào đang thiếu gì.
+
 ## Rules
 
 - `prisma migrate dev` on a developer machine to author a change. It writes a
