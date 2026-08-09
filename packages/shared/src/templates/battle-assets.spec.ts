@@ -90,10 +90,17 @@ describe('resolveBattleAssets', () => {
     expect(BATTLE_DEFAULT_ASSETS).toEqual(before);
   });
 
-  it('points every default at a path under /battle', () => {
+  it('serves every default from this app, never from a remote host', () => {
+    // The rule being protected is that a default renders with no network
+    // dependency an operator does not control: a broadcast must not go blank
+    // because someone else's CDN is down. It used to be spelled "/battle/ and
+    // .svg", which was really that rule plus an accident of where the first
+    // drawings happened to live. The troop sheets are now re-cut PNGs under
+    // /sprites, and they are just as local.
     for (const url of Object.values(BATTLE_DEFAULT_ASSETS)) {
-      expect(url.startsWith('/battle/')).toBe(true);
-      expect(url.endsWith('.svg')).toBe(true);
+      expect(url.startsWith('/')).toBe(true);
+      expect(url).not.toMatch(/^\/\//);
+      expect(url).toMatch(/^\/(battle|sprites)\/.+\.(svg|png)$/);
     }
   });
 });

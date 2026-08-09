@@ -570,20 +570,22 @@ export function castleAssetKey(
  * Defaults to the AI-generated 6-frame running sprite sheets for 4 kingdoms.
  */
 export const BATTLE_DEFAULT_ASSETS: Record<string, string> = {
-  // The hand-built strips, not the generated ones under /sprites.
+  // Re-cut from the generated art, not regenerated.
   //
-  // Three of the four generated images are not horizontal strips: the dog sheet
-  // has cell borders and "Frame 1 (Contact)" captions drawn into the picture,
-  // the bear is a two-row grid of seven poses, the capybara a 3x2 grid. Only
-  // the cat came back as six figures in a row. The loader refuses the other
-  // three rather than marching a grid, which would leave three kingdoms on the
-  // drawn fallback and one on painted art — worse on stream than four
-  // consistent kingdoms. Point these back at /sprites once the three files are
-  // regenerated as single-row strips with no text and no borders.
-  sprite_troop_cat: '/battle/sprite_troop_cat.svg',
-  sprite_troop_dog: '/battle/sprite_troop_dog.svg',
-  sprite_troop_bear: '/battle/sprite_troop_bear.svg',
-  sprite_troop_capy: '/battle/sprite_troop_capy.svg',
+  // The four AI images were good drawings in unusable layouts: the dog came
+  // back as a captioned contact sheet with cell borders printed into it, the
+  // bear as a two-row grid of seven poses, the capybara as a 3x2 grid. Only the
+  // cat was a single row. Rather than throw away the artwork, each sheet was
+  // measured — figures located, printed borders erased, stray fragments
+  // dropped — and re-laid into six square cells on one row. `walk_*.png`
+  // are those outputs; the originals are in git history.
+  //
+  // The hand-drawn SVG strips under /battle remain the fallback for a template
+  // that ships no sprite of its own.
+  sprite_troop_cat: '/sprites/walk_cat.png',
+  sprite_troop_dog: '/sprites/walk_dog.png',
+  sprite_troop_bear: '/sprites/walk_bear.png',
+  sprite_troop_capy: '/sprites/walk_capy.png',
 
   castle_cat: '/battle/castle_cat.svg',
   castle_cat_damaged: '/battle/castle_cat_damaged.svg',

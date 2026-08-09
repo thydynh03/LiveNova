@@ -2,7 +2,6 @@ import {
   Injectable,
   Logger,
   OnModuleDestroy,
-  OnModuleInit,
 } from '@nestjs/common';
 import Redis from 'ioredis';
 import { loadEnv } from '../config/env';
@@ -20,7 +19,7 @@ import { loadEnv } from '../config/env';
  * same reason.
  */
 @Injectable()
-export class RedisService implements OnModuleInit, OnModuleDestroy {
+export class RedisService implements OnModuleDestroy {
   private readonly logger = new Logger(RedisService.name);
 
   private client: Redis | null = null;
@@ -29,7 +28,22 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
 
   private readonly handlers = new Map<string, Set<(payload: string) => void>>();
 
-  onModuleInit(): void {
+  /**
+   * Connections are opened in the constructor, not in `onModuleInit`.
+   *
+   * This is not a style choice. `main.ts` builds the Socket.IO adapter with
+   * `app.get(RedisService)` before `app.listen()`, and Nest runs lifecycle
+   * hooks during `listen`, not during `create`. With the setup in
+   * `onModuleInit`, `client` was still null when the adapter asked for a
+   * connection, so it logged "single instance" and quietly attached the
+   * in-memory adapter — while Redis connected successfully one second later.
+   * The cluster feature was wired and switched off at the same time, with a log
+   * line that looked like an explanation.
+   *
+   * Moving the adapter after `app.init()` is not an option: `init()` creates
+   * the gateways, and the adapter has to exist before they do.
+   */
+  constructor() {
     const { redisUrl, instanceId } = loadEnv();
     if (!redisUrl) {
       this.logger.warn(
@@ -106,7 +120,17 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
    * the Socket.IO adapter's publisher/subscriber pair.
    */
   duplicate(): Redis | null {
-    return this.client ? this.client.duplicate() : null;
+    if (!this.client) return null;
+    // `enableOfflineQueue` is flipped back on for these, and `lazyConnect` lets
+    // the caller await the connection.
+    //
+    // The main client keeps the queue off so that a Redis outage fails requests
+    // fast instead of piling them up. The adapter cannot live with that: it
+    // issues SUBSCRIBE the moment it is constructed, before the socket is
+    // writable, and inherited `enableOfflineQueue: false` turned that into
+    // "Stream isn't writeable" — thrown during gateway creation, which took the
+    // whole server down at boot.
+    return this.client.duplicate({ enableOfflineQueue: true, lazyConnect: true });
   }
 
   /**

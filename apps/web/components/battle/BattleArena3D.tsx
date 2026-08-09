@@ -472,28 +472,60 @@ export function BattleArena3D({ state, isDark = true }: Props) {
     });
   }, [state.teams]);
 
-  return (
-    <div className="relative w-full h-full overflow-hidden select-none">
-      {/* 3D WebGL Canvas Mount */}
-      <div ref={mountRef} className="absolute inset-0 w-full h-full pointer-events-none" />
+  const pill = (active: boolean, activeBg: string): React.CSSProperties => ({
+    padding: '4px 12px',
+    borderRadius: 999,
+    fontWeight: 800,
+    fontSize: '0.7rem',
+    cursor: 'pointer',
+    border: 'none',
+    transition: 'all 0.15s ease',
+    background: active ? activeBg : 'transparent',
+    color: active ? '#ffffff' : '#a1a1aa',
+  });
 
-      {/* Floating 3D Control Pill */}
-      <div className="absolute top-4 right-4 z-40 flex items-center gap-1.5 p-1 bg-black/60 backdrop-blur-md rounded-full border border-white/10 shadow-lg text-xs">
+  return (
+    // Inline styles, not utility classes.
+    //
+    // This component arrived written in Tailwind, and the project does not use
+    // Tailwind — there is no config and every other component here styles with
+    // `style` objects. So `absolute inset-0 w-full h-full` resolved to nothing,
+    // the mount div had no height, and three.js sized its canvas to 900x0.
+    // The 3D mode rendered an empty screen: no error, no warning, just black.
+    <div style={{ position: 'relative', width: '100%', height: '100%', overflow: 'hidden', userSelect: 'none' }}>
+      <div
+        ref={mountRef}
+        style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none' }}
+      />
+
+      <div
+        style={{
+          position: 'absolute',
+          top: 16,
+          right: 16,
+          zIndex: 40,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 6,
+          padding: 4,
+          background: 'rgba(0,0,0,0.6)',
+          backdropFilter: 'blur(12px)',
+          borderRadius: 999,
+          border: '1px solid rgba(255,255,255,0.1)',
+          boxShadow: '0 4px 14px rgba(0,0,0,0.4)',
+        }}
+      >
         <button
           type="button"
           onClick={() => setCameraMode('isometric')}
-          className={`px-3 py-1 rounded-full font-bold transition-all ${
-            cameraMode === 'isometric' ? 'bg-primary text-white shadow-sm' : 'text-zinc-400 hover:text-white'
-          }`}
+          style={pill(cameraMode === 'isometric', 'hsl(var(--primary))')}
         >
           📷 Isometric
         </button>
         <button
           type="button"
           onClick={() => setCameraMode('cinematic')}
-          className={`px-3 py-1 rounded-full font-bold transition-all ${
-            cameraMode === 'cinematic' ? 'bg-indigo-600 text-white shadow-sm' : 'text-zinc-400 hover:text-white'
-          }`}
+          style={pill(cameraMode === 'cinematic', '#4f46e5')}
         >
           ✨ Cinematic 3D
         </button>
