@@ -32,6 +32,7 @@ import {
 } from './dto/auth.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { CurrentUserId } from '../../common/decorators/current-user.decorator';
+import { TurnstileService } from '../../common/turnstile/turnstile.service';
 
 const ALLOWED_REDIRECTS = new Set([
   '/',
@@ -50,7 +51,22 @@ export class AuthController {
     private readonly authService: AuthService,
     private readonly sessionService: SessionService,
     private readonly userService: UserService,
+    private readonly turnstile: TurnstileService,
   ) {}
+
+  /**
+   * The visitor's address, for Turnstile's own risk signal.
+   *
+   * Behind Render and Cloudflare, `req.ip` is the proxy unless Express is told
+   * to trust it, so the forwarded header is read first and only its leftmost
+   * entry — the rest of that list is appended by intermediaries and is not the
+   * client.
+   */
+  private static clientIp(req: Request): string | undefined {
+    const forwarded = req.get('x-forwarded-for');
+    const first = forwarded?.split(',')[0]?.trim();
+    return first || req.ip || undefined;
+  }
 
   private static context(req: Request, rememberMe?: boolean) {
     return {
@@ -62,7 +78,8 @@ export class AuthController {
 
   @Post('register')
   @HttpCode(HttpStatus.CREATED)
-  async register(@Body() dto: RegisterDto) {
+  async register(@Body() dto: RegisterDto, @Req() req: Request) {
+    await this.turnstile.assertHuman(dto.turnstileToken, AuthController.clientIp(req));
     return this.authService.register(dto);
   }
 
@@ -81,6 +98,11 @@ export class AuthController {
   @Post('login')
   @HttpCode(HttpStatus.OK)
   async login(@Body() dto: LoginDto, @Req() req: Request) {
+    // Before the password is even looked at: a bot spraying credentials should
+    // not get to measure how long a lookup takes, and should not consume the
+    // hashing work that a real comparison costs.
+    await this.turnstile.assertHuman(dto.turnstileToken, AuthController.clientIp(req));
+
     const user = await this.userService.findByEmail(dto.email);
 
     if (!user || !user.passwordHash || user.deletedAt) {
@@ -97,7 +119,10 @@ export class AuthController {
 
   @Post('forgot-password')
   @HttpCode(HttpStatus.OK)
-  async forgotPassword(@Body() dto: ForgotPasswordDto) {
+  async forgotPassword(@Body() dto: ForgotPasswordDto, @Req() req: Request) {
+    // Unauthenticated and it sends mail, so an unprotected one is a way to have
+    // this service deliver unwanted email to any address a bot supplies.
+    await this.turnstile.assertHuman(dto.turnstileToken, AuthController.clientIp(req));
     return this.authService.forgotPassword(dto.email);
   }
 

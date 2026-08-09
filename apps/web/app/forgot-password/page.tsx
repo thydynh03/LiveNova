@@ -1,10 +1,11 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { forgotPassword } from '../../lib/api-client';
 import { Icon } from '../../components/ui/Icon';
+import { TurnstileWidget, type TurnstileHandle } from '../../components/auth/TurnstileWidget';
 
 const inputStyle: React.CSSProperties = {
   width: '100%',
@@ -23,6 +24,8 @@ export default function ForgotPasswordPage() {
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const turnstileRef = useRef<TurnstileHandle | null>(null);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -30,11 +33,12 @@ export default function ForgotPasswordPage() {
     setLoading(true);
 
     try {
-      await forgotPassword(email);
+      await forgotPassword(email, turnstileToken ?? undefined);
       setSubmitted(true);
       router.push(`/verify-otp?email=${encodeURIComponent(email)}&type=FORGOT_PASSWORD`);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Yêu cầu thất bại');
+      turnstileRef.current?.reset();
     } finally {
       setLoading(false);
     }
@@ -128,6 +132,10 @@ export default function ForgotPasswordPage() {
                 onChange={(e) => setEmail(e.target.value)}
                 style={inputStyle}
               />
+            </div>
+
+            <div style={{ marginBottom: '1rem' }}>
+              <TurnstileWidget onToken={setTurnstileToken} handleRef={turnstileRef} />
             </div>
 
             <button

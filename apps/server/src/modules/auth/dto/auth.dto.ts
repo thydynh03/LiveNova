@@ -23,6 +23,21 @@ export class RegisterDto {
   @MinLength(2, { message: 'Tên hiển thị tối thiểu 2 ký tự' })
   @MaxLength(60)
   displayName!: string;
+  /**
+   * Cloudflare Turnstile token from the widget on the form.
+   *
+   * Must be declared here even though nothing in this class reads it: the
+   * global `ValidationPipe` runs with `forbidNonWhitelisted`, so an undeclared
+   * property is a 400 before any handler sees the request. Optional at the DTO
+   * level because the check that matters is `TurnstileService.assertHuman`,
+   * which fails closed and reports a 403 the form can show — not a validation
+   * error listing an internal field name.
+   */
+  @IsOptional()
+  @IsString()
+  @MaxLength(2048)
+  turnstileToken?: string;
+
 }
 
 export class LoginDto {
@@ -38,12 +53,42 @@ export class LoginDto {
   @IsOptional()
   @IsBoolean()
   rememberMe?: boolean;
+  /**
+   * Cloudflare Turnstile token from the widget on the form.
+   *
+   * Must be declared here even though nothing in this class reads it: the
+   * global `ValidationPipe` runs with `forbidNonWhitelisted`, so an undeclared
+   * property is a 400 before any handler sees the request. Optional at the DTO
+   * level because the check that matters is `TurnstileService.assertHuman`,
+   * which fails closed and reports a 403 the form can show — not a validation
+   * error listing an internal field name.
+   */
+  @IsOptional()
+  @IsString()
+  @MaxLength(2048)
+  turnstileToken?: string;
+
 }
 
 export class ForgotPasswordDto {
   @IsEmail({}, { message: 'Email không hợp lệ' })
   @MaxLength(320)
   email!: string;
+  /**
+   * Cloudflare Turnstile token from the widget on the form.
+   *
+   * Must be declared here even though nothing in this class reads it: the
+   * global `ValidationPipe` runs with `forbidNonWhitelisted`, so an undeclared
+   * property is a 400 before any handler sees the request. Optional at the DTO
+   * level because the check that matters is `TurnstileService.assertHuman`,
+   * which fails closed and reports a 403 the form can show — not a validation
+   * error listing an internal field name.
+   */
+  @IsOptional()
+  @IsString()
+  @MaxLength(2048)
+  turnstileToken?: string;
+
 }
 
 export class VerifyOtpDto {
