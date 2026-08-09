@@ -43,4 +43,32 @@ export class UploadController {
       bytes: result.bytes,
     };
   }
+
+  @Post('media')
+  @HttpCode(HttpStatus.OK)
+  @UseInterceptors(FileInterceptor('file'))
+  async uploadMedia(@UploadedFile() file: Express.Multer.File) {
+    if (!file) {
+      throw new BadRequestException('Vui lòng chọn tệp media');
+    }
+
+    // Allow images and videos
+    if (!file.mimetype.startsWith('image/') && !file.mimetype.startsWith('video/')) {
+      throw new BadRequestException('Chỉ chấp nhận các tệp hình ảnh hoặc video');
+    }
+
+    // 50MB cap for videos, 10MB for images
+    const maxSize = file.mimetype.startsWith('video/') ? 50 * 1024 * 1024 : 10 * 1024 * 1024;
+    if (file.size > maxSize) {
+      throw new BadRequestException(`Kích thước tệp vượt quá giới hạn (${maxSize / (1024 * 1024)}MB)`);
+    }
+
+    const result = await this.cloudinaryService.uploadFile(file, 'livenova/media');
+    return {
+      url: result.secure_url,
+      publicId: result.public_id,
+      format: result.format,
+      bytes: result.bytes,
+    };
+  }
 }

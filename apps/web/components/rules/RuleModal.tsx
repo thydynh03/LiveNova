@@ -2,7 +2,7 @@
 
 import React, { useState, useRef } from 'react';
 import { Icon } from '../ui/Icon';
-import { uploadImage, api } from '../../lib/api-client';
+import { uploadMedia, api } from '../../lib/api-client';
 
 export interface RuleModalProps {
   rule?: any | null;
@@ -67,7 +67,7 @@ export function RuleModal({ rule, onClose, onSuccess }: RuleModalProps) {
     setError(null);
 
     try {
-      const res = await uploadImage(file);
+      const res = await uploadMedia(file);
       const newActions = [...actions];
       newActions[actionIndex].payload.url = res.url;
       // Auto-detect media type
