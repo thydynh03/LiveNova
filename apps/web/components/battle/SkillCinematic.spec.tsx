@@ -31,9 +31,18 @@ describe('SkillCinematic', () => {
     jest.useRealTimers();
   });
 
-  it('renders nothing when no skill is playing', () => {
+  it('giữ thẻ video trong cây nhưng ẩn đi khi không có kỹ năng nào chạy', () => {
     const { container } = render(<SkillCinematic request={null} onDone={jest.fn()} />);
-    expect(container).toBeEmptyDOMElement();
+
+    // Trước đây component trả về `null` khi rảnh. Điều đó tháo thẻ `<video>`
+    // khỏi cây, và món quà tiếp theo phải dựng lại một bộ giải mã từ đầu —
+    // đúng cái khựng mà khán giả thấy ở khoảnh khắc đáng lẽ ấn tượng nhất.
+    // Nay thẻ ở lại và chỉ bị ẩn.
+    const shell = container.firstElementChild as HTMLElement;
+    expect(shell).toHaveStyle({ visibility: 'hidden' });
+    expect(container.querySelector('video')).toBeInTheDocument();
+    // Và không có nguồn nào để nó tự phát khi đang ẩn.
+    expect(container.querySelector('video')).not.toHaveAttribute('src');
   });
 
   it('dims the screen before the video, not at the same time', () => {
@@ -81,8 +90,15 @@ describe('SkillCinematic', () => {
     const onDone = jest.fn();
     render(<SkillCinematic request={request()} onDone={onDone} />);
 
+    // 200ms làm tối, rồi tối đa 1500ms chờ đủ dữ liệu. Trong jsdom không có
+    // đường ống media nên `canplaythrough` không bao giờ phát ra, và nhánh chờ
+    // quá hạn mới là nhánh chạy — đó cũng là nhánh phải chứng minh, vì nó là
+    // thứ giữ cho hàng đợi không tắc sau một tệp tải chậm.
     act(() => {
       jest.advanceTimersByTime(200);
+    });
+    act(() => {
+      jest.advanceTimersByTime(1500);
     });
 
     // Autoplay works in a Browser Source but is blocked in a normal tab. The

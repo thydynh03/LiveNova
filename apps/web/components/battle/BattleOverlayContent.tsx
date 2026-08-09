@@ -17,6 +17,7 @@ import { BattleMap, CASTLE_ANCHORS, type LaneKey } from './BattleMap';
 import { TroopCanvas, type TroopCanvasHandle, type Troop } from './TroopCanvas';
 import { CastleLayer } from './CastleLayer';
 import { preload } from '../../lib/image-cache';
+import { warmVideos } from '../../lib/video-pool';
 import { SkillCinematic, type CinematicRequest } from './SkillCinematic';
 import { BattleVictory } from './BattleVictory';
 import { frameBudget } from '../../lib/frame-budget';
@@ -47,6 +48,16 @@ const TEAM_COLOUR: Record<string, string> = {
   bear: '#fb923c',
   capy: '#34d399',
 };
+
+/**
+ * Số đoạn phim kỹ năng được phép chờ.
+ *
+ * Ba là ước lượng chứ không phải số đo: mỗi đoạn khoảng hai tới sáu giây, nên
+ * ba mục nghĩa là món quà cuối cùng trong hàng vẫn được thấy trong khoảng hai
+ * mươi giây — vẫn còn trong trí nhớ của phòng. Nếu sau này có số liệu thật về
+ * độ dài đoạn phim thì nên tính lại từ đó.
+ */
+const MAX_QUEUED_CINEMATICS = 3;
 
 interface Shockwave {
   id: string;
@@ -160,7 +171,17 @@ export function BattleOverlayContent({
   const [floatingTexts, setFloatingTexts] = useState<FloatingText[]>([]);
   const [screenShake, setScreenShake] = useState(false);
   const [activeSpeech, setActiveSpeech] = useState<Record<string, string>>({});
-  const lastEventCountRef = useRef(0);
+  /**
+   * Id các sự kiện đã dựng hiệu ứng.
+   *
+   * Trước đây chỗ này là một bộ đếm so sánh `recentEvents.length`, và nó hỏng
+   * theo hai cách cùng lúc. Một, chỉ `recentEvents[0]` được xử lý — nên khi năm
+   * người tặng quà trong khoảng giữa hai lần đẩy trạng thái, bốn người không có
+   * lính, không có chữ bay, không có gì cả. Hai, danh sách bị cắt ở 20 phần tử
+   * nên độ dài bão hoà, và sau đó phép so sánh không còn phát hiện được sự kiện
+   * mới nào nữa.
+   */
+  const seenEventIdsRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     if (customState) {
@@ -214,9 +235,15 @@ export function BattleOverlayContent({
 
   // Spawn troops & floating texts on recent events
   useEffect(() => {
-    if (battle.recentEvents.length > lastEventCountRef.current) {
-      const newEvt = battle.recentEvents[0];
-      if (newEvt) {
+    // `recentEvents` xếp mới nhất trước; đảo lại để phát hiệu ứng theo đúng thứ
+    // tự chúng xảy ra, nếu không một loạt quà sẽ chạy ngược.
+    const fresh = [...battle.recentEvents]
+      .reverse()
+      .filter((e) => e && !seenEventIdsRef.current.has(e.id));
+
+    for (const newEvt of fresh) {
+      seenEventIdsRef.current.add(newEvt.id);
+      {
         // Off the castle the gift bought, not a second hard-coded set of
         // corners. The two lists had already drifted apart, so the "+50 ⚔️"
         // popped up in open field a few percent away from the keep it came from.
@@ -247,13 +274,12 @@ export function BattleOverlayContent({
         // two whales in the same second do not fight over the video element.
         const fxUrl = battle.assets?.[`fx_${newEvt.actionKey}`];
         if (isBig && fxUrl) {
-          cinematicQueueRef.current.push({
+          enqueueCinematic({
             id: newEvt.id,
             actionKey: newEvt.actionKey,
             videoUrl: fxUrl,
             senderLabel: `${newEvt.sender} · ${newEvt.giftName ?? ''}`.trim(),
           });
-          setCinematic((current) => current ?? cinematicQueueRef.current.shift() ?? null);
         }
 
         // Spawn floating combat text
@@ -295,7 +321,14 @@ export function BattleOverlayContent({
         }
       }
     }
-    lastEventCountRef.current = battle.recentEvents.length;
+
+    // Tập id chỉ để chống dựng lại hiệu ứng cho cùng một sự kiện, nên nó không
+    // cần nhớ quá lịch sử mà máy chủ còn giữ. Giữ gấp đôi cửa sổ đó là đủ rộng
+    // để không bỏ sót, và đủ hẹp để một buổi live dài không làm nó phình ra.
+    if (seenEventIdsRef.current.size > 200) {
+      const keep = new Set(battle.recentEvents.map((e) => e.id));
+      seenEventIdsRef.current = keep;
+    }
   }, [battle.recentEvents]);
 
   // Housekeeping only. Motion lives in TroopCanvas, driven by
@@ -314,10 +347,46 @@ export function BattleOverlayContent({
   // loading after the gift summoning it has passed may as well not exist.
   const assetKey = Object.values(assets).join('|');
   useEffect(() => {
+    // Ảnh và video đi hai đường khác nhau. `preload` dựng `new Image()`, thứ
+    // với một tệp `.mp4` sẽ tải hỏng rồi ghi nhớ là "hỏng" — không giúp gì mà
+    // còn kết luận sai. Video cần một thẻ `<video>` thật để trình duyệt chuẩn
+    // bị đường ống giải mã trước khi món quà gọi nó.
     preload(Object.values(assets));
+    warmVideos(Object.values(assets));
     // Compared by value through assetKey; depending on the object itself would
     // re-run on every state frame the socket delivers.
   }, [assetKey]);
+
+  /**
+   * Xếp một đoạn phim kỹ năng vào hàng đợi.
+   *
+   * Hàng đợi có sẵn từ trước, nhưng nó không có trần và không gộp trùng. Hai
+   * thiếu sót đó chỉ lộ ra đúng lúc tệ nhất — khi phòng đang sôi nổi nhất:
+   *
+   * - **Không trần.** Hai mươi con rồng trong mười giây nghĩa là overlay phát
+   *   phim thêm gần một phút sau khi khoảnh khắc đã trôi qua. Người tặng thứ
+   *   hai mươi thấy hiệu ứng của mình lúc chẳng còn ai nhớ họ đã tặng.
+   * - **Không gộp.** Mười con rồng giống hệt nhau chạy nối đuôi nhau vừa nhàm
+   *   vừa chặn mất những kỹ năng khác đang đợi phía sau.
+   *
+   * Nên trùng nhau thì gộp thành một lượt phát kèm bội số, và hàng đợi có trần.
+   * Khi tràn, thứ bị bỏ là mục **cũ nhất**: một đoạn phim đã đợi quá lâu thì
+   * phát ra cũng vô nghĩa, còn món quà vừa tới vẫn đang được người ta chờ xem.
+   */
+  const enqueueCinematic = useCallback((next: CinematicRequest) => {
+    const queue = cinematicQueueRef.current;
+
+    const twin = queue.find((q) => q.actionKey === next.actionKey);
+    if (twin) {
+      twin.repeat = (twin.repeat ?? 1) + 1;
+      twin.senderLabel = next.senderLabel;
+    } else {
+      queue.push(next);
+      if (queue.length > MAX_QUEUED_CINEMATICS) queue.shift();
+    }
+
+    setCinematic((current) => current ?? cinematicQueueRef.current.shift() ?? null);
+  }, []);
 
   const handleCinematicDone = useCallback(() => {
     setCinematic(cinematicQueueRef.current.shift() ?? null);
