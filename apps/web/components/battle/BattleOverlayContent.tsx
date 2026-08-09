@@ -19,6 +19,7 @@ import { CastleLayer } from './CastleLayer';
 import { preload } from '../../lib/image-cache';
 import { SkillCinematic, type CinematicRequest } from './SkillCinematic';
 import { BattleVictory } from './BattleVictory';
+import { frameBudget } from '../../lib/frame-budget';
 /**
  * three.js is loaded only if a streamer actually switches to 3D.
  *
@@ -170,6 +171,15 @@ export function BattleOverlayContent({
   useEffect(() => {
     document.body.style.backgroundColor = 'transparent';
     document.documentElement.style.backgroundColor = 'transparent';
+  }, []);
+
+  // Started here rather than inside either renderer: both draw into the same
+  // window and compete for the same frame, so the measurement belongs to the
+  // overlay as a whole. Two monitors would each see the other's cost and both
+  // degrade.
+  useEffect(() => {
+    frameBudget.start();
+    return () => frameBudget.stop();
   }, []);
 
   const handleState = useCallback((state: OverlayState) => {

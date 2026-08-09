@@ -3,6 +3,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { BattleState } from '@livenova/shared';
+import { frameBudget } from '../../lib/frame-budget';
 
 interface Props {
   state: BattleState;
@@ -218,6 +219,21 @@ export function BattleArena3D({ state, isDark = true }: Props) {
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, powerPreference: 'high-performance' });
     renderer.setSize(container.clientWidth, container.clientHeight);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+    // Resolution is the first thing to give up when frames slip.
+    //
+    // Rendering a 1080x1920 surface at device pixel ratio 2 means shading four
+    // million pixels a frame. Halving the ratio quarters that and is barely
+    // visible at broadcast bitrates, whereas removing objects changes what the
+    // audience is looking at. Fill rate is also the part a weak GPU actually
+    // struggles with — this scene only issues twelve draw calls.
+    let appliedScale = 1;
+    const applyQuality = () => {
+      const scale = frameBudget.quality === 'full' ? 1 : frameBudget.quality === 'reduced' ? 0.75 : 0.5;
+      if (scale === appliedScale) return;
+      appliedScale = scale;
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2) * scale);
+    };
     renderer.shadowMap.enabled = false;
     container.appendChild(renderer.domElement);
     rendererRef.current = renderer;
@@ -429,7 +445,10 @@ export function BattleArena3D({ state, isDark = true }: Props) {
       shockwavesRef.current = remainingShocks;
 
       // Render
+      applyQuality();
+      const drawStart = performance.now();
       renderer.render(scene, camera);
+      frameBudget.recordWork(performance.now() - drawStart);
     };
 
     animate();

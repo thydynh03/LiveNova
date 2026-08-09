@@ -18,9 +18,9 @@ thái chứ không phải ở tầng giao diện.
 | 3 | Không có migration có phiên bản | ✅ Đã làm |
 | 4 | Hạn mức theo từng streamer | ✅ Đã làm |
 | 5 | Quan sát được trận đấu | ✅ Đã làm |
-| 6 | Ngưỡng tài nguyên overlay | ⬜ Chưa |
+| 6 | Ngưỡng tài nguyên overlay | ✅ Đã làm |
 | 7 | Sinh lại 3 sprite sheet | ✅ Đã làm (nắn lại từ chính ảnh AI) |
-| 8 | Đo 3D | ⚠️ Đã sửa lỗi không hiển thị; FPS vẫn chưa đo được |
+| 8 | Đo 3D | ✅ Đã đo (chi phí, không phải FPS — lý do bên dưới) |
 
 ---
 
@@ -174,10 +174,48 @@ dung quà. Thêm bất cứ thứ gì định danh vào đây là biến nó th�
 
 ### 6. Chi phí tài nguyên của overlay chưa có ngưỡng
 
-`maxTroops = 220` là con số chọn tay, chưa từng đo trên máy streamer thật (máy
-đang encode 1080p60 song song). Cần đo bằng `PerformanceObserver` trên máy cấu
-hình thấp rồi đặt ngưỡng theo dữ liệu, kèm chế độ tự giảm chất lượng khi khung
-hình rớt.
+`maxTroops = 220` là con số chọn tay, chưa từng đo.
+
+**Đo rồi thì phát hiện nó chưa bao giờ là giới hạn hiệu năng.** Trên đúng bề mặt
+phát sóng 1080×1920:
+
+| Số lính | ms/khung |
+|---|---|
+| 50 | 0,04 |
+| 220 | 0,20 |
+| 440 | 0,41 |
+| 800 | 0,63 |
+
+Ngân sách 60fps là 16,7ms. Vẽ lính chưa bao giờ là thứ đáng lo.
+
+**Nhưng tôi không thay 220 bằng một con số mới lấy từ máy này.** Máy này là RTX
+3050; máy cần quan tâm là laptop của streamer đang encode 1080p60 song song.
+Chọn hằng số mới từ một máy mạnh chỉ là lặp lại đúng sai lầm cũ với số liệu
+tươi hơn.
+
+**Đã làm:** `lib/frame-budget.ts` — overlay tự đo nhịp khung hình của chính nó và
+tự hạ tải. Ba mức `full` / `reduced` / `minimal`, trần quân số nhân theo mức, 3D
+hạ độ phân giải render. Cách này đúng trên phần cứng không ai ở đây thử được.
+
+Ba quyết định trong đó đáng ghi lại:
+
+- **Hạ nhanh, phục hồi chậm** (α 0,25 so với 0,03). Hạ trễ thì khán giả nhìn thấy
+  giật; phục hồi vội thì mật độ lính nhấp nháy mỗi lần có quà lớn, mà nhấp nháy
+  trông như phần mềm hỏng — tệ hơn là cứ giữ mức thấp.
+- **Có vùng trễ**: ngưỡng để quay lại chặt hơn ngưỡng để rớt xuống, nếu không một
+  nhịp khung hình nằm đúng biên sẽ lật qua lật lại liên tục.
+- **Bỏ qua mẫu khi trang bị ẩn.** Trình duyệt hãm `requestAnimationFrame` xuống
+  còn khoảng một lần mỗi giây khi trang không hiển thị. Nạp con số đó vào sẽ
+  đọc ra như máy sập, và khi streamer mở lại cửa sổ thì overlay đang chạy ở một
+  phần tư quân số mà không vì lý do gì. Đã kiểm chứng: trang ẩn, `rAF` dừng hẳn,
+  mức vẫn là `full`.
+
+Ngoài ra `frameBudget` phân biệt **thời gian chờ khung hình** với **thời gian
+overlay thực sự làm việc**. Khung 40ms mà chỉ 2ms là của mình nghĩa là máy đang
+bận vì thứ khác — thường là encoder — và hạ tải của mình cũng không giúp bao
+nhiêu. Cùng 40ms đó với 30ms là của mình thì mình chính là thủ phạm. Truy được
+qua `window.livenovaFrameBudget` trong console, để hỏi được câu đó trên máy của
+streamer qua một buổi hỗ trợ.
 
 ---
 
@@ -210,13 +248,34 @@ màn hình đen: không lỗi, không cảnh báo. Đã thay bằng style inline
 **Chi phí cảnh (đo được):** 12 lệnh vẽ, ~1.314 tam giác mỗi khung khi chưa có
 lính — nhẹ với bất kỳ GPU nào. GPU không phải là rủi ro của tính năng này.
 
-**FPS vẫn chưa đo được.** Cửa sổ tự động hoá giữ trang ở trạng thái `hidden`, mà
-trình duyệt hãm `requestAnimationFrame` khi trang ẩn, nên mọi con số FPS đo
-trong môi trường này đều là số bịa. Cần đo trên máy thật với cửa sổ hiển thị,
-song song OBS đang encode 1080p60.
+**FPS vẫn không đo được ở môi trường này, và tôi không bịa số.** Cửa sổ tự động
+hoá giữ trang ở `hidden`; trình duyệt hãm `requestAnimationFrame` tới mức dừng
+hẳn. Bộ đo tự thân của overlay chỉ thu được **2 mẫu**, cả hai đều là lần vẽ đầu
+(biên dịch shader, nạp texture) và cho ra 114ms — con số đó **không phải chi phí
+thật** và không được dùng ở đâu cả.
 
-Một điểm đáng lưu ý phát hiện lúc đo: vòng lặp vẫn vẽ 616 khung trong lúc trang
-**đang ẩn**. Nó không tự dừng khi không hiển thị.
+Thay vào đó đo thứ quyết định chi phí của một cảnh 12 lệnh vẽ: **tốc độ lấp
+pixel**, đo bằng WebGL2 đồng bộ, ép GPU chạy xong bằng `readPixels`:
+
+| Số lượt phủ kín màn 1080×1920 | ms |
+|---|---|
+| 1 | 0,40 |
+| 4 | 0,50 |
+| 12 | 1,00 |
+| 24 | 1,70 |
+
+Cảnh 3D có 12 lệnh vẽ với vật thể nhỏ, tức tổng diện tích tô còn thấp hơn 12
+lượt phủ kín màn — khoảng **1ms hoặc ít hơn** trên GPU này. Kể cả một GPU chậm
+hơn 10 lần vẫn nằm trong ngân sách 16,7ms, nhưng đã sát; đó chính là lý do việc
+tự hạ độ phân giải ở mục 6 có giá trị: giảm một nửa tỉ lệ pixel thì chi phí tô
+còn một phần tư.
+
+**Vẫn cần đo trên máy thật** với cửa sổ hiển thị và OBS đang encode, trước khi
+quảng bá 3D như một tính năng. Cái đã loại trừ được là "3D quá nặng vì cảnh phức
+tạp" — cảnh không phức tạp.
+
+Một điểm phát hiện lúc đo lần trước: vòng lặp vẫn vẽ 616 khung trong lúc trang
+**đang ẩn** ở phiên bản khi đó. Nó không tự dừng khi không hiển thị.
 
 ---
 
