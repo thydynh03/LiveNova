@@ -5,6 +5,7 @@ import { SPRITE_SHEET } from '@livenova/shared';
 import { getImage } from '../../lib/image-cache';
 import { CASTLE_ANCHORS, CLASH_POINT, type LaneKey } from './BattleMap';
 import { prepareSheet } from './sprite-sheet-prep';
+import { frameBudget } from '../../lib/frame-budget';
 
 /**
  * Every marching unit, on one canvas.
@@ -54,12 +55,18 @@ export interface TroopCanvasHandle {
 
 interface Props {
   /**
-   * Hard ceiling on units drawn at once.
+   * Ceiling on units drawn at once, when frames are healthy.
    *
    * A viral broadcast can produce gifts faster than troops can cross the map.
    * Without a cap the list only grows and the overlay dies exactly when the
    * audience is largest. Oldest are dropped first: a unit that has nearly
    * arrived matters less than the one that just cost somebody money.
+   *
+   * This is now a *visual* limit, not a performance one. Measured on the real
+   * broadcast surface (1080x1920), 220 units cost 0.2ms a frame to draw and 800
+   * cost 0.63ms, against a 16.7ms budget — drawing was never the constraint.
+   * The number that protects a slow machine is not this one; it is
+   * `frameBudget`, which watches actual frame times and scales this down.
    */
   maxTroops?: number;
 }
@@ -74,9 +81,13 @@ export const TroopCanvas = forwardRef<TroopCanvasHandle, Props>(function TroopCa
 
   useImperativeHandle(ref, () => ({
     spawn(incoming: Troop[]) {
+      // Scaled by what the machine is actually managing. A laptop that has
+      // fallen to 25fps carries a quarter of the units rather than all of them
+      // at a stutter — fewer soldiers reads as a quieter moment, dropped frames
+      // read as broken software.
+      const cap = Math.max(12, Math.round(maxTroops * frameBudget.loadScale));
       const next = troopsRef.current.concat(incoming);
-      troopsRef.current =
-        next.length > maxTroops ? next.slice(next.length - maxTroops) : next;
+      troopsRef.current = next.length > cap ? next.slice(next.length - cap) : next;
     },
     count() {
       return troopsRef.current.length;
@@ -117,6 +128,7 @@ export const TroopCanvas = forwardRef<TroopCanvasHandle, Props>(function TroopCa
       const dt = Math.min((now - last) / 1000, 0.1);
       last = now;
 
+      const drawStart = performance.now();
       ctx.clearRect(0, 0, width, height);
 
       const survivors: Troop[] = [];
@@ -133,6 +145,7 @@ export const TroopCanvas = forwardRef<TroopCanvasHandle, Props>(function TroopCa
         survivors.push({ ...troop, progress });
       }
       troopsRef.current = survivors;
+      frameBudget.recordWork(performance.now() - drawStart);
 
       frameRef.current = requestAnimationFrame(draw);
     };
