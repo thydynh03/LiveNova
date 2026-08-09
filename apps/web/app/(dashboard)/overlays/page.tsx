@@ -150,7 +150,11 @@ export default function OverlaysPage() {
   function overlayUrl(overlay: Overlay): string | null {
     const path = LIVE_RENDERERS[overlay.type];
     if (!path) return null;
-    const origin = typeof window === 'undefined' ? '' : window.location.origin;
+    // Use explicitly configured overlay domain (e.g. Vercel) if available, otherwise fallback to current domain
+    let origin = typeof window === 'undefined' ? '' : window.location.origin;
+    if (process.env.NEXT_PUBLIC_OVERLAY_URL) {
+      origin = process.env.NEXT_PUBLIC_OVERLAY_URL.replace(/\/$/, '');
+    }
     const token = localTokens[overlay.id] ?? overlay.publicToken;
     return `${origin}${path}?token=${token}`;
   }
