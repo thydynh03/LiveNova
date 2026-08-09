@@ -17,6 +17,9 @@ import {
   TeamBattleConfig,
   OVERLAY_STATE_EVENT,
   OverlayStateDispatch,
+  BATTLE_ACTION_DISPATCH,
+  BattleActionDispatchEvent,
+  GameBattleActionPayload,
 } from '@livenova/shared';
 import { SimulateBattleEventDto } from './dto/battle.dto';
 import { BattleCoordinatorService } from './battle-coordinator.service';
@@ -556,6 +559,8 @@ export class BattleService implements OnModuleInit, OnModuleDestroy {
         return this.resetBattleLocal(userId);
       case 'simulate':
         return this.simulateEventLocal(userId, payload as SimulateBattleEventDto);
+      case 'dispatchAction':
+        return this.applyBattleActionDispatchLocal(payload as BattleActionDispatchEvent);
       default:
         throw new Error(`unknown forwarded op: ${op}`);
     }
@@ -801,13 +806,20 @@ export class BattleService implements OnModuleInit, OnModuleDestroy {
     team.soldierCount = (team.soldierCount || 0) + (actionKey === 'soldier' ? 10 * giftCount : 5);
     team.energy = Math.max(0, Math.min(battle.config.energy?.capacity ?? 100, team.energy + Math.round(power * 0.05)));
 
-    // Damage other teams
     const opponents = battle.state.teams.filter((t) => t.key !== team.key);
-    for (const opp of opponents) {
-      if (actionKey === 'castle') {
-        // Castle repairs own wall
-        team.castleHp = Math.min(team.maxHp, team.castleHp + power * 2);
-      } else {
+
+    if (actionKey === 'castle') {
+      // Sửa thành của chính mình — một lần.
+      //
+      // Nhánh này từng nằm bên trong vòng lặp "với mỗi đối thủ" ở dưới, dù nó
+      // không dùng tới `opp` nào cả, nên nó chạy đúng một lần cho mỗi đối thủ:
+      // ba đối thủ nghĩa là hồi gấp ba. Với `power = 10` thì thành hồi 60 máu
+      // thay vì 20, và không có gì báo — chỉ là "Xây thành" mạnh gấp ba lần
+      // ý định của người thiết kế mẫu.
+      team.castleHp = Math.min(team.maxHp, team.castleHp + power * 2);
+    } else {
+      // Sát thương chia đều cho các phe còn lại.
+      for (const opp of opponents) {
         const damagePerOpponent = Math.max(1, Math.round(power / Math.max(1, opponents.length)));
         opp.castleHp = Math.max(0, opp.castleHp - damagePerOpponent);
       }
@@ -954,6 +966,122 @@ export class BattleService implements OnModuleInit, OnModuleDestroy {
         // Comments and joins carry no firepower in this mode.
         break;
     }
+  }
+
+  @OnEvent(BATTLE_ACTION_DISPATCH)
+  async handleBattleActionDispatch(dispatch: BattleActionDispatchEvent) {
+    const battle = this.battles.get(dispatch.userId);
+    if (!battle || !battle.state.active) return;
+
+    // Must run on owner
+    if (!this.coordinator.isOwner(dispatch.userId)) {
+      try {
+        await this.coordinator.forward(dispatch.userId, 'dispatchAction', dispatch);
+      } catch (e) {
+        this.logger.warn(`Lỗi forward BATTLE_ACTION_DISPATCH: ${message(e)}`);
+      }
+      return;
+    }
+
+    await this.applyBattleActionDispatchLocal(dispatch);
+  }
+
+  /**
+   * Thi hành một hành động do luật kích hoạt.
+   *
+   * Phần tính điểm, sát thương, cập nhật công thần và ghi nhật ký dưới đây là
+   * bản sao gần như nguyên vẹn của `simulateEventLocal`. Đó là nợ đã biết: hai
+   * bản sao của cùng một luật chơi sẽ lệch nhau ở lần sửa tiếp theo, và lỗi hồi
+   * máu gấp ba vừa phải sửa ở **cả hai chỗ** chính là bằng chứng đầu tiên. Nên
+   * gộp thành một hàm nhận `{ teamKey, actionKey, power, sender }` khi tính
+   * năng này ổn định.
+   */
+  private async applyBattleActionDispatchLocal(dispatch: BattleActionDispatchEvent) {
+    const battle = this.battles.get(dispatch.userId);
+    if (!battle || !battle.state.active) return;
+
+    const payload = dispatch.action.payload as unknown as GameBattleActionPayload;
+    if (!payload || !payload.actionKey) return;
+
+    let teamKey = payload.teamKey;
+    if (!teamKey) {
+      teamKey = this.resolveTeam(battle, dispatch.event) ?? undefined;
+    }
+
+    if (!teamKey) {
+      this.logger.warn(`Bỏ qua GAME_BATTLE_ACTION: Không xác định được phe cho ${payload.actionKey}`);
+      return;
+    }
+
+    const team = battle.state.teams.find(t => t.key === teamKey);
+    if (!team) return;
+
+    // Lookup power for the action to simulate damage
+    const actionTier = (battle.config.actions ?? []).find(a => a.key === payload.actionKey);
+    const power = actionTier?.minPower ?? 1;
+
+    // Apply power & score (Simulate impact)
+    team.score += power;
+    team.soldierCount = (team.soldierCount || 0) + (payload.actionKey === 'soldier' ? 10 : 5);
+    team.energy = Math.max(0, Math.min(battle.config.energy?.capacity ?? 100, team.energy + Math.round(power * 0.05)));
+
+    const opponents = battle.state.teams.filter((t) => t.key !== team.key);
+
+    // Giống hệt nhánh trong `simulateEventLocal`, kể cả lỗi hồi máu gấp ba đã
+    // được sửa ở đó. Hai bản sao của cùng một luật chơi sẽ lệch nhau ở lần sửa
+    // tiếp theo — xem ghi chú ở đầu `applyBattleActionDispatchLocal`.
+    if (payload.actionKey === 'castle') {
+      team.castleHp = Math.min(team.maxHp, team.castleHp + power * 2);
+    } else {
+      for (const opp of opponents) {
+        const damagePerOpponent = Math.max(1, Math.round(power / Math.max(1, opponents.length)));
+        opp.castleHp = Math.max(0, opp.castleHp - damagePerOpponent);
+      }
+    }
+
+    const aliveOpponents = opponents.filter((t) => t.castleHp > 0);
+    if (opponents.length > 0 && aliveOpponents.length === 0) {
+      battle.state.winnerTeamKey = team.key;
+      void this.finishBattle(battle, 'conquest');
+    }
+
+    // Keep donors updated based on power
+    if (dispatch.event.senderUsername && dispatch.event.senderUsername !== 'unknown') {
+      const sender = `@${dispatch.event.senderUsername}`;
+      const existing = battle.donors.get(sender);
+      if (existing) {
+        existing.totalScore += power;
+        existing.teamKey = team.key;
+        if (dispatch.event.senderDisplayName) existing.nickname = dispatch.event.senderDisplayName;
+      } else {
+        battle.donors.set(sender, {
+          username: sender,
+          nickname: dispatch.event.senderDisplayName || dispatch.event.senderUsername,
+          teamKey: team.key,
+          totalScore: power,
+        });
+      }
+      battle.state.topDonors = [...battle.donors.values()]
+        .sort((a, b) => b.totalScore - a.totalScore)
+        .slice(0, battle.config.battle?.showTopDonors ?? 5);
+    }
+
+    const eventLog: BattleEventLog = {
+      id: `evt_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      teamKey: team.key,
+      sender: dispatch.event.senderUsername ? `@${dispatch.event.senderUsername}` : 'Hệ thống',
+      actionKey: payload.actionKey,
+      giftName: 'Kịch bản (Rule)',
+      giftCount: 1,
+      powerAdded: power,
+      quote: team.quote,
+      timestamp: Date.now(),
+    };
+
+    battle.state.recentEvents = [eventLog, ...battle.state.recentEvents.slice(0, 19)];
+
+    this.dirty.add(dispatch.userId);
+    this.broadcastState(dispatch.userId);
   }
 
   /** channelId → owning userId. Ownership effectively never changes. */

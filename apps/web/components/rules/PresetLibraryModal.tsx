@@ -28,6 +28,18 @@ const PRESETS_LIST = [
     description: 'Ai nhắn “chào”, “hi”, “hello” thì LiveNova chào lại bằng giọng nói.',
     badge: 'Có giọng đọc',
   },
+  {
+    id: 'game-dragon-comment',
+    title: 'Bình luận Gọi Rồng (Đấu trường Game)',
+    description: 'Khán giả gõ "rồng" sẽ thả Rồng vào trận địa.',
+    badge: 'Đấu trường',
+  },
+  {
+    id: 'game-meteor-like',
+    title: 'Thả tim rơi Thiên Thạch (Đấu trường Game)',
+    description: 'Mỗi mốc thả tim sẽ tự động giáng Thiên Thạch xuống sàn đấu.',
+    badge: 'Đấu trường',
+  },
 ];
 
 export function PresetLibraryModal({ onClose, onSuccess }: PresetLibraryModalProps) {
