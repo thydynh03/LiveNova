@@ -1,5 +1,7 @@
 'use client';
 
+import { isVideoUrl } from './video-pool';
+
 /**
  * Image loader for the canvas renderer.
  *
@@ -54,7 +56,14 @@ export function getImage(url: string | undefined): HTMLImageElement | null {
  * passed may as well not exist.
  */
 export function preload(urls: (string | undefined)[]): void {
-  for (const url of urls) getImage(url);
+  for (const url of urls) {
+    // Bỏ qua video. Nạp một tệp `.mp4` qua `new Image()` không chuẩn bị được
+    // gì cả — nó tải hỏng rồi ghi vào bộ nhớ đệm là `failed`, nên lần sau có ai
+    // hỏi đúng URL đó thì câu trả lời là "tệp này hỏng". Video được hâm riêng
+    // trong `video-pool.ts` bằng một thẻ `<video>` thật.
+    if (isVideoUrl(url)) continue;
+    getImage(url);
+  }
 }
 
 /** Test seam. */

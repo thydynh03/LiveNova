@@ -24,6 +24,7 @@ export enum RuleActionType {
   SOUND = 'sound',
   OBS_COMMAND = 'obs_command',
   GAME_INPUT = 'game_input',
+  GAME_BATTLE_ACTION = 'game_battle_action',
   WEBHOOK = 'webhook',
 }
 
@@ -304,6 +305,22 @@ export const GAME_INPUT_EVENT = 'game.input';
 export interface GameInputDispatch {
   userId: string;
   command: GameInputCommand;
+}
+
+/** Payload of a RuleActionType.GAME_BATTLE_ACTION action. */
+export interface GameBattleActionPayload {
+  actionKey: 'soldier' | 'castle' | 'bomb' | 'dragon' | 'cannon' | 'meteor';
+  /** Optional team key to target. If omitted, the game engine resolves it based on the user's gift history. */
+  teamKey?: string;
+}
+
+/** Internal bus event carrying a GameBattleAction to the battle service. */
+export const BATTLE_ACTION_DISPATCH = 'battle.action.dispatch';
+
+export interface BattleActionDispatchEvent {
+  userId: string;
+  action: RuleAction;
+  event: LiveEvent;
 }
 
 /**

@@ -17,6 +17,8 @@ import {
   GameInputDispatch,
   clampMediaDuration,
   readGameInput,
+  BATTLE_ACTION_DISPATCH,
+  BattleActionDispatchEvent,
 } from '@livenova/shared';
 import { v4 as uuidv4 } from 'uuid';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -66,9 +68,10 @@ export class RuleEngineService {
     RuleActionType.TTS_READ,
   ]);
 
-  /** Delivered to the desktop bridge through the dashboard, not to an overlay. */
+  /** Delivered to the desktop bridge through the dashboard, not to an overlay. Or to internal game engines. */
   private static readonly RELAYED_ACTIONS: ReadonlySet<RuleActionType> = new Set([
     RuleActionType.GAME_INPUT,
+    RuleActionType.GAME_BATTLE_ACTION,
   ]);
 
   /** userId → the overlay that renders alerts, or null if they have none. */
@@ -146,6 +149,12 @@ export class RuleEngineService {
       return;
     }
 
+    // Battle actions are dispatched to the BattleService to process team targeting and log the event.
+    if (action.type === RuleActionType.GAME_BATTLE_ACTION) {
+      this.dispatchGameBattleAction(userId, rule, action, event);
+      return;
+    }
+
     let payload = this.normalisePayload(action, event);
 
     if (action.type === RuleActionType.TTS_READ) {
@@ -200,6 +209,18 @@ export class RuleEngineService {
       command: { id: uuidv4(), ruleName: rule.name, ...input },
     };
     this.eventEmitter.emit(GAME_INPUT_EVENT, dispatch);
+  }
+
+  /**
+   * Relay a game battle action to the BattleService.
+   */
+  private dispatchGameBattleAction(userId: string, rule: SharedRule, action: RuleAction, event: LiveEvent): void {
+    const dispatch: BattleActionDispatchEvent = {
+      userId,
+      action,
+      event,
+    };
+    this.eventEmitter.emit(BATTLE_ACTION_DISPATCH, dispatch);
   }
 
   /**

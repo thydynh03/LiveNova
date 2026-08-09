@@ -24,6 +24,16 @@ const EVENT_PHRASE: Record<string, string> = {
 const ACTION_PHRASE: Record<string, string> = {
   tts_read: 'đọc thành tiếng',
   media_popup: 'hiện video/ảnh lên màn hình',
+  game_battle_action: 'gửi hiệu ứng vào Đấu trường Game',
+};
+
+const BATTLE_ACTION_PHRASE: Record<string, string> = {
+  soldier: 'Triệu hồi Lính',
+  castle: 'Xây thành',
+  bomb: 'Ném bom',
+  dragon: 'Gọi rồng',
+  cannon: 'Bắn đại bác',
+  meteor: 'Thiên thạch',
 };
 
 /** "30 giây" reads; "30000ms" does not. */
@@ -82,7 +92,11 @@ function RuleSentence({ rule }: { rule: any }) {
         actions.map((act, i) => (
           <React.Fragment key={i}>
             {i > 0 ? <span style={{ color: 'hsl(var(--muted-foreground))' }}> và </span> : null}
-            <Chip>{ACTION_PHRASE[act.type] ?? act.type}</Chip>
+            <Chip>
+              {act.type === 'game_battle_action' 
+                ? `gửi hiệu ứng ${BATTLE_ACTION_PHRASE[act.payload?.actionKey] ?? act.payload?.actionKey ?? ''} vào Đấu trường Game`
+                : ACTION_PHRASE[act.type] ?? act.type}
+            </Chip>
           </React.Fragment>
         ))
       )}
