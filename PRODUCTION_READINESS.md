@@ -9,6 +9,21 @@ thái chứ không phải ở tầng giao diện.
 
 ---
 
+## Trạng thái
+
+| # | Hạng mục | Trạng thái |
+|---|---|---|
+| 1 | Trạng thái trận trong RAM tiến trình | ✅ Đã chặn phân kỳ bằng quyền sở hữu (xem bên dưới) |
+| 2 | Socket.IO không có Redis adapter | ✅ Đã làm |
+| 3 | Không có migration có phiên bản | ✅ Đã làm |
+| 4 | Hạn mức theo từng streamer | ⬜ Chưa |
+| 5 | Quan sát được trận đấu | ⬜ Chưa |
+| 6 | Ngưỡng tài nguyên overlay | ⬜ Chưa |
+| 7 | Sinh lại 3 sprite sheet | ⬜ Chưa (cần ảnh mới) |
+| 8 | Đo 3D trên máy yếu | ⬜ Chưa |
+
+---
+
 ## P0 — Chặn cứng, phải xong trước khi mở cho người ngoài
 
 ### 1. Trạng thái trận nằm trong RAM của tiến trình
@@ -39,7 +54,33 @@ FINISHED, hai lần công bố nhà vô địch, có thể khác nhau.
 - `finishBattle` phải idempotent — bọc bằng update có điều kiện
   `WHERE status = 'RUNNING'` để lần gọi thứ hai không ghi gì.
 
-**Ước lượng:** 3–5 ngày. Đây là hạng mục lớn nhất và không có đường tắt.
+**Đã làm — theo hướng khác với dự kiến ban đầu, và đây là lý do:**
+
+Kế hoạch cũ là chuyển toàn bộ trạng thái sang Redis. Làm vậy đồng nghĩa viết lại
+mọi đường ghi trong một service 900 dòng đang chạy đúng — rủi ro cao mà không
+giải quyết được vấn đề gốc, vì hai tiến trình cùng đọc-sửa-ghi một key Redis vẫn
+giẫm lên nhau nếu không có khoá.
+
+Thay vào đó: **mỗi trận có đúng một chủ sở hữu tại một thời điểm**, giữ bằng lease
+Redis (`battle:owner:<userId>`, TTL 15s, gia hạn mỗi 5s).
+
+- `BattleCoordinatorService` cấp và gia hạn lease.
+- `tickEnergyRefill` và `flush` bỏ qua trận không thuộc sở hữu — hết hồi năng
+  lượng gấp đôi, hết ghi đè điểm.
+- Instance không sở hữu **không tự xử lý**: nó chuyển lệnh cho chủ sở hữu qua
+  Redis pub/sub và trả về kết quả của chủ sở hữu.
+- Khi chuyển lệnh thất bại, API trả 503 chứ **không** tự chạy cục bộ. Chạy cục bộ
+  chính là con bug cần tránh: từ giây đó hai bản sao phân kỳ trong im lặng. Lease
+  hết hạn trong ≤15s nên lần thử sau sẽ thành công.
+- Lúc tắt, instance trả lease ngay thay vì để trận đứng yên hết TTL — một lần
+  deploy cuốn chiếu nếu không sẽ đóng băng mọi trận đang chạy 15 giây.
+- `finishBattle` dùng `updateMany ... WHERE status = 'RUNNING'`. Cờ `active`
+  trong bộ nhớ không đảm bảo được tính idempotent vì nó là trạng thái của riêng
+  từng tiến trình.
+
+Còn lại chưa làm: trạng thái vẫn nằm trong RAM của **chủ sở hữu**. Chủ sở hữu
+chết thì mất tối đa 2 giây điểm (khoảng cách giữa hai lần flush) và instance kế
+tiếp khôi phục từ Postgres. Đó là đánh đổi có chủ ý, không phải thiếu sót.
 
 ### 2. Socket.IO không có Redis adapter
 
@@ -56,7 +97,11 @@ nhất trong nhóm này vì không có lỗi nào được ném ra.
 **Hướng xử lý:** `@socket.io/redis-adapter` + `ioredis`, gắn trong `main.ts`.
 Kèm sticky session ở tầng load balancer cho giai đoạn HTTP long-polling.
 
-**Ước lượng:** 1 ngày.
+**Đã làm.** `RedisIoAdapter` trong `main.ts`, gắn trước khi gateway khởi tạo.
+Không có Redis thì lùi về adapter bộ nhớ và **ghi log đúng trạng thái thật** —
+log ban đầu tôi viết báo "đã cấu hình" dựa trên biến môi trường, tức là sẽ nói
+dối đúng lúc đang có sự cố: `REDIS_URL` có đặt nhưng không kết nối được vẫn hiện
+"đã cấu hình" trong khi overlay đứng hình.
 
 ### 3. Không có migration có phiên bản
 
@@ -75,7 +120,9 @@ môi trường không thể chứng minh là giống nhau.
 (`prisma migrate diff --from-empty`), commit vào repo, chuyển deploy sang
 `prisma migrate deploy`. Cấm `db push` ngoài máy dev.
 
-**Ước lượng:** nửa ngày. Rẻ nhất trong nhóm P0 và rủi ro cao nhất nếu bỏ qua.
+**Đã làm.** Baseline `00000000000000_init` sinh từ schema hiện tại, thêm
+`prisma:deploy` và `prisma:baseline`, gỡ `--accept-data-loss` khỏi `prisma:push`.
+Hướng dẫn baseline cho database đang chạy nằm ở `prisma/migrations/README.md`.
 
 ---
 
@@ -131,12 +178,30 @@ và ghi rõ yêu cầu cấu hình.
 
 ## Thứ tự đề xuất
 
-1. Migration có phiên bản (nửa ngày, rủi ro cao nhất)
-2. Redis adapter cho socket (1 ngày, lỗi âm thầm nhất)
-3. Trạng thái trận ra Redis + worker tick (3–5 ngày, lớn nhất)
+~~1. Migration~~ ✅ · ~~2. Redis adapter~~ ✅ · ~~3. Quyền sở hữu trận~~ ✅
+
 4. Hạn mức theo user, metrics
 5. Sinh lại sprite, đo 3D
 
-Mục 1–3 xong thì hệ thống chạy được nhiều instance. Trước đó, dù hạ tầng có
-scale, **phải khoá ở đúng một instance** — và điều đó cần được ghi rõ trong cấu
-hình triển khai, không phải là điều mọi người ngầm hiểu.
+## Cần làm trước lần deploy nhiều instance đầu tiên
+
+Ba mục P0 đã xong về mã, nhưng **chưa mục nào được chạy thử với Redis thật** —
+môi trường phát triển hiện không có Redis (Docker Desktop không khởi động được),
+nên phần logic điều phối được kiểm chứng bằng một Redis giả trong
+`battle-coordinator.service.spec.ts`: hai coordinator dùng chung một lease store,
+tranh nhau một trận, chuyển lệnh cho nhau, mất lease, và tắt máy.
+
+Cái *chưa* được kiểm chứng là tầng dây nối: ioredis nói chuyện với Redis thật, và
+`@socket.io/redis-adapter` thật sự đẩy broadcast qua hai tiến trình. Trước khi
+mở cho nhiều instance, phải chạy đúng phép thử này:
+
+1. Bật Redis, chạy hai instance ở hai cổng khác nhau.
+2. Mở overlay trỏ vào instance A.
+3. Gọi `POST /battle/simulate` vào instance B.
+4. Overlay ở A phải nhúc nhích. Nếu không, adapter chưa hoạt động — và đó chính
+   là lỗi âm thầm mà toàn bộ mục 2 sinh ra để chặn.
+
+`ALLOW_SINGLE_INSTANCE=true` là đường thoát hợp lệ cho tới khi phép thử trên
+chạy được: production sẽ **từ chối khởi động** nếu không có Redis mà cũng không
+khai báo cờ này, nên trạng thái một-instance là một quyết định được ghi ra chứ
+không phải hệ quả của việc quên đặt biến môi trường.

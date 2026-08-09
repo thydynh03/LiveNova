@@ -1,4 +1,10 @@
-import { Injectable, Logger, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  OnModuleInit,
+  OnModuleDestroy,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import { EventEmitter2, OnEvent } from '@nestjs/event-emitter';
 import { PrismaService } from '../../prisma/prisma.service';
 import { OverlayType } from '@prisma/client';
@@ -13,6 +19,7 @@ import {
   OverlayStateDispatch,
 } from '@livenova/shared';
 import { SimulateBattleEventDto } from './dto/battle.dto';
+import { BattleCoordinatorService } from './battle-coordinator.service';
 
 type BattleDonorState = BattleState['topDonors'][number];
 
@@ -171,9 +178,16 @@ export class BattleService implements OnModuleInit, OnModuleDestroy {
   constructor(
     private readonly prisma: PrismaService,
     private readonly eventEmitter: EventEmitter2,
+    private readonly coordinator: BattleCoordinatorService,
   ) {}
 
   onModuleInit() {
+    // Mutations forwarded from an instance that does not own the battle land
+    // here and run exactly as if they had arrived over HTTP on this one.
+    this.coordinator.registerHandler((op, userId, payload) =>
+      this.applyForwarded(op, userId, payload),
+    );
+
     this.energyTimer = setInterval(() => this.tickEnergyRefill(), 1000);
     // Batched every two seconds rather than written per event: a busy broadcast
     // produces hundreds of events a minute, and a write for each would make the
@@ -300,18 +314,32 @@ export class BattleService implements OnModuleInit, OnModuleDestroy {
     this.dirty.add(battle.userId);
     await this.flush();
 
-    await this.prisma.battle
-      .update({
-        where: { id: battle.battleId },
+    // `updateMany` with a status guard, not `update`.
+    //
+    // Closing a round has to be idempotent, and the in-process `active` flag at
+    // the top of this method cannot provide that on its own — it is per-process
+    // state. If ownership changes hands at the wrong moment, or a restart
+    // restores a round that another instance is already closing, two processes
+    // reach this line for the same battle. Guarding on RUNNING means the second
+    // one writes nothing and cannot overwrite the winner the first recorded.
+    try {
+      const closed = await this.prisma.battle.updateMany({
+        where: { id: battle.battleId, status: 'RUNNING' },
         data: {
           status: 'FINISHED',
           finishedAt: new Date(),
           winnerTeamKey: battle.state.winnerTeamKey ?? null,
         },
-      })
-      .catch((err) => {
-        this.logger.error(`Khong dong duoc tran ${battle.battleId}: ${message(err)}`);
       });
+
+      if (closed.count === 0) {
+        this.logger.warn(
+          `Tran ${battle.battleId} da duoc dong boi tien trinh khac — bo qua ghi ket qua.`,
+        );
+      }
+    } catch (err) {
+      this.logger.error(`Khong dong duoc tran ${battle.battleId}: ${message(err)}`);
+    }
 
     this.broadcastState(battle.userId);
   }
@@ -348,6 +376,12 @@ export class BattleService implements OnModuleInit, OnModuleDestroy {
     for (const userId of userIds) {
       const battle = this.battles.get(userId);
       if (!battle) continue;
+
+      // Only the owner writes. An instance that lost the lease still holds a
+      // copy of the state as of the moment it lost it; flushing that would
+      // overwrite the new owner's live scores with scores that stopped moving
+      // seconds ago, and the audience would watch the board go backwards.
+      if (!this.coordinator.isOwner(userId)) continue;
 
       try {
         await this.prisma.$transaction([
@@ -428,6 +462,11 @@ export class BattleService implements OnModuleInit, OnModuleDestroy {
 
   private tickEnergyRefill() {
     for (const battle of this.battles.values()) {
+      // The clock belongs to the owner alone. Two instances ticking the same
+      // battle refill energy at twice the configured rate — a bug that looks
+      // like a balance problem and sends you hunting through the config.
+      if (!this.coordinator.isOwner(battle.userId)) continue;
+
       // Nothing checked `endsAtMs`, so the countdown reached 00:00 and the round
       // simply carried on — no winner, no result, gifts still scoring into a
       // match that had visibly ended. A timer that runs out and changes nothing
@@ -455,7 +494,88 @@ export class BattleService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
-  async getOrCreateBattle(userId: string): Promise<BattleState> {
+
+  // ── Ownership routing ────────────────────────────────────────────────────
+  //
+  // Every entry point that changes a battle goes through here. The instance
+  // that holds the lease does the work; anyone else hands it over and returns
+  // the owner's answer, so there is only ever one copy of a round being played.
+
+  /**
+   * Run a mutation on whichever instance owns this battle.
+   *
+   * On a forwarding failure this throws rather than falling back to running
+   * locally. Running locally would be the whole bug: a second process would
+   * start mutating a battle it does not own, and from that point the two copies
+   * diverge silently. A 503 is recoverable — the owner's lease expires within
+   * fifteen seconds and the next attempt succeeds here.
+   */
+  private async withOwnership<T>(
+    userId: string,
+    op: string,
+    payload: unknown,
+    local: () => Promise<T>,
+  ): Promise<T> {
+    if (await this.coordinator.claim(userId)) return local();
+
+    try {
+      return (await this.coordinator.forward(userId, op, payload)) as T;
+    } catch (err) {
+      this.logger.warn(`Khong chuyen duoc ${op} cho chu so huu tran: ${message(err)}`);
+      throw new ServiceUnavailableException(
+        'Tran dau dang duoc xu ly boi mot tien trinh khac va tien trinh do khong phan hoi. ' +
+          'Thu lai sau vai giay.',
+      );
+    }
+  }
+
+  /** Dispatch for calls forwarded from another instance. */
+  private async applyForwarded(op: string, userId: string, payload: unknown): Promise<unknown> {
+    switch (op) {
+      case 'getOrCreate':
+        return this.getOrCreateBattleLocal(userId);
+      case 'setMapTheme':
+        return this.setMapThemeLocal(userId, payload as string);
+      case 'setRenderEngine':
+        return this.setRenderEngineLocal(userId, payload as '2d' | '3d');
+      case 'reset':
+        return this.resetBattleLocal(userId);
+      case 'simulate':
+        return this.simulateEventLocal(userId, payload as SimulateBattleEventDto);
+      default:
+        throw new Error(`unknown forwarded op: ${op}`);
+    }
+  }
+
+  getOrCreateBattle(userId: string): Promise<BattleState> {
+    return this.withOwnership(userId, 'getOrCreate', null, () =>
+      this.getOrCreateBattleLocal(userId),
+    );
+  }
+
+  setMapTheme(userId: string, mapTheme: string): Promise<BattleState> {
+    return this.withOwnership(userId, 'setMapTheme', mapTheme, () =>
+      this.setMapThemeLocal(userId, mapTheme),
+    );
+  }
+
+  setRenderEngine(userId: string, renderEngine: '2d' | '3d'): Promise<BattleState> {
+    return this.withOwnership(userId, 'setRenderEngine', renderEngine, () =>
+      this.setRenderEngineLocal(userId, renderEngine),
+    );
+  }
+
+  resetBattle(userId: string): Promise<BattleState> {
+    return this.withOwnership(userId, 'reset', null, () => this.resetBattleLocal(userId));
+  }
+
+  simulateEvent(userId: string, dto: SimulateBattleEventDto): Promise<BattleState> {
+    return this.withOwnership(userId, 'simulate', dto, () =>
+      this.simulateEventLocal(userId, dto),
+    );
+  }
+
+  private async getOrCreateBattleLocal(userId: string): Promise<BattleState> {
     const existing = this.battles.get(userId);
     if (existing) return existing.state;
 
@@ -522,7 +642,7 @@ export class BattleService implements OnModuleInit, OnModuleDestroy {
     return state;
   }
 
-  async setMapTheme(userId: string, mapTheme: string): Promise<BattleState> {
+  private async setMapThemeLocal(userId: string, mapTheme: string): Promise<BattleState> {
     const state = await this.getOrCreateBattle(userId);
     state.mapTheme = mapTheme;
     const active = this.battles.get(userId);
@@ -533,7 +653,7 @@ export class BattleService implements OnModuleInit, OnModuleDestroy {
     return active ? active.state : state;
   }
 
-  async setRenderEngine(userId: string, renderEngine: '2d' | '3d'): Promise<BattleState> {
+  private async setRenderEngineLocal(userId: string, renderEngine: '2d' | '3d'): Promise<BattleState> {
     const state = await this.getOrCreateBattle(userId);
     state.renderEngine = renderEngine;
     const active = this.battles.get(userId);
@@ -544,7 +664,7 @@ export class BattleService implements OnModuleInit, OnModuleDestroy {
     return active ? active.state : state;
   }
 
-  async resetBattle(userId: string): Promise<BattleState> {
+  private async resetBattleLocal(userId: string): Promise<BattleState> {
     const previous = this.battles.get(userId);
     if (previous) {
       // Close the old row instead of leaving it RUNNING, or a restart would
@@ -575,7 +695,7 @@ export class BattleService implements OnModuleInit, OnModuleDestroy {
     return state;
   }
 
-  async simulateEvent(userId: string, dto: SimulateBattleEventDto): Promise<BattleState> {
+  private async simulateEventLocal(userId: string, dto: SimulateBattleEventDto): Promise<BattleState> {
     await this.getOrCreateBattle(userId);
     const battle = this.battles.get(userId);
     if (!battle) return this.getOrCreateBattle(userId);

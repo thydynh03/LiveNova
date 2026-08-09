@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { EventEmitterModule } from '@nestjs/event-emitter';
+import { RedisModule } from './common/redis/redis.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { UserModule } from './modules/user/user.module';
@@ -24,6 +25,9 @@ import { BattleModule } from './modules/battle/battle.module';
     // and EventsGateway consumes `live.any` from it.
     EventEmitterModule.forRoot({ wildcard: false, maxListeners: 20 }),
     PrismaModule,
+    // Global: the websocket adapter and the battle owner leases both need the
+    // same connections, and it must be constructed before any gateway.
+    RedisModule,
     AuthModule,
     UserModule,
     ChannelModule,
