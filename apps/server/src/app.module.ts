@@ -5,6 +5,7 @@ import { UserThrottlerGuard } from './common/guards/user-throttler.guard';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { RedisModule } from './common/redis/redis.module';
 import { MetricsModule } from './common/metrics/metrics.module';
+import { TurnstileModule } from './common/turnstile/turnstile.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { UserModule } from './modules/user/user.module';
@@ -41,6 +42,7 @@ import { BattleModule } from './modules/battle/battle.module';
     // same connections, and it must be constructed before any gateway.
     RedisModule,
     MetricsModule,
+    TurnstileModule,
     AuthModule,
     UserModule,
     ChannelModule,

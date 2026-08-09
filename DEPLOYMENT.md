@@ -28,7 +28,17 @@ chắn DDoS trước khi nó chạm tới tiến trình đang giữ trạng thá
 NEXT_PUBLIC_SITE_URL=https://livenova.website
 NEXT_PUBLIC_API_URL=https://api.livenova.website
 NEXT_PUBLIC_WS_URL=wss://api.livenova.website
+SERVER_API_URL=https://api.livenova.website
+NEXT_PUBLIC_TURNSTILE_SITE_KEY=<site key tu dashboard Turnstile>
 ```
+
+**`SERVER_API_URL` không phải bản sao của `NEXT_PUBLIC_API_URL`.** Cái
+`NEXT_PUBLIC_` được nhúng vào bundle và trình duyệt dùng; cái này là địa chỉ mà
+tiến trình Next.js gọi từ phía máy chủ, trong các route dưới `app/api/auth/*`.
+Thiếu nó, `apiBaseUrl()` ném lỗi **bên trong** khối `try` bọc `fetch`, nên
+`catch` trả đúng chuỗi *"Không kết nối được máy chủ"* kèm 502 — thông điệp đó
+nói rằng API không phản hồi, trong khi sự thật là biến môi trường chưa được đặt.
+Hai nguyên nhân, một câu báo lỗi.
 
 `NEXT_PUBLIC_SITE_URL` là **bắt buộc**: build production sẽ dừng nếu thiếu. Chốt
 chặn đó có vì hậu quả của việc quên nó hoàn toàn im lặng — sitemap, canonical và
@@ -48,6 +58,7 @@ CORS_ORIGIN=https://livenova.website
 PUBLIC_WEB_URL=https://livenova.website
 JWT_SECRET=...              # >= 32 ky tu, khac JWT_REFRESH_SECRET
 JWT_REFRESH_SECRET=...
+TURNSTILE_SECRET=...          # bat buoc, hoac dat ALLOW_NO_TURNSTILE=true
 NODE_ENV=production
 ```
 
@@ -92,6 +103,31 @@ nền tảng không ngủ.
 Chạy `prisma:deploy`, không bao giờ `db push`. Với một database đã tồn tại từ
 trước, phải baseline một lần trước — quy trình và lần chạy thật đã ghi ở
 `apps/server/prisma/migrations/README.md`.
+
+## ⚠️ `.env` ở máy anh đang trỏ vào hạ tầng production
+
+Đây là thứ nguy hiểm nhất trong toàn bộ tài liệu này.
+
+`apps/server/.env` trên máy phát triển đang dùng **cùng `DATABASE_URL` và cùng
+`REDIS_URL`** với production. Hệ quả không phải "hơi bất tiện":
+
+- Chạy dev ở máy là ghi thẳng vào database thật.
+- Nghiêm trọng hơn: khoá sở hữu trận là `battle:owner:<userId>` trên Redis dùng
+  chung. Một tiến trình dev ở máy anh **có thể giành mất quyền sở hữu trận đang
+  phát sóng thật**. Khi đó instance production ngừng chạy đồng hồ và ngừng ghi
+  điểm — vì nó được thiết kế đúng như vậy khi mất lease — còn máy anh thì giữ
+  trạng thái trong RAM rồi tắt đi cùng lúc anh đóng terminal.
+
+Cơ chế sở hữu làm đúng việc của nó. Vấn đề là hai môi trường không nên nhìn thấy
+chung một Redis ngay từ đầu.
+
+Cần làm, theo thứ tự ưu tiên:
+
+1. Một Redis riêng cho dev (Upstash có gói miễn phí), hoặc ít nhất một tiền tố
+   khoá theo môi trường.
+2. Một database riêng cho dev. Supabase cho tạo project thứ hai miễn phí.
+3. Trước khi có hai thứ trên: **đừng chạy server local trong lúc có người đang
+   livestream thật.**
 
 ## Thứ tự bật
 

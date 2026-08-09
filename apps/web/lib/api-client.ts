@@ -241,15 +241,31 @@ async function performAuthExchange(
   return data.accessToken;
 }
 
-export async function login(email: string, password: string, rememberMe?: boolean): Promise<string> {
-  return performAuthExchange('/api/auth/login', { email, password, rememberMe }, 'Đăng nhập thất bại');
+export async function login(
+  email: string,
+  password: string,
+  rememberMe?: boolean,
+  turnstileToken?: string,
+): Promise<string> {
+  // Forwarded verbatim by the BFF route, which does not inspect the body — the
+  // token is checked by the API, the only place a caller cannot skip.
+  return performAuthExchange(
+    '/api/auth/login',
+    { email, password, rememberMe, turnstileToken },
+    'Đăng nhập thất bại',
+  );
 }
 
-export async function register(email: string, password: string, displayName: string): Promise<{ pendingVerification: boolean; email: string }> {
+export async function register(
+  email: string,
+  password: string,
+  displayName: string,
+  turnstileToken?: string,
+): Promise<{ pendingVerification: boolean; email: string }> {
   const res = await fetch('/api/auth/register', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ email, password, displayName }),
+    body: JSON.stringify({ email, password, displayName, turnstileToken }),
   });
 
   const data = await res.json().catch(() => null);
@@ -276,8 +292,14 @@ export async function resendOtp(email: string, type: 'REGISTER' | 'FORGOT_PASSWO
   return data;
 }
 
-export async function forgotPassword(email: string): Promise<{ success: boolean; message?: string }> {
-  return api.post<{ success: boolean; message?: string }>('/auth/forgot-password', { email });
+export async function forgotPassword(
+  email: string,
+  turnstileToken?: string,
+): Promise<{ success: boolean; message?: string }> {
+  return api.post<{ success: boolean; message?: string }>('/auth/forgot-password', {
+    email,
+    turnstileToken,
+  });
 }
 
 export async function resetPassword(email: string, code: string, newPassword: string): Promise<{ success: boolean }> {

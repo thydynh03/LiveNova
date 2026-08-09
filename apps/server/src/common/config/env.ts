@@ -104,6 +104,15 @@ export interface AppEnv {
   allowSingleInstance: boolean;
 
   /**
+   * Whether Cloudflare Turnstile is verifying the public auth endpoints.
+   *
+   * The secret itself is never held here — `TurnstileService` reads
+   * `process.env.TURNSTILE_SECRET` at the point of use, so the value has one
+   * home and does not get copied into a config object that gets logged.
+   */
+  turnstileEnabled: boolean;
+
+  /**
    * Identifies this process in the ownership leases it takes on battles.
    *
    * Defaults to a random value per boot. A restarted process must not inherit
@@ -157,9 +166,23 @@ export function loadEnv(): AppEnv {
     );
   }
 
+  // Same shape as the Redis rule above: production must not arrive at
+  // "bot protection is off" by forgetting a variable. The signup and login
+  // endpoints are public and reachable directly, so an unset secret there is a
+  // silent downgrade nobody would notice until the spam started.
+  const turnstileEnabled = Boolean(process.env.TURNSTILE_SECRET?.trim());
+  if (isProduction && !turnstileEnabled && process.env.ALLOW_NO_TURNSTILE !== 'true') {
+    throw new Error(
+      '[env] TURNSTILE_SECRET is required in production, or set ALLOW_NO_TURNSTILE=true ' +
+        'to confirm the public auth endpoints are deliberately running without bot ' +
+        'verification.',
+    );
+  }
+
   cached = {
     nodeEnv,
     isProduction,
+    turnstileEnabled,
     redisUrl,
     allowSingleInstance,
     instanceId:
