@@ -137,7 +137,11 @@ export function useOverlaySocket(
       // WebSocket when the embedded browser supports it.
       transports: ['polling', 'websocket'],
       withCredentials: false,
-      query: { token },
+      // Keep the overlay credential out of Engine.IO request URLs. With polling,
+      // query parameters are repeated on every GET/POST and are commonly stored
+      // by proxies and access logs. Socket.IO sends `auth` in the namespace
+      // CONNECT packet instead, and the overlay gateway reads handshake.auth.
+      auth: { token },
       reconnection: true,
       reconnectionAttempts: Infinity,
       reconnectionDelay: 1_000,

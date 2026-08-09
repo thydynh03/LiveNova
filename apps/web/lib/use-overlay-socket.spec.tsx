@@ -75,14 +75,15 @@ describe('useOverlaySocket', () => {
     expect(screen.getByTestId('code')).toHaveTextContent('TOKEN_REQUIRED');
   });
 
-  it('connects with the token and without credentials', () => {
+  it('connects with the token in auth rather than the Engine.IO query string', () => {
     render(<Harness token="tok-1" onAction={jest.fn()} />);
 
     expect(ioMock).toHaveBeenCalledTimes(1);
     const [url, opts] = ioMock.mock.calls[0] as unknown as [string, Record<string, unknown>];
 
     expect(url).toContain(OVERLAY_SOCKET.NAMESPACE);
-    expect(opts.query).toEqual({ token: 'tok-1' });
+    expect(opts.auth).toEqual({ token: 'tok-1' });
+    expect(opts.query).toBeUndefined();
     // Cookies must never reach the overlay namespace.
     expect(opts.withCredentials).toBe(false);
   });
