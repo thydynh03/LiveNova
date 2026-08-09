@@ -156,6 +156,32 @@ Ba thứ dưới đây phải kiểm bằng trình mô phỏng và bằng mắt,
 
 ---
 
+## Đã làm — 2026-08-10
+
+| Việc | Trạng thái |
+|---|---|
+| Sửa NFC trong `resolveTeam` | ✅ kèm test dùng chuỗi NFD thật |
+| Bộ dựng `battle.test-helpers.ts` | ✅ |
+| Nhóm A — khớp tên quà | ✅ 5 kịch bản |
+| Nhóm B — ghi nhớ phe | ✅ 5 kịch bản |
+| Ngữ nghĩa đặt lại trận | ✅ 4 kịch bản, theo ba quyết định dưới |
+| `TroopCanvas.spawn` | ✅ 5 kịch bản |
+
+Ba quyết định hành vi đã chốt: **giữ** phe qua trận mới, **giữ** follow một lần
+trọn đời, **nạp lại** ngân sách chống spam mỗi trận. Cả ba giờ có test khoá lại,
+nên lần sau ai đổi sẽ phải đổi có ý thức.
+
+Phát hiện thêm trong lúc viết test: một loạt like vượt sức chứa bị **từ chối
+nguyên khối và không trừ ví**. Nghĩa là spam 500 lượt một lần thì không ăn điểm
+nhưng cũng không mất gì, còn spam 100 lượt thì ăn điểm và cạn ví. Hành vi này
+không sai nhưng trước đó không ai biết; nay đã có test ghi lại.
+
+Còn nợ: `TroopCanvasHandle` chỉ phơi `count()`, nên test chứng minh được *bao
+nhiêu* lính bị cắt chứ chưa chứng minh được *con nào* — việc bỏ con cũ nhất vẫn
+chỉ được bảo vệ bằng đọc mã.
+
+---
+
 ## Thứ tự làm
 
 | Bước | Việc | Ước lượng |

@@ -705,6 +705,26 @@ export class BattleService implements OnModuleInit, OnModuleDestroy {
     state.recentEvents = [];
     state.winnerTeamKey = null;
 
+    // Ba tập theo dõi người xem được xử lý khác nhau, và sự khác nhau đó là có
+    // chủ ý chứ không phải bỏ sót:
+    //
+    // - `viewerEnergy` **được nạp lại**. Nó là hạn mức chống spam trong phạm vi
+    //   một trận, không phải hạn mức trọn đời. Giữ lại thì người xem đã dùng hết
+    //   ở trận trước bước vào trận mới với ví rỗng và không hiểu vì sao like của
+    //   mình không ăn điểm.
+    //
+    // - `allegiance` **được giữ**. Người hâm mộ một phe vẫn là người hâm mộ phe
+    //   đó ở ván sau; bắt họ tặng quà lại chỉ để like được tính sẽ làm đầu mỗi
+    //   trận im ắng một cách vô cớ.
+    //
+    // - `followed` **được giữ**. Một người xem chỉ follow một lần trong đời, và
+    //   phần thưởng follow được trả đúng lần đó. Nạp lại sẽ biến "unfollow rồi
+    //   follow lại" thành cách cày điểm.
+    const prefix = `${userId}:`;
+    for (const key of [...this.viewerEnergy.keys()]) {
+      if (key.startsWith(prefix)) this.viewerEnergy.delete(key);
+    }
+
     this.broadcastState(userId);
     return state;
   }
@@ -958,13 +978,37 @@ export class BattleService implements OnModuleInit, OnModuleDestroy {
    * carries nothing, so it takes the team of the sender's most recent gift —
    * and scores nothing at all if they have never given one.
    */
+  /**
+   * Chuẩn hoá một tên quà về đúng một dạng để so sánh.
+   *
+   * `normalize('NFC')` là phần không hiển nhiên. Tiếng Việt có hai cách mã hoá
+   * cùng một chữ: `ồ` có thể là một ký tự dựng sẵn, hoặc là `o` cộng hai dấu
+   * rời. Trên màn hình chúng giống hệt nhau; với `===` chúng khác nhau, và
+   * `"Hoa Hồng"` dạng NFC dài 8 ký tự trong khi dạng NFD dài 10.
+   *
+   * Nếu TikTok gửi một dạng còn streamer gõ dạng kia vào mẫu thì món quà đó
+   * không khớp phe nào, và theo đúng thiết kế ở dưới, sự kiện bị bỏ qua trong
+   * im lặng: người xem tặng quà, màn hình không phản ứng, log không có gì. Cả
+   * bốn phe mặc định đều dùng tên quà tiếng Việt có dấu, nên bề mặt rủi ro là
+   * toàn bộ trò chơi.
+   *
+   * Phép chuẩn hoá là lũy đẳng — không đổi gì khi hai bên vốn đã cùng dạng —
+   * nên nó an toàn kể cả khi TikTok hoá ra vẫn luôn gửi NFC.
+   */
+  private static normalizeGiftName(raw: string | undefined): string {
+    return (raw ?? '').normalize('NFC').trim().toLowerCase();
+  }
+
   private resolveTeam(battle: ActiveBattle, event: LiveEvent): string | null {
     if (event.type === LiveEventType.GIFT) {
-      const giftName = (event.giftName ?? '').trim().toLowerCase();
+      const giftName = BattleService.normalizeGiftName(event.giftName);
       if (giftName === '') return null;
 
+      // `find` lấy phe đầu tiên khớp. Nếu streamer lỡ khai cùng một tên quà cho
+      // hai phe thì phe đứng trước trong cấu hình thắng — một quy tắc cố định
+      // còn hơn để nó phụ thuộc thứ tự duyệt.
       const match = battle.state.teams.find((t) =>
-        t.giftNames.some((g) => g.trim().toLowerCase() === giftName),
+        t.giftNames.some((g) => BattleService.normalizeGiftName(g) === giftName),
       );
       return match?.key ?? null;
     }
