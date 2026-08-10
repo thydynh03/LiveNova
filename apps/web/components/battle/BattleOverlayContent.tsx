@@ -10,13 +10,29 @@
 
 import { useCallback, useEffect, useState, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
+import dynamic from 'next/dynamic';
 import { OverlayState, BattleState, CINEMATIC_ACTIONS, troopSpriteUrl, resolveBattleAssets } from '@livenova/shared';
 import { useOverlaySocket } from '../../lib/use-overlay-socket';
-import { BattleMap, type LaneKey } from './BattleMap';
+import { BattleMap, CASTLE_ANCHORS, type LaneKey } from './BattleMap';
 import { TroopCanvas, type TroopCanvasHandle, type Troop } from './TroopCanvas';
 import { CastleLayer } from './CastleLayer';
 import { preload } from '../../lib/image-cache';
+import { warmVideos } from '../../lib/video-pool';
 import { SkillCinematic, type CinematicRequest } from './SkillCinematic';
+import { BattleVictory } from './BattleVictory';
+import { frameBudget } from '../../lib/frame-budget';
+/**
+ * three.js is loaded only if a streamer actually switches to 3D.
+ *
+ * Imported statically it lands in the overlay bundle for everyone, including
+ * the 2D default — roughly 600KB of parser and GPU setup that an OBS browser
+ * source pays for at every scene start and never uses. `ssr: false` because the
+ * renderer touches WebGL on construction.
+ */
+const BattleArena3D = dynamic(() => import('./BattleArena3D').then((m) => m.BattleArena3D), {
+  ssr: false,
+  loading: () => null,
+});
 
 /** Lane each kingdom marches down, and the colour its units are drawn in. */
 const LANE_OF: Record<string, string> = {
@@ -32,6 +48,16 @@ const TEAM_COLOUR: Record<string, string> = {
   bear: '#fb923c',
   capy: '#34d399',
 };
+
+/**
+ * Số đoạn phim kỹ năng được phép chờ.
+ *
+ * Ba là ước lượng chứ không phải số đo: mỗi đoạn khoảng hai tới sáu giây, nên
+ * ba mục nghĩa là món quà cuối cùng trong hàng vẫn được thấy trong khoảng hai
+ * mươi giây — vẫn còn trong trí nhớ của phòng. Nếu sau này có số liệu thật về
+ * độ dài đoạn phim thì nên tính lại từ đó.
+ */
+const MAX_QUEUED_CINEMATICS = 3;
 
 interface Shockwave {
   id: string;
@@ -145,7 +171,17 @@ export function BattleOverlayContent({
   const [floatingTexts, setFloatingTexts] = useState<FloatingText[]>([]);
   const [screenShake, setScreenShake] = useState(false);
   const [activeSpeech, setActiveSpeech] = useState<Record<string, string>>({});
-  const lastEventCountRef = useRef(0);
+  /**
+   * Id các sự kiện đã dựng hiệu ứng.
+   *
+   * Trước đây chỗ này là một bộ đếm so sánh `recentEvents.length`, và nó hỏng
+   * theo hai cách cùng lúc. Một, chỉ `recentEvents[0]` được xử lý — nên khi năm
+   * người tặng quà trong khoảng giữa hai lần đẩy trạng thái, bốn người không có
+   * lính, không có chữ bay, không có gì cả. Hai, danh sách bị cắt ở 20 phần tử
+   * nên độ dài bão hoà, và sau đó phép so sánh không còn phát hiện được sự kiện
+   * mới nào nữa.
+   */
+  const seenEventIdsRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     if (customState) {
@@ -156,6 +192,15 @@ export function BattleOverlayContent({
   useEffect(() => {
     document.body.style.backgroundColor = 'transparent';
     document.documentElement.style.backgroundColor = 'transparent';
+  }, []);
+
+  // Started here rather than inside either renderer: both draw into the same
+  // window and compete for the same frame, so the measurement belongs to the
+  // overlay as a whole. Two monitors would each see the other's cost and both
+  // degrade.
+  useEffect(() => {
+    frameBudget.start();
+    return () => frameBudget.stop();
   }, []);
 
   const handleState = useCallback((state: OverlayState) => {
@@ -182,24 +227,29 @@ export function BattleOverlayContent({
   const dogPct = Math.round(((teamDog?.score || 0) / totalScore) * 100);
   const capyPct = Math.max(0, 100 - (catPct + bearPct + dogPct));
 
+  // Whether the field art already has four castles on it. The vector map draws
+  // none, so there the overlay still has to supply the buildings itself.
+  // Mirrors the branch in BattleMap: everything except the vector theme ends up
+  // showing a painted field, either an uploaded background or the preset's.
+  const hasPaintedMap = battle.mapTheme !== 'vector_runic_river';
+
   // Spawn troops & floating texts on recent events
   useEffect(() => {
-    if (battle.recentEvents.length > lastEventCountRef.current) {
-      const newEvt = battle.recentEvents[0];
-      if (newEvt) {
-        let startX = 22;
-        let startY = 22;
+    // `recentEvents` xếp mới nhất trước; đảo lại để phát hiệu ứng theo đúng thứ
+    // tự chúng xảy ra, nếu không một loạt quà sẽ chạy ngược.
+    const fresh = [...battle.recentEvents]
+      .reverse()
+      .filter((e) => e && !seenEventIdsRef.current.has(e.id));
 
-        if (newEvt.teamKey === 'dog') {
-          startX = 78;
-          startY = 22;
-        } else if (newEvt.teamKey === 'bear') {
-          startX = 22;
-          startY = 72;
-        } else if (newEvt.teamKey === 'capy') {
-          startX = 78;
-          startY = 72;
-        }
+    for (const newEvt of fresh) {
+      seenEventIdsRef.current.add(newEvt.id);
+      {
+        // Off the castle the gift bought, not a second hard-coded set of
+        // corners. The two lists had already drifted apart, so the "+50 ⚔️"
+        // popped up in open field a few percent away from the keep it came from.
+        const origin = CASTLE_ANCHORS[newEvt.teamKey] ?? CASTLE_ANCHORS.cat;
+        const startX = origin.x;
+        const startY = origin.y;
 
         // Stage 2 of the response: the march. This is where the audience sees
         // a gift turn into force, so it starts immediately and takes a second
@@ -224,13 +274,12 @@ export function BattleOverlayContent({
         // two whales in the same second do not fight over the video element.
         const fxUrl = battle.assets?.[`fx_${newEvt.actionKey}`];
         if (isBig && fxUrl) {
-          cinematicQueueRef.current.push({
+          enqueueCinematic({
             id: newEvt.id,
             actionKey: newEvt.actionKey,
             videoUrl: fxUrl,
             senderLabel: `${newEvt.sender} · ${newEvt.giftName ?? ''}`.trim(),
           });
-          setCinematic((current) => current ?? cinematicQueueRef.current.shift() ?? null);
         }
 
         // Spawn floating combat text
@@ -272,7 +321,14 @@ export function BattleOverlayContent({
         }
       }
     }
-    lastEventCountRef.current = battle.recentEvents.length;
+
+    // Tập id chỉ để chống dựng lại hiệu ứng cho cùng một sự kiện, nên nó không
+    // cần nhớ quá lịch sử mà máy chủ còn giữ. Giữ gấp đôi cửa sổ đó là đủ rộng
+    // để không bỏ sót, và đủ hẹp để một buổi live dài không làm nó phình ra.
+    if (seenEventIdsRef.current.size > 200) {
+      const keep = new Set(battle.recentEvents.map((e) => e.id));
+      seenEventIdsRef.current = keep;
+    }
   }, [battle.recentEvents]);
 
   // Housekeeping only. Motion lives in TroopCanvas, driven by
@@ -291,10 +347,46 @@ export function BattleOverlayContent({
   // loading after the gift summoning it has passed may as well not exist.
   const assetKey = Object.values(assets).join('|');
   useEffect(() => {
+    // Ảnh và video đi hai đường khác nhau. `preload` dựng `new Image()`, thứ
+    // với một tệp `.mp4` sẽ tải hỏng rồi ghi nhớ là "hỏng" — không giúp gì mà
+    // còn kết luận sai. Video cần một thẻ `<video>` thật để trình duyệt chuẩn
+    // bị đường ống giải mã trước khi món quà gọi nó.
     preload(Object.values(assets));
+    warmVideos(Object.values(assets));
     // Compared by value through assetKey; depending on the object itself would
     // re-run on every state frame the socket delivers.
   }, [assetKey]);
+
+  /**
+   * Xếp một đoạn phim kỹ năng vào hàng đợi.
+   *
+   * Hàng đợi có sẵn từ trước, nhưng nó không có trần và không gộp trùng. Hai
+   * thiếu sót đó chỉ lộ ra đúng lúc tệ nhất — khi phòng đang sôi nổi nhất:
+   *
+   * - **Không trần.** Hai mươi con rồng trong mười giây nghĩa là overlay phát
+   *   phim thêm gần một phút sau khi khoảnh khắc đã trôi qua. Người tặng thứ
+   *   hai mươi thấy hiệu ứng của mình lúc chẳng còn ai nhớ họ đã tặng.
+   * - **Không gộp.** Mười con rồng giống hệt nhau chạy nối đuôi nhau vừa nhàm
+   *   vừa chặn mất những kỹ năng khác đang đợi phía sau.
+   *
+   * Nên trùng nhau thì gộp thành một lượt phát kèm bội số, và hàng đợi có trần.
+   * Khi tràn, thứ bị bỏ là mục **cũ nhất**: một đoạn phim đã đợi quá lâu thì
+   * phát ra cũng vô nghĩa, còn món quà vừa tới vẫn đang được người ta chờ xem.
+   */
+  const enqueueCinematic = useCallback((next: CinematicRequest) => {
+    const queue = cinematicQueueRef.current;
+
+    const twin = queue.find((q) => q.actionKey === next.actionKey);
+    if (twin) {
+      twin.repeat = (twin.repeat ?? 1) + 1;
+      twin.senderLabel = next.senderLabel;
+    } else {
+      queue.push(next);
+      if (queue.length > MAX_QUEUED_CINEMATICS) queue.shift();
+    }
+
+    setCinematic((current) => current ?? cinematicQueueRef.current.shift() ?? null);
+  }, []);
 
   const handleCinematicDone = useCallback(() => {
     setCinematic(cinematicQueueRef.current.shift() ?? null);
@@ -312,9 +404,12 @@ export function BattleOverlayContent({
     <div
       style={{
         position: 'relative',
-        width: '100%',
-        height: '100%',
-        minHeight: '100%',
+        width: '100vw',
+        // Viewport units, not percentages. `height: 100%` resolves against a
+        // body with no height of its own, so the whole overlay collapsed to
+        // zero and rendered nothing at all — the layers were there, the socket
+        // was connected, and the broadcast showed an empty box.
+        height: '100vh',
         overflow: 'hidden',
         fontFamily: 'Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
         userSelect: 'none',
@@ -324,14 +419,56 @@ export function BattleOverlayContent({
         transition: 'transform 0.05s ease',
       }}
     >
-      {/* Layer 1: the battlefield. High-res generated map or vector fallback */}
-      <BattleMap backgroundUrl={battle.assets?.map_background} mapTheme={battle.mapTheme} />
+      {/* ── 3D THREE.JS WEBGL ARENA vs 2D MAP/CASTLES ──────────────────── */}
+      {battle.renderEngine === '3d' ? (
+        <BattleArena3D state={battle} isDark={true} />
+      ) : (
+        <>
+          {/* Layer 1: the battlefield. High-res generated map or vector fallback */}
+          <BattleMap backgroundUrl={battle.assets?.map_background} mapTheme={battle.mapTheme} />
 
-      {/* Layer 2: the four strongholds, drawn at their map anchors. */}
-      <CastleLayer teams={battle.teams} assets={assets} />
+          {/* Layer 2: the four strongholds, drawn at their map anchors. */}
+          <CastleLayer teams={battle.teams} assets={assets} paintedCastles={hasPaintedMap} />
+        </>
+      )}
+
+      {/* Kingdom banter, on the keep that said it. It used to live inside the
+          corner panels; those are gone, but the line itself is game content —
+          it is what a gift makes a kingdom say. */}
+      {Object.entries(activeSpeech).map(([teamKey, line]) => {
+        const anchor = CASTLE_ANCHORS[teamKey];
+        if (!anchor || !line) return null;
+        return (
+          <div
+            key={teamKey}
+            style={{
+              position: 'absolute',
+              left: `${anchor.x}%`,
+              top: `${anchor.y}%`,
+              transform: 'translate(-50%, -150%)',
+              zIndex: 46,
+              pointerEvents: 'none',
+              maxWidth: 'clamp(110px, 30vw, 180px)',
+              padding: '3px 8px',
+              borderRadius: 10,
+              background: '#ffffff',
+              color: '#0f172a',
+              fontSize: 'clamp(0.55rem, 2vw, 0.68rem)',
+              fontWeight: 800,
+              boxShadow: '0 4px 14px rgba(0,0,0,0.5)',
+            }}
+          >
+            {line}
+          </div>
+        );
+      })}
 
       {/* Layer 4: the moment an expensive gift buys. */}
       <SkillCinematic request={cinematic} onDone={handleCinematicDone} />
+
+      {/* Layer 5: the moment the whole session was paying for. Mounted only
+          once the round is closed, so its timers never run during play. */}
+      {battle.active === false && <BattleVictory battle={battle} />}
 
       <style>{`
         @keyframes runeSpin {
@@ -373,9 +510,11 @@ export function BattleOverlayContent({
           gap: 4,
         }}
       >
-        {/* Top Info Row: Channel (Left) - Timer & Title (Center) - Top Donors (Right) */}
-        <div style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          {/* Left: Streamer Profile Pill */}
+        {/* Portrait-first. The old row put streamer / timer+title /
+            donors side by side, which needs width this format does not have:
+            at 1080 wide the title broke to four lines and the donor strip ran
+            off the right edge. Two short rows survive the narrow canvas. */}
+        <div style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6 }}>
           <div
             style={{
               display: 'flex',
@@ -386,87 +525,43 @@ export function BattleOverlayContent({
               padding: '3px 10px',
               borderRadius: 18,
               border: '1px solid rgba(255, 255, 255, 0.18)',
-              boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+              flexShrink: 0,
             }}
           >
             <div
               style={{
-                width: 22,
-                height: 22,
+                width: 20,
+                height: 20,
                 borderRadius: '50%',
                 background: 'linear-gradient(135deg, #f59e0b, #ef4444)',
                 display: 'grid',
                 placeItems: 'center',
-                fontSize: '0.7rem',
+                fontSize: '0.65rem',
               }}
             >
               👑
             </div>
-            <div>
-              <div style={{ fontWeight: 800, fontSize: '0.72rem', color: '#f8fafc' }}>Kingdom War</div>
-              <div style={{ fontSize: '0.6rem', color: '#f87171', display: 'flex', alignItems: 'center', gap: 3 }}>
-                <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#ef4444', display: 'inline-block' }} />
-                ❤️ 97.8K
-              </div>
+            <div style={{ fontWeight: 800, fontSize: '0.7rem', color: '#f8fafc', whiteSpace: 'nowrap' }}>
+              {battle.title || 'KINGDOM WAR'}
             </div>
           </div>
 
-          {/* Center: Match Title & Timer Badge */}
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 6,
-              background: 'rgba(15, 23, 42, 0.88)',
-              backdropFilter: 'blur(12px)',
-              padding: '3px 14px',
-              borderRadius: 18,
-              border: '1px solid rgba(245, 158, 11, 0.45)',
-              boxShadow: '0 0 14px rgba(245, 158, 11, 0.25)',
-            }}
-          >
-            <span style={{ fontSize: '0.72rem', fontWeight: 800, color: '#fde047' }}>⏱️ {formatTime(battle.endsAtMs)}</span>
-            <span style={{ color: 'rgba(255,255,255,0.3)' }}>|</span>
-            <span style={{ fontSize: '0.75rem', fontWeight: 900, color: '#ffffff', letterSpacing: '0.04em' }}>
-              {battle.title || 'CUỘC CHIẾN 4 VƯƠNG QUỐC'}
-            </span>
-          </div>
-
-          {/* Right: Top Donors Capsule */}
           <div
             style={{
               display: 'flex',
               alignItems: 'center',
               gap: 4,
-              background: 'rgba(15, 23, 42, 0.8)',
+              background: 'rgba(15, 23, 42, 0.9)',
               backdropFilter: 'blur(12px)',
-              padding: '3px 8px',
+              padding: '3px 12px',
               borderRadius: 18,
-              border: '1px solid rgba(255, 255, 255, 0.18)',
-              boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+              border: '1px solid rgba(245, 158, 11, 0.45)',
+              flexShrink: 0,
             }}
           >
-            <span style={{ fontSize: '0.65rem', fontWeight: 800, color: '#facc15' }}>🎁 TOP</span>
-            <div style={{ display: 'flex', gap: 3 }}>
-              {battle.topDonors.slice(0, 3).map((d, idx) => (
-                <div
-                  key={d.username + idx}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 2,
-                    fontSize: '0.62rem',
-                    background: 'rgba(255,255,255,0.08)',
-                    padding: '1px 5px',
-                    borderRadius: 6,
-                  }}
-                >
-                  <span>{idx === 0 ? '🥇' : idx === 1 ? '🥈' : '🥉'}</span>
-                  <span style={{ fontWeight: 700, color: '#fde047' }}>{d.nickname}</span>
-                  <span style={{ color: '#6ee7b7' }}>{(d.totalScore / 1000).toFixed(1)}k</span>
-                </div>
-              ))}
-            </div>
+            <span style={{ fontSize: '0.75rem', fontWeight: 900, color: '#fde047', whiteSpace: 'nowrap' }}>
+              ⏱️ {formatTime(battle.endsAtMs)}
+            </span>
           </div>
         </div>
 
@@ -575,342 +670,49 @@ export function BattleOverlayContent({
             VS
           </div>
         </div>
+
+        {/* Gift standings, on their own row. Kept — this is who is paying, and
+            it is the one number an audience acts on. */}
+        <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 4 }}>
+          {battle.topDonors.slice(0, 3).map((d, idx) => (
+            <div
+              key={d.username + idx}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 3,
+                fontSize: '0.6rem',
+                background: 'rgba(15, 23, 42, 0.82)',
+                border: '1px solid rgba(255,255,255,0.14)',
+                padding: '1px 6px',
+                borderRadius: 8,
+                maxWidth: '32%',
+              }}
+            >
+              <span>{idx === 0 ? '🥇' : idx === 1 ? '🥈' : '🥉'}</span>
+              <span
+                style={{
+                  fontWeight: 700,
+                  color: '#fde047',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {d.nickname}
+              </span>
+              <span style={{ color: '#6ee7b7', fontWeight: 700 }}>{(d.totalScore / 1000).toFixed(1)}k</span>
+            </div>
+          ))}
+        </div>
       </header>
 
-      {/* ── 4 CORNER FORTRESS BASTIONS (VƯƠNG QUỐC 4 GÓC - ZERO OVERLAP) ────── */}
-
-      {/* 1. TOP-LEFT: VƯƠNG QUỐC MÈO 🐱 */}
-      <div
-        style={{
-          position: 'absolute',
-          top: 64,
-          left: 12,
-          zIndex: 45,
-          width: 'clamp(170px, 20vw, 210px)',
-          background: 'rgba(15, 23, 42, 0.84)',
-          backdropFilter: 'blur(12px)',
-          border: '1.5px solid #c084fc',
-          borderRadius: 12,
-          padding: '6px 8px',
-          boxShadow: '0 6px 20px rgba(192, 132, 252, 0.25)',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 3,
-        }}
-      >
-        {/* Header Row: Avatar & Kingdom Title */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <div
-            style={{
-              width: 36,
-              height: 36,
-              borderRadius: 8,
-              background: 'linear-gradient(135deg, #7c3aed, #4c1d95)',
-              border: '1.5px solid #c084fc',
-              display: 'grid',
-              placeItems: 'center',
-              fontSize: '1.3rem',
-              boxShadow: '0 0 10px rgba(192, 132, 252, 0.5)',
-            }}
-          >
-            👑😼
-          </div>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontWeight: 900, fontSize: '0.78rem', color: '#c084fc', textShadow: '0 1px 4px #7e22ce' }}>
-              VƯƠNG QUỐC MÈO
-            </div>
-            <div style={{ fontSize: '0.58rem', color: '#e9d5ff', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              🐾 {teamCat?.motto || 'ĂN CHƠI KHÔNG SỢ MƯA RƠI'}
-            </div>
-          </div>
-        </div>
-
-        {/* Castle HP Bar */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.58rem', fontWeight: 700 }}>
-            <span style={{ color: '#e9d5ff' }}>🏰 Máu Thành</span>
-            <span style={{ color: '#c084fc' }}>{teamCat?.castleHp || 1000}/1000 HP</span>
-          </div>
-          <div style={{ height: 5, background: 'rgba(0,0,0,0.6)', borderRadius: 3, overflow: 'hidden' }}>
-            <div
-              style={{
-                height: '100%',
-                width: `${Math.max(5, ((teamCat?.castleHp || 1000) / (teamCat?.maxHp || 1000)) * 100)}%`,
-                background: 'linear-gradient(90deg, #7c3aed, #c084fc)',
-                borderRadius: 3,
-              }}
-            />
-          </div>
-        </div>
-
-        {/* Dynamic Speech Bubble or Troop Count */}
-        <div
-          style={{
-            background: activeSpeech['cat'] ? '#ffffff' : 'rgba(255,255,255,0.08)',
-            color: activeSpeech['cat'] ? '#1e1b4b' : '#e9d5ff',
-            padding: '2px 6px',
-            borderRadius: 6,
-            fontSize: '0.6rem',
-            fontWeight: 800,
-            transition: 'all 0.2s ease',
-            whiteSpace: 'nowrap',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-          }}
-        >
-          {activeSpeech['cat'] ? `💬 ${activeSpeech['cat']}` : `⚔️ Quân lực: ${teamCat?.soldierCount || 1000} lính`}
-        </div>
-      </div>
-
-      {/* 2. TOP-RIGHT: VƯƠNG QUỐC CHÓ 🐶 */}
-      <div
-        style={{
-          position: 'absolute',
-          top: 64,
-          right: 12,
-          zIndex: 45,
-          width: 'clamp(170px, 20vw, 210px)',
-          background: 'rgba(15, 23, 42, 0.84)',
-          backdropFilter: 'blur(12px)',
-          border: '1.5px solid #60a5fa',
-          borderRadius: 12,
-          padding: '6px 8px',
-          boxShadow: '0 6px 20px rgba(96, 165, 250, 0.25)',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 3,
-        }}
-      >
-        {/* Header Row: Kingdom Title & Avatar */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <div style={{ flex: 1, minWidth: 0, textAlign: 'right' }}>
-            <div style={{ fontWeight: 900, fontSize: '0.78rem', color: '#60a5fa', textShadow: '0 1px 4px #1d4ed8' }}>
-              VƯƠNG QUỐC CHÓ
-            </div>
-            <div style={{ fontSize: '0.58rem', color: '#bfdbfe', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              💪 {teamDog?.motto || 'ĐOÀN KẾT LÀ SỨC MẠNH GÂU'}
-            </div>
-          </div>
-          <div
-            style={{
-              width: 36,
-              height: 36,
-              borderRadius: 8,
-              background: 'linear-gradient(135deg, #2563eb, #1e3a8a)',
-              border: '1.5px solid #60a5fa',
-              display: 'grid',
-              placeItems: 'center',
-              fontSize: '1.3rem',
-              boxShadow: '0 0 10px rgba(96, 165, 250, 0.5)',
-            }}
-          >
-            👑🐶
-          </div>
-        </div>
-
-        {/* Castle HP Bar */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.58rem', fontWeight: 700 }}>
-            <span style={{ color: '#60a5fa' }}>{teamDog?.castleHp || 1000}/1000 HP</span>
-            <span style={{ color: '#bfdbfe' }}>🏰 Máu Thành</span>
-          </div>
-          <div style={{ height: 5, background: 'rgba(0,0,0,0.6)', borderRadius: 3, overflow: 'hidden' }}>
-            <div
-              style={{
-                height: '100%',
-                width: `${Math.max(5, ((teamDog?.castleHp || 1000) / (teamDog?.maxHp || 1000)) * 100)}%`,
-                background: 'linear-gradient(90deg, #2563eb, #60a5fa)',
-                borderRadius: 3,
-              }}
-            />
-          </div>
-        </div>
-
-        {/* Dynamic Speech Bubble or Troop Count */}
-        <div
-          style={{
-            background: activeSpeech['dog'] ? '#ffffff' : 'rgba(255,255,255,0.08)',
-            color: activeSpeech['dog'] ? '#1e3a8a' : '#bfdbfe',
-            padding: '2px 6px',
-            borderRadius: 6,
-            fontSize: '0.6rem',
-            fontWeight: 800,
-            textAlign: 'right',
-            whiteSpace: 'nowrap',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-          }}
-        >
-          {activeSpeech['dog'] ? `💬 ${activeSpeech['dog']}` : `⚔️ Quân lực: ${teamDog?.soldierCount || 650} lính`}
-        </div>
-      </div>
-
-      {/* 3. BOTTOM-LEFT: VƯƠNG QUỐC GẤU 🐻 (Positioned Safely Above Chat) */}
-      <div
-        style={{
-          position: 'absolute',
-          bottom: 'clamp(75px, 12vh, 105px)',
-          left: 12,
-          zIndex: 45,
-          width: 'clamp(170px, 20vw, 210px)',
-          background: 'rgba(15, 23, 42, 0.84)',
-          backdropFilter: 'blur(12px)',
-          border: '1.5px solid #fb923c',
-          borderRadius: 12,
-          padding: '6px 8px',
-          boxShadow: '0 6px 20px rgba(251, 146, 60, 0.25)',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 3,
-        }}
-      >
-        {/* Dynamic Speech Bubble or Troop Count */}
-        <div
-          style={{
-            background: activeSpeech['bear'] ? '#ffffff' : 'rgba(255,255,255,0.08)',
-            color: activeSpeech['bear'] ? '#7c2d12' : '#fed7aa',
-            padding: '2px 6px',
-            borderRadius: 6,
-            fontSize: '0.6rem',
-            fontWeight: 800,
-            whiteSpace: 'nowrap',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-          }}
-        >
-          {activeSpeech['bear'] ? `💬 ${activeSpeech['bear']}` : `⚔️ Quân lực: ${teamBear?.soldierCount || 800} lính`}
-        </div>
-
-        {/* Castle HP Bar */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.58rem', fontWeight: 700 }}>
-            <span style={{ color: '#fed7aa' }}>🏰 Máu Thành</span>
-            <span style={{ color: '#fb923c' }}>{teamBear?.castleHp || 1000}/1000 HP</span>
-          </div>
-          <div style={{ height: 5, background: 'rgba(0,0,0,0.6)', borderRadius: 3, overflow: 'hidden' }}>
-            <div
-              style={{
-                height: '100%',
-                width: `${Math.max(5, ((teamBear?.castleHp || 1000) / (teamBear?.maxHp || 1000)) * 100)}%`,
-                background: 'linear-gradient(90deg, #c2410c, #fb923c)',
-                borderRadius: 3,
-              }}
-            />
-          </div>
-        </div>
-
-        {/* Header Row: Avatar & Kingdom Title */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <div
-            style={{
-              width: 36,
-              height: 36,
-              borderRadius: 8,
-              background: 'linear-gradient(135deg, #c2410c, #7c2d12)',
-              border: '1.5px solid #fb923c',
-              display: 'grid',
-              placeItems: 'center',
-              fontSize: '1.3rem',
-              boxShadow: '0 0 10px rgba(251, 146, 60, 0.5)',
-            }}
-          >
-            👑🐻
-          </div>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontWeight: 900, fontSize: '0.78rem', color: '#fb923c', textShadow: '0 1px 4px #9a3412' }}>
-              VƯƠNG QUỐC GẤU
-            </div>
-            <div style={{ fontSize: '0.58rem', color: '#fed7aa', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              🔥 {teamBear?.motto || 'GẤU CHỈ NGẠI ĐÓI'}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* 4. BOTTOM-RIGHT: VƯƠNG QUỐC CAPYBARA 🦫 (Positioned Safely Above Minimap) */}
-      <div
-        style={{
-          position: 'absolute',
-          bottom: 'clamp(75px, 12vh, 105px)',
-          right: 12,
-          zIndex: 45,
-          width: 'clamp(170px, 20vw, 210px)',
-          background: 'rgba(15, 23, 42, 0.84)',
-          backdropFilter: 'blur(12px)',
-          border: '1.5px solid #34d399',
-          borderRadius: 12,
-          padding: '6px 8px',
-          boxShadow: '0 6px 20px rgba(52, 211, 153, 0.25)',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 3,
-        }}
-      >
-        {/* Dynamic Speech Bubble or Troop Count */}
-        <div
-          style={{
-            background: activeSpeech['capy'] ? '#ffffff' : 'rgba(255,255,255,0.08)',
-            color: activeSpeech['capy'] ? '#064e3b' : '#a7f3d0',
-            padding: '2px 6px',
-            borderRadius: 6,
-            fontSize: '0.6rem',
-            fontWeight: 800,
-            textAlign: 'right',
-            whiteSpace: 'nowrap',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-          }}
-        >
-          {activeSpeech['capy'] ? `💬 ${activeSpeech['capy']}` : `⚔️ Quân lực: ${teamCapy?.soldierCount || 500} lính`}
-        </div>
-
-        {/* Castle HP Bar */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.58rem', fontWeight: 700 }}>
-            <span style={{ color: '#34d399' }}>{teamCapy?.castleHp || 1000}/1000 HP</span>
-            <span style={{ color: '#a7f3d0' }}>🏰 Máu Thành</span>
-          </div>
-          <div style={{ height: 5, background: 'rgba(0,0,0,0.6)', borderRadius: 3, overflow: 'hidden' }}>
-            <div
-              style={{
-                height: '100%',
-                width: `${Math.max(5, ((teamCapy?.castleHp || 1000) / (teamCapy?.maxHp || 1000)) * 100)}%`,
-                background: 'linear-gradient(90deg, #059669, #34d399)',
-                borderRadius: 3,
-              }}
-            />
-          </div>
-        </div>
-
-        {/* Header Row: Kingdom Title & Avatar */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <div style={{ flex: 1, minWidth: 0, textAlign: 'right' }}>
-            <div style={{ fontWeight: 900, fontSize: '0.78rem', color: '#34d399', textShadow: '0 1px 4px #047857' }}>
-              VƯƠNG QUỐC CAPYBARA
-            </div>
-            <div style={{ fontSize: '0.58rem', color: '#a7f3d0', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              🌿 {teamCapy?.motto || 'CHILL LÀ SỨC MẠNH CAPY'}
-            </div>
-          </div>
-          <div
-            style={{
-              width: 36,
-              height: 36,
-              borderRadius: 8,
-              background: 'linear-gradient(135deg, #059669, #064e3b)',
-              border: '1.5px solid #34d399',
-              display: 'grid',
-              placeItems: 'center',
-              fontSize: '1.3rem',
-              boxShadow: '0 0 10px rgba(52, 211, 153, 0.5)',
-            }}
-          >
-            👑🦫
-          </div>
-        </div>
-      </div>
-
-      {/* ── CENTER ARENA: RIVER GUARDIAN DRAGON & RUNIC PEDESTAL ──────────── */}
+      {/* ── CENTER ARENA: IMPACT ONLY ──────────────────────────────────────
+          The spinning rune ring, the hovering 🐉 and the 💥 used to sit here
+          permanently. The map already paints a rune plaza with a fountain at
+          this exact spot, so all three were decoration stacked on decoration —
+          and they were the busiest thing on screen at the one moment nothing
+          was happening. What is left fires only on a skill. */}
       <div
         style={{
           position: 'absolute',
@@ -925,43 +727,6 @@ export function BattleOverlayContent({
           justifyContent: 'center',
         }}
       >
-        {/* Runic Spinning Ring */}
-        <div
-          style={{
-            position: 'absolute',
-            width: '120px',
-            height: '120px',
-            borderRadius: '50%',
-            border: '2px dashed rgba(56, 189, 248, 0.6)',
-            animation: 'runeSpin 12s linear infinite',
-          }}
-        />
-
-        {/* River Sea Dragon Monster with Hover Animation */}
-        <div
-          style={{
-            fontSize: '4rem',
-            filter: 'drop-shadow(0 0 20px #38bdf8)',
-            animation: 'dragonHover 2.5s ease-in-out infinite',
-            zIndex: 2,
-          }}
-        >
-          🐉
-        </div>
-
-        {/* Central Clash Sparks */}
-        <div
-          style={{
-            position: 'absolute',
-            fontSize: '2.2rem',
-            animation: 'crownShine 1s infinite alternate',
-            filter: 'drop-shadow(0 0 14px #f59e0b)',
-            zIndex: 3,
-          }}
-        >
-          💥
-        </div>
-
         {/* Dynamic Expanding Shockwaves */}
         {shockwaves.map((sw) => (
           <div
@@ -990,8 +755,8 @@ export function BattleOverlayContent({
           zIndex: 35,
         }}
       >
-        {/* Layer 3: every marching unit on one canvas. */}
-        <TroopCanvas ref={troopCanvasRef} />
+        {/* Layer 3: every marching unit on one canvas (2D mode). */}
+        {battle.renderEngine !== '3d' && <TroopCanvas ref={troopCanvasRef} />}
 
 
         {/* Floating Combat Text */}
@@ -1028,32 +793,6 @@ export function BattleOverlayContent({
           gap: 8,
         }}
       >
-        {/* Left: Compact Glassmorphic Live Chat */}
-        <div
-          style={{
-            width: 'clamp(140px, 20vw, 200px)',
-            background: 'rgba(15, 23, 42, 0.85)',
-            backdropFilter: 'blur(12px)',
-            borderRadius: 12,
-            border: '1px solid rgba(255, 255, 255, 0.15)',
-            padding: '5px 8px',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 2,
-            maxHeight: 75,
-            overflowY: 'hidden',
-            boxShadow: '0 6px 20px rgba(0,0,0,0.4)',
-          }}
-        >
-          <div style={{ fontSize: '0.58rem', fontWeight: 800, color: '#facc15' }}>💬 BÌNH LUẬN</div>
-          <div style={{ fontSize: '0.6rem', color: '#e2e8f0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            <span style={{ color: '#c084fc', fontWeight: 700 }}>Meow:</span> MÈO VÔ ĐỊCH! 😼🔥
-          </div>
-          <div style={{ fontSize: '0.6rem', color: '#e2e8f0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            <span style={{ color: '#60a5fa', fontWeight: 700 }}>Doggo:</span> CHÓ GÂU GÂU! 🐶💣
-          </div>
-        </div>
-
         {/* Center: 6 Skill Gift Cards & Big Action Button */}
         <div
           style={{
@@ -1137,65 +876,6 @@ export function BattleOverlayContent({
           </div>
         </div>
 
-        {/* Right: Minimap Radar */}
-        <div
-          style={{
-            width: 'clamp(90px, 12vw, 120px)',
-            height: 75,
-            background: 'rgba(15, 23, 42, 0.85)',
-            backdropFilter: 'blur(12px)',
-            borderRadius: 12,
-            border: '1px solid rgba(255, 255, 255, 0.15)',
-            padding: '4px',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 2,
-            boxShadow: '0 6px 20px rgba(0,0,0,0.4)',
-          }}
-        >
-          <div style={{ fontSize: '0.55rem', fontWeight: 800, color: '#facc15', textAlign: 'center' }}>🧭 BẢN ĐỒ</div>
-          <div
-            style={{
-              flex: 1,
-              background: '#07110d',
-              borderRadius: 6,
-              border: '1px solid rgba(255, 255, 255, 0.1)',
-              display: 'grid',
-              gridTemplateColumns: '1fr 1fr',
-              gridTemplateRows: '1fr 1fr',
-              gap: 2,
-              padding: 2,
-              position: 'relative',
-            }}
-          >
-            <div style={{ background: 'rgba(192, 132, 252, 0.25)', borderRadius: 3, display: 'grid', placeItems: 'center', fontSize: '0.58rem' }}>
-              🐱
-            </div>
-            <div style={{ background: 'rgba(96, 165, 250, 0.25)', borderRadius: 3, display: 'grid', placeItems: 'center', fontSize: '0.58rem' }}>
-              🐶
-            </div>
-            <div style={{ background: 'rgba(251, 146, 60, 0.25)', borderRadius: 3, display: 'grid', placeItems: 'center', fontSize: '0.58rem' }}>
-              🐻
-            </div>
-            <div style={{ background: 'rgba(52, 211, 153, 0.25)', borderRadius: 3, display: 'grid', placeItems: 'center', fontSize: '0.58rem' }}>
-              🦫
-            </div>
-            {/* Center Blip */}
-            <div
-              style={{
-                position: 'absolute',
-                left: '50%',
-                top: '50%',
-                transform: 'translate(-50%, -50%)',
-                width: 6,
-                height: 6,
-                borderRadius: '50%',
-                background: '#f59e0b',
-                boxShadow: '0 0 5px #f59e0b',
-              }}
-            />
-          </div>
-        </div>
       </footer>
     </div>
   );

@@ -10,6 +10,10 @@ export function EmergencyStop() {
   return window['go']['main']['App']['EmergencyStop']();
 }
 
+export function GetActivity() {
+  return window['go']['main']['App']['GetActivity']();
+}
+
 export function GetBridgeStatus() {
   return window['go']['main']['App']['GetBridgeStatus']();
 }
@@ -24,6 +28,10 @@ export function ResumeAfterStop() {
 
 export function SendRconCommand(arg1, arg2, arg3, arg4) {
   return window['go']['main']['App']['SendRconCommand'](arg1, arg2, arg3, arg4);
+}
+
+export function SetOBSScene(arg1, arg2, arg3, arg4) {
+  return window['go']['main']['App']['SetOBSScene'](arg1, arg2, arg3, arg4);
 }
 
 export function SimulateKeyPress(arg1, arg2, arg3) {

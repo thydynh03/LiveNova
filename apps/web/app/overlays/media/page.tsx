@@ -8,15 +8,9 @@ import { useSpeechQueue } from '../../../lib/use-speech-queue';
 
 interface MediaPopupItem {
   id: string;
-  senderDisplayName: string;
-  giftName?: string;
-  giftCoinValue?: number;
-  content?: string;
   mediaType: 'video' | 'image';
   url: string;
-  position: string;
   volume: number;
-  caption: string;
   durationMs: number;
 }
 
@@ -73,14 +67,6 @@ function MediaOverlayContent() {
     if (action.type !== RuleActionType.MEDIA_POPUP) return;
 
     const payload = action.payload as unknown as MediaPopupPayload;
-    const event = action.event;
-
-    // Substitute template placeholders in caption if any
-    let caption = payload.caption || 'Cảm ơn {sender} đã tương tác!';
-    caption = caption
-      .replace(/\{sender\}/g, event.senderDisplayName || 'Người xem')
-      .replace(/\{gift\}/g, event.giftName || 'Món quà')
-      .replace(/\{coins\}/g, String(event.giftCoinValue || 1));
 
     const isVideoUrl =
       payload.url?.endsWith('.mp4') ||
@@ -92,15 +78,9 @@ function MediaOverlayContent() {
 
     const item: MediaPopupItem = {
       id: action.id,
-      senderDisplayName: event.senderDisplayName,
-      giftName: event.giftName,
-      giftCoinValue: event.giftCoinValue,
-      content: event.content,
       mediaType: isVideoUrl ? 'video' : 'image',
       url: popupUrl,
-      position: payload.position || 'center',
       volume: payload.volume ?? 0.8,
-      caption,
       durationMs: payload.durationMs || 5000,
     };
 
@@ -125,46 +105,23 @@ function MediaOverlayContent() {
     ? `Token không hợp lệ (${rejectionCode ?? 'unknown'})`
     : null;
 
-  // Position alignment mapping
-  const getPositionStyles = (pos: string): React.CSSProperties => {
-    switch (pos) {
-      case 'top':
-        return { justifyContent: 'center', alignItems: 'flex-start', paddingTop: '3rem' };
-      case 'bottom':
-        return { justifyContent: 'center', alignItems: 'flex-end', paddingBottom: '3rem' };
-      case 'top-left':
-        return { justifyContent: 'flex-start', alignItems: 'flex-start', padding: '3rem' };
-      case 'top-right':
-        return { justifyContent: 'flex-end', alignItems: 'flex-start', padding: '3rem' };
-      case 'bottom-left':
-        return { justifyContent: 'flex-start', alignItems: 'flex-end', padding: '3rem' };
-      case 'bottom-right':
-        return { justifyContent: 'flex-end', alignItems: 'flex-end', padding: '3rem' };
-      default:
-        return { justifyContent: 'center', alignItems: 'center' };
-    }
-  };
-
   return (
     <div
       style={{
         width: '100vw',
         height: '100vh',
         overflow: 'hidden',
-        display: 'flex',
         boxSizing: 'border-box',
         position: 'relative',
-        ...getPositionStyles(activePopup?.position || 'center'),
       }}
     >
       <style>{`
         @keyframes popupIn {
-          0% { opacity: 0; transform: scale(0.7) translateY(40px); }
-          60% { opacity: 1; transform: scale(1.05) translateY(-5px); }
-          100% { opacity: 1; transform: scale(1) translateY(0); }
+          from { opacity: 0; }
+          to { opacity: 1; }
         }
         .media-popup {
-          animation: popupIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+          animation: popupIn 0.25s ease-out forwards;
         }
       `}</style>
 
@@ -192,35 +149,13 @@ function MediaOverlayContent() {
         <div
           className="media-popup"
           style={{
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            gap: '0.75rem',
-            padding: '0',
-            background: 'transparent',
-            border: 'none',
-            boxShadow: 'none',
-            color: 'white',
-            textAlign: 'center',
-            maxWidth: '600px',
-            zIndex: 10,
+            position: 'absolute',
+            inset: 0,
+            width: '100%',
+            height: '100%',
+            overflow: 'hidden',
           }}
         >
-          {/* Caption text floating with glow */}
-          <div style={{
-            fontSize: '1.3rem',
-            fontWeight: 800,
-            color: '#FFD700',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.5rem',
-            textShadow: '0 0 10px rgba(255, 215, 0, 0.8), 0 0 20px rgba(255, 215, 0, 0.5), 0 2px 4px rgba(0,0,0,0.9)',
-            letterSpacing: '0.02em',
-          }}>
-            <span style={{ fontSize: '1.5rem' }}>🎁</span>
-            {activePopup.caption}
-          </div>
-
           {activePopup.url && (
             activePopup.mediaType === 'video' ? (
               <video
@@ -228,10 +163,10 @@ function MediaOverlayContent() {
                 autoPlay
                 playsInline
                 style={{
-                  maxWidth: '100%',
-                  maxHeight: '400px',
-                  objectFit: 'contain',
-                  filter: 'drop-shadow(0 0 20px rgba(255, 165, 0, 0.4))',
+                  display: 'block',
+                  width: '100%',
+                  height: '100%',
+                  objectFit: 'fill',
                 }}
                 ref={(el) => {
                   if (el) {
@@ -251,10 +186,10 @@ function MediaOverlayContent() {
                   (e.target as HTMLImageElement).src = 'https://media.giphy.com/media/3o7TKrEzvLbsVAud8I/giphy.gif';
                 }}
                 style={{
-                  maxWidth: '100%',
-                  maxHeight: '400px',
-                  objectFit: 'contain',
-                  filter: 'drop-shadow(0 0 20px rgba(255, 165, 0, 0.4))',
+                  display: 'block',
+                  width: '100%',
+                  height: '100%',
+                  objectFit: 'fill',
                 }}
               />
             )

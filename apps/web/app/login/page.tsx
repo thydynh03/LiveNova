@@ -1,10 +1,11 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '../../context/AuthContext';
 import { Icon } from '../../components/ui/Icon';
+import { TurnstileWidget, type TurnstileHandle } from '../../components/auth/TurnstileWidget';
 
 const ALLOWED_REDIRECTS = new Set([
   '/dashboard',
@@ -42,6 +43,10 @@ function LoginForm() {
   const [rememberMe, setRememberMe] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  // Held in state, not read from the DOM at submit time: the widget hands the
+  // token to its callback and there is no input element to scrape.
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const turnstileRef = useRef<TurnstileHandle | null>(null);
 
   const requested = searchParams.get('next');
   const defaultTarget = user?.role === 'ADMIN' ? '/admin' : '/dashboard';
@@ -59,9 +64,13 @@ function LoginForm() {
     setError(null);
     setSubmitting(true);
     try {
-      await signIn(email, password, rememberMe);
+      await signIn(email, password, rememberMe, turnstileToken ?? undefined);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Đăng nhập thất bại');
+      // The token was redeemed by the attempt that just failed. Without a fresh
+      // challenge the next try is rejected as a duplicate, which reads as the
+      // form refusing to let the user correct their password.
+      turnstileRef.current?.reset();
     } finally {
       setSubmitting(false);
     }
@@ -188,6 +197,10 @@ function LoginForm() {
             <label htmlFor="rememberMe" style={{ marginLeft: '0.5rem', fontSize: '0.875rem', cursor: 'pointer' }}>
               Ghi nhớ đăng nhập (Duy trì 30 ngày)
             </label>
+          </div>
+
+          <div style={{ marginBottom: '1rem' }}>
+            <TurnstileWidget onToken={setTurnstileToken} handleRef={turnstileRef} />
           </div>
 
           <button

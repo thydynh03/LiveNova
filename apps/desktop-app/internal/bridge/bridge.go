@@ -54,6 +54,8 @@ type State struct {
 
 	port         int
 	sessionToken string
+
+	activity *activityLog
 }
 
 // New builds a State with a freshly generated session token.
@@ -62,6 +64,7 @@ func New() *State {
 		port: DefaultPort,
 		// 256 bits — this is a bearer credential, not an id.
 		sessionToken: newSessionToken(),
+		activity:     newActivityLog(),
 	}
 }
 
@@ -95,10 +98,23 @@ func (s *State) setRunning(running bool) {
 
 func (s *State) addClient(delta int) {
 	s.mu.Lock()
-	defer s.mu.Unlock()
 	s.connectedClients += delta
 	if s.connectedClients < 0 {
 		s.connectedClients = 0
+	}
+	s.mu.Unlock()
+
+	// Ghi ngoài khoá: `activity` có khoá riêng, và giữ hai khoá lồng nhau là
+	// cách một tiến trình tự khoá chính mình về sau.
+	//
+	// Dòng này quan trọng hơn vẻ ngoài của nó: khi quà không bấm được phím, câu
+	// hỏi đầu tiên là bảng điều khiển có nối được tới đây không. Không có nó,
+	// "chưa từng kết nối" và "kết nối rồi nhưng lệnh bị từ chối" trông giống hệt
+	// nhau trên màn hình.
+	if delta > 0 {
+		s.activity.add(ActivityClient, true, "bảng điều khiển đã kết nối")
+	} else if delta < 0 {
+		s.activity.add(ActivityClient, false, "bảng điều khiển đã ngắt")
 	}
 }
 
@@ -197,6 +213,7 @@ func (s *State) handler(w http.ResponseWriter, r *http.Request) {
 		}
 
 		reply := handleCommand(msg)
+		s.recordCommand(reply)
 		if !reply.OK {
 			slog.Warn("Local Bridge command refused", "type", reply.Type, "err", reply.Error)
 		}
@@ -243,4 +260,49 @@ func (s *State) Start(ctx context.Context) error {
 		return err
 	}
 	return nil
+}
+
+// Activity trả về nhật ký gần đây, mới nhất trước.
+func (s *State) Activity() []Entry {
+	return s.activity.snapshot()
+}
+
+// RecordExternal ghi lại một lần gọi ra ngoài — OBS hoặc máy chủ game.
+//
+// Chúng không đi qua Local Bridge, nhưng chúng hỏng theo đúng kiểu mà nhật ký
+// này tồn tại để giải thích: người xem tặng quà, cảnh không đổi, và streamer
+// không có gì để phân biệt "OBS chưa bật obs-websocket" với "sai mật khẩu" hay
+// "không có cảnh nào tên đó".
+func (s *State) RecordExternal(ok bool, detail string) {
+	kind := ActivityClient
+	if !ok {
+		kind = ActivityRejected
+	}
+	s.activity.add(kind, ok, detail)
+}
+
+// recordCommand ghi lại kết quả của một lệnh vừa xử lý.
+//
+// Ghi ở đây chứ không ở trong `handleCommand` vì hàm đó là hàm thuần và các
+// test của nó dựa vào điều đó. Nhật ký là chuyện của phiên kết nối, không phải
+// của phép giải mã lệnh.
+func (s *State) recordCommand(reply Reply) {
+	switch reply.Type {
+	case CommandKeyPress:
+		if reply.OK {
+			s.activity.add(ActivityKeyPress, true, "đã bấm phím")
+		} else {
+			// Lý do từ chối chính là thứ streamer cần: phím ngoài danh sách,
+			// còn cooldown, hay đang dừng khẩn cấp — ba cách sửa khác nhau.
+			s.activity.add(ActivityRejected, false, reply.Error)
+		}
+	case CommandHalt:
+		s.activity.add(ActivityHalt, true, "đã bật dừng khẩn cấp")
+	case CommandPing:
+		// Ping là nhịp tim; ghi lại chỉ làm trôi mất những dòng đáng xem.
+	default:
+		if !reply.OK && reply.Error != "" {
+			s.activity.add(ActivityRejected, false, reply.Error)
+		}
+	}
 }

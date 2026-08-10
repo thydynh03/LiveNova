@@ -73,9 +73,9 @@ const SEEN_ACTION_LIMIT = 200;
  *    backoff — except when the server explicitly rejected the token, where
  *    retrying forever would just hammer the server.
  *
- * 3. **No credentials.** `withCredentials` stays false: the token in the URL is
- *    the only credential, and sending cookies to this namespace would widen the
- *    surface for no benefit.
+ * 3. **No cookies.** `withCredentials` stays false: the overlay token is sent in
+ *    the Socket.IO auth packet, and sending session cookies to this namespace
+ *    would widen the surface for no benefit.
  */
 export function useOverlaySocket(
   token: string | null | undefined,
@@ -132,9 +132,16 @@ export function useOverlaySocket(
     setRejectionCode(null);
 
     const socket: Socket = io(`${base}${OVERLAY_SOCKET.NAMESPACE}`, {
-      transports: ['websocket'],
+      // Studio browser sources and HTTPS tunnels do not always permit a direct
+      // WebSocket handshake. Start with polling, then let Socket.IO upgrade to
+      // WebSocket when the embedded browser supports it.
+      transports: ['polling', 'websocket'],
       withCredentials: false,
-      query: { token },
+      // Keep the overlay credential out of Engine.IO request URLs. With polling,
+      // query parameters are repeated on every GET/POST and are commonly stored
+      // by proxies and access logs. Socket.IO sends `auth` in the namespace
+      // CONNECT packet instead, and the overlay gateway reads handshake.auth.
+      auth: { token },
       reconnection: true,
       reconnectionAttempts: Infinity,
       reconnectionDelay: 1_000,

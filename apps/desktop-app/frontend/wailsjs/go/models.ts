@@ -1,5 +1,23 @@
 export namespace bridge {
 	
+	export class Entry {
+	    atMs: number;
+	    kind: string;
+	    detail: string;
+	    ok: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new Entry(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.atMs = source["atMs"];
+	        this.kind = source["kind"];
+	        this.detail = source["detail"];
+	        this.ok = source["ok"];
+	    }
+	}
 	export class Status {
 	    is_running: boolean;
 	    port: number;

@@ -24,6 +24,7 @@ export enum RuleActionType {
   SOUND = 'sound',
   OBS_COMMAND = 'obs_command',
   GAME_INPUT = 'game_input',
+  GAME_BATTLE_ACTION = 'game_battle_action',
   WEBHOOK = 'webhook',
 }
 
@@ -306,6 +307,22 @@ export interface GameInputDispatch {
   command: GameInputCommand;
 }
 
+/** Payload of a RuleActionType.GAME_BATTLE_ACTION action. */
+export interface GameBattleActionPayload {
+  actionKey: 'soldier' | 'castle' | 'bomb' | 'dragon' | 'cannon' | 'meteor';
+  /** Optional team key to target. If omitted, the game engine resolves it based on the user's gift history. */
+  teamKey?: string;
+}
+
+/** Internal bus event carrying a GameBattleAction to the battle service. */
+export const BATTLE_ACTION_DISPATCH = 'battle.action.dispatch';
+
+export interface BattleActionDispatchEvent {
+  userId: string;
+  action: RuleAction;
+  event: LiveEvent;
+}
+
 /**
  * Read a GAME_INPUT action payload written by a rule author.
  *
@@ -495,6 +512,7 @@ export interface BattleState {
   battleId: string;
   templateId?: string;
   mapTheme?: string;
+  renderEngine?: '2d' | '3d';
   title?: string;
   teams: BattleTeamState[];
   topDonors: BattleDonor[];
@@ -566,20 +584,25 @@ export function castleAssetKey(
 /**
  * Artwork shipped with the app, used when a template supplies none.
  *
- * Placeholder work, deliberately: it exists so a streamer who applies the game
- * template sees a playable battle before anyone commissions art, and so the
- * asset pipeline is exercised by real files rather than only by uploads that
- * may never happen. An admin upload of the same key wins.
- *
- * SVG rather than PNG on purpose — canvas `drawImage` accepts an SVG through
- * `<img>` when it declares intrinsic dimensions, and these are a few hundred
- * bytes each against a broadcast's bandwidth.
+ * Defaults to the AI-generated 6-frame running sprite sheets for 4 kingdoms.
  */
 export const BATTLE_DEFAULT_ASSETS: Record<string, string> = {
-  sprite_troop_cat: '/battle/sprite_troop_cat.svg',
-  sprite_troop_dog: '/battle/sprite_troop_dog.svg',
-  sprite_troop_bear: '/battle/sprite_troop_bear.svg',
-  sprite_troop_capy: '/battle/sprite_troop_capy.svg',
+  // Re-cut from the generated art, not regenerated.
+  //
+  // The four AI images were good drawings in unusable layouts: the dog came
+  // back as a captioned contact sheet with cell borders printed into it, the
+  // bear as a two-row grid of seven poses, the capybara as a 3x2 grid. Only the
+  // cat was a single row. Rather than throw away the artwork, each sheet was
+  // measured — figures located, printed borders erased, stray fragments
+  // dropped — and re-laid into six square cells on one row. `walk_*.png`
+  // are those outputs; the originals are in git history.
+  //
+  // The hand-drawn SVG strips under /battle remain the fallback for a template
+  // that ships no sprite of its own.
+  sprite_troop_cat: '/sprites/walk_cat.png',
+  sprite_troop_dog: '/sprites/walk_dog.png',
+  sprite_troop_bear: '/sprites/walk_bear.png',
+  sprite_troop_capy: '/sprites/walk_capy.png',
 
   castle_cat: '/battle/castle_cat.svg',
   castle_cat_damaged: '/battle/castle_cat_damaged.svg',

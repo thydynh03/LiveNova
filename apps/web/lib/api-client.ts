@@ -80,6 +80,9 @@ async function performRefresh(signal: AbortSignal): Promise<RefreshOutcome> {
     return { kind: 'unavailable' };
   }
 
+  // 204 = the BFF found no refresh cookie: no session to restore.
+  if (res.status === 204) return { kind: 'expired' };
+
   if (res.ok) {
     const data = (await res.json().catch(() => null)) as { accessToken?: string } | null;
     if (data?.accessToken) return { kind: 'ok', token: data.accessToken };
@@ -241,15 +244,31 @@ async function performAuthExchange(
   return data.accessToken;
 }
 
-export async function login(email: string, password: string, rememberMe?: boolean): Promise<string> {
-  return performAuthExchange('/api/auth/login', { email, password, rememberMe }, 'Đăng nhập thất bại');
+export async function login(
+  email: string,
+  password: string,
+  rememberMe?: boolean,
+  turnstileToken?: string,
+): Promise<string> {
+  // Forwarded verbatim by the BFF route, which does not inspect the body — the
+  // token is checked by the API, the only place a caller cannot skip.
+  return performAuthExchange(
+    '/api/auth/login',
+    { email, password, rememberMe, turnstileToken },
+    'Đăng nhập thất bại',
+  );
 }
 
-export async function register(email: string, password: string, displayName: string): Promise<{ pendingVerification: boolean; email: string }> {
+export async function register(
+  email: string,
+  password: string,
+  displayName: string,
+  turnstileToken?: string,
+): Promise<{ pendingVerification: boolean; email: string }> {
   const res = await fetch('/api/auth/register', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ email, password, displayName }),
+    body: JSON.stringify({ email, password, displayName, turnstileToken }),
   });
 
   const data = await res.json().catch(() => null);
@@ -276,8 +295,14 @@ export async function resendOtp(email: string, type: 'REGISTER' | 'FORGOT_PASSWO
   return data;
 }
 
-export async function forgotPassword(email: string): Promise<{ success: boolean; message?: string }> {
-  return api.post<{ success: boolean; message?: string }>('/auth/forgot-password', { email });
+export async function forgotPassword(
+  email: string,
+  turnstileToken?: string,
+): Promise<{ success: boolean; message?: string }> {
+  return api.post<{ success: boolean; message?: string }>('/auth/forgot-password', {
+    email,
+    turnstileToken,
+  });
 }
 
 export async function resetPassword(email: string, code: string, newPassword: string): Promise<{ success: boolean }> {
@@ -308,6 +333,28 @@ export async function uploadImage(file: File): Promise<{ url: string; publicId: 
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     const message = Array.isArray(err?.message) ? err.message.join(', ') : (err?.message || 'Tải ảnh lên thất bại');
+    throw new ApiError(message, res.status);
+  }
+
+  return res.json();
+}
+
+export async function uploadMedia(file: File): Promise<{ url: string; publicId: string }> {
+  const formData = new FormData();
+  formData.append('file', file);
+
+  const token = getAccessToken();
+  const res = await fetch(`${apiBase()}/upload/media`, {
+    method: 'POST',
+    headers: {
+      ...(token ? { authorization: `Bearer ${token}` } : {}),
+    },
+    body: formData,
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    const message = Array.isArray(err?.message) ? err.message.join(', ') : (err?.message || 'Tải tệp lên thất bại');
     throw new ApiError(message, res.status);
   }
 

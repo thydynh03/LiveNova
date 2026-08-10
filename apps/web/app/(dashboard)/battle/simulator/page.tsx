@@ -83,6 +83,22 @@ export default function BattleSimulatorPage() {
     }
   };
 
+  const [switchingEngine, setSwitchingEngine] = useState(false);
+
+  const handleEngineChange = async (engine: '2d' | '3d') => {
+    setSwitchingEngine(true);
+    try {
+      const updated = await api.post<BattleState>('/battle/render-engine', {
+        renderEngine: engine,
+      });
+      setBattleState(updated);
+    } catch (err) {
+      console.error('Engine switch error:', err);
+    } finally {
+      setSwitchingEngine(false);
+    }
+  };
+
   const handleReset = async () => {
     if (!confirm('Bạn có chắc muốn đặt lại toàn bộ hiệp đấu 4 Vương Quốc?')) return;
     try {
@@ -225,6 +241,152 @@ export default function BattleSimulatorPage() {
         </div>
       </div>
 
+      {/* ── RENDER ENGINE SELECTOR TOOLBAR ──────────────────────────────────── */}
+      <div
+        className="card"
+        style={{
+          background: 'hsl(var(--card))',
+          border: '1px solid hsl(var(--border))',
+          padding: '1rem',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '0.75rem',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <span style={{ fontSize: '1.25rem' }}>🎮</span>
+            <div>
+              <strong style={{ fontSize: '0.95rem', color: 'hsl(var(--foreground))' }}>
+                Động Cơ Đồ Họa (Render Engine Mode)
+              </strong>
+              <div style={{ fontSize: '0.78rem', color: 'hsl(var(--muted-foreground))' }}>
+                Chuyển đổi giữa 2D AI Sprite Sheet (siêu mượt 60 FPS) và 3D Low-Poly WebGL (Three.js sống động)
+              </div>
+            </div>
+          </div>
+          <span style={{ fontSize: '0.78rem', color: 'hsl(var(--primary))', fontWeight: 600 }}>
+            {switchingEngine ? 'Đang chuyển đổi động cơ...' : `Đang chạy: ${battleState?.renderEngine === '3d' ? '🪐 3D Three.js' : '🎮 2D Canvas (Mặc định)'}`}
+          </span>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '0.75rem' }}>
+          {/* 2D Option */}
+          <button
+            type="button"
+            disabled={switchingEngine}
+            onClick={() => handleEngineChange('2d')}
+            style={{
+              display: 'flex',
+              alignItems: 'flex-start',
+              gap: '0.875rem',
+              padding: '0.875rem',
+              borderRadius: 'var(--radius)',
+              border: (battleState?.renderEngine || '2d') === '2d' ? '2px solid hsl(var(--primary))' : '1px solid hsl(var(--border))',
+              background: (battleState?.renderEngine || '2d') === '2d' ? 'hsl(var(--accent-surface))' : 'hsl(var(--background))',
+              boxShadow: (battleState?.renderEngine || '2d') === '2d' ? '0 0 16px hsl(var(--primary) / 0.25)' : 'none',
+              cursor: 'pointer',
+              textAlign: 'left',
+              transition: 'all 0.2s ease',
+            }}
+          >
+            <div
+              style={{
+                width: 42,
+                height: 42,
+                borderRadius: 8,
+                background: 'linear-gradient(135deg, #a855f7, #3b82f6)',
+                display: 'grid',
+                placeItems: 'center',
+                fontSize: '1.4rem',
+                flexShrink: 0,
+              }}
+            >
+              🏃
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                <span style={{ fontWeight: 800, fontSize: '0.9rem', color: 'hsl(var(--foreground))' }}>
+                  2D AI Sprite Sheets (Mặc định)
+                </span>
+                <span
+                  style={{
+                    fontSize: '0.65rem',
+                    fontWeight: 700,
+                    padding: '1px 6px',
+                    borderRadius: 4,
+                    background: 'hsl(var(--primary) / 0.15)',
+                    color: 'hsl(var(--primary))',
+                  }}
+                >
+                  Khuyên dùng
+                </span>
+              </div>
+              <span style={{ fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))', lineHeight: 1.4 }}>
+                Hoạt ảnh 6 khung hình sải bước chạy, thanh máu mini trên đầu, tối ưu CPU OBS dưới 2%, 60 FPS mượt mà.
+              </span>
+            </div>
+          </button>
+
+          {/* 3D Option */}
+          <button
+            type="button"
+            disabled={switchingEngine}
+            onClick={() => handleEngineChange('3d')}
+            style={{
+              display: 'flex',
+              alignItems: 'flex-start',
+              gap: '0.875rem',
+              padding: '0.875rem',
+              borderRadius: 'var(--radius)',
+              border: battleState?.renderEngine === '3d' ? '2px solid hsl(var(--primary))' : '1px solid hsl(var(--border))',
+              background: battleState?.renderEngine === '3d' ? 'hsl(var(--accent-surface))' : 'hsl(var(--background))',
+              boxShadow: battleState?.renderEngine === '3d' ? '0 0 16px hsl(var(--primary) / 0.25)' : 'none',
+              cursor: 'pointer',
+              textAlign: 'left',
+              transition: 'all 0.2s ease',
+            }}
+          >
+            <div
+              style={{
+                width: 42,
+                height: 42,
+                borderRadius: 8,
+                background: 'linear-gradient(135deg, #06b6d4, #6366f1)',
+                display: 'grid',
+                placeItems: 'center',
+                fontSize: '1.4rem',
+                flexShrink: 0,
+              }}
+            >
+              🪐
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                <span style={{ fontWeight: 800, fontSize: '0.9rem', color: 'hsl(var(--foreground))' }}>
+                  3D Three.js WebGL (Tùy chọn 2)
+                </span>
+                <span
+                  style={{
+                    fontSize: '0.65rem',
+                    fontWeight: 700,
+                    padding: '1px 6px',
+                    borderRadius: 4,
+                    background: 'rgba(99, 102, 241, 0.15)',
+                    color: '#6366f1',
+                  }}
+                >
+                  Đồ họa 3D
+                </span>
+              </div>
+              <span style={{ fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))', lineHeight: 1.4 }}>
+                4 lâu đài 3D phát sáng, đài tinh thể năng lượng lơ lửng, lính 3D chibi chém kiếm, hỗ trợ camera Cinematic 3D.
+              </span>
+            </div>
+          </button>
+        </div>
+      </div>
+
       {/* ── MAP THEME SELECTOR TOOLBAR ──────────────────────────────────────── */}
       <div
         className="card"
@@ -322,8 +484,13 @@ export default function BattleSimulatorPage() {
               background: '#07110d',
               border: '2px solid hsl(var(--border))',
               boxShadow: '0 12px 36px rgba(0, 0, 0, 0.35)',
-              aspectRatio: '16/10',
-              minHeight: '480px',
+              // 9:16, because that is what TikTok Live is. The preview used to
+              // be 16/10, so every layout decision on this page was reviewed at
+              // a shape the broadcast never has — which is how four castles
+              // ended up cropped off the map without anyone noticing.
+              aspectRatio: '9/16',
+              maxHeight: '78vh',
+              margin: '0 auto',
             }}
           >
             {loading ? (

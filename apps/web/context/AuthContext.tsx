@@ -36,8 +36,18 @@ export interface UserProfile {
 interface AuthContextValue {
   status: AuthStatus;
   user: UserProfile | null;
-  signIn: (email: string, password: string, rememberMe?: boolean) => Promise<void>;
-  signUp: (email: string, password: string, displayName: string) => Promise<{ pendingVerification: boolean; email: string }>;
+  signIn: (
+    email: string,
+    password: string,
+    rememberMe?: boolean,
+    turnstileToken?: string,
+  ) => Promise<void>;
+  signUp: (
+    email: string,
+    password: string,
+    displayName: string,
+    turnstileToken?: string,
+  ) => Promise<{ pendingVerification: boolean; email: string }>;
   confirmOtp: (email: string, code: string, type?: 'REGISTER' | 'FORGOT_PASSWORD') => Promise<void>;
   signOut: () => Promise<void>;
   refreshUser: () => Promise<void>;
@@ -107,8 +117,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => setUnauthenticatedHandler(null);
   }, []);
 
-  const signIn = useCallback(async (email: string, password: string, rememberMe?: boolean) => {
-    await apiLogin(email, password, rememberMe);
+  const signIn = useCallback(async (
+    email: string,
+    password: string,
+    rememberMe?: boolean,
+    turnstileToken?: string,
+  ) => {
+    await apiLogin(email, password, rememberMe, turnstileToken);
     authGeneration.current += 1;
     if (mounted.current) {
       setStatus('authenticated');
@@ -116,8 +131,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [fetchUserProfile]);
 
-  const signUp = useCallback(async (email: string, password: string, displayName: string) => {
-    return apiRegister(email, password, displayName);
+  const signUp = useCallback(async (
+    email: string,
+    password: string,
+    displayName: string,
+    turnstileToken?: string,
+  ) => {
+    return apiRegister(email, password, displayName, turnstileToken);
   }, []);
 
   const confirmOtp = useCallback(async (email: string, code: string, type?: 'REGISTER' | 'FORGOT_PASSWORD') => {

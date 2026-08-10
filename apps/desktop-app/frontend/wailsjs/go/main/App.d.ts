@@ -6,6 +6,8 @@ export function ConnectOBS(arg1:string,arg2:number,arg3:string):Promise<boolean>
 
 export function EmergencyStop():Promise<void>;
 
+export function GetActivity():Promise<Array<bridge.Entry>>;
+
 export function GetBridgeStatus():Promise<bridge.Status>;
 
 export function IsHalted():Promise<boolean>;
@@ -13,5 +15,7 @@ export function IsHalted():Promise<boolean>;
 export function ResumeAfterStop():Promise<void>;
 
 export function SendRconCommand(arg1:string,arg2:number,arg3:string,arg4:string):Promise<string>;
+
+export function SetOBSScene(arg1:string,arg2:number,arg3:string,arg4:string):Promise<void>;
 
 export function SimulateKeyPress(arg1:number,arg2:number,arg3:number):Promise<void>;

@@ -34,8 +34,11 @@ async function readJson(res: Response): Promise<AuthPayload> {
 export async function POST(request: NextRequest) {
   const refreshToken = request.cookies.get(REFRESH_COOKIE)?.value;
 
+  // No cookie is "never signed in", not a failure. Answering 401 made every
+  // anonymous visitor's first paint log a console error (Lighthouse best
+  // practices flags it); 204 says the same thing without the red text.
   if (!refreshToken) {
-    return NextResponse.json({ message: 'Chưa đăng nhập' }, { status: 401 });
+    return new NextResponse(null, { status: 204 });
   }
 
   let upstream: Response;

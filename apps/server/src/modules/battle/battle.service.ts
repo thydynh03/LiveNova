@@ -1,4 +1,10 @@
-import { Injectable, Logger, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  OnModuleInit,
+  OnModuleDestroy,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import { EventEmitter2, OnEvent } from '@nestjs/event-emitter';
 import { PrismaService } from '../../prisma/prisma.service';
 import { OverlayType } from '@prisma/client';
@@ -11,10 +17,25 @@ import {
   TeamBattleConfig,
   OVERLAY_STATE_EVENT,
   OverlayStateDispatch,
+  BATTLE_ACTION_DISPATCH,
+  BattleActionDispatchEvent,
+  GameBattleActionPayload,
 } from '@livenova/shared';
 import { SimulateBattleEventDto } from './dto/battle.dto';
+import { BattleCoordinatorService } from './battle-coordinator.service';
+import { MetricsService } from '../../common/metrics/metrics.service';
+
+type BattleDonorState = BattleState['topDonors'][number];
 
 interface ActiveBattle {
+  /**
+   * Every donor this round, keyed by username.
+   *
+   * `state.topDonors` is a view over this — the head of it, sorted. Keeping the
+   * full set here is what stops a donor's total resetting when they drop off
+   * the visible board.
+   */
+  donors: Map<string, BattleDonorState>;
   userId: string;
   battleId: string;
   templateId?: string;
@@ -161,9 +182,17 @@ export class BattleService implements OnModuleInit, OnModuleDestroy {
   constructor(
     private readonly prisma: PrismaService,
     private readonly eventEmitter: EventEmitter2,
+    private readonly coordinator: BattleCoordinatorService,
+    private readonly metrics: MetricsService,
   ) {}
 
   onModuleInit() {
+    // Mutations forwarded from an instance that does not own the battle land
+    // here and run exactly as if they had arrived over HTTP on this one.
+    this.coordinator.registerHandler((op, userId, payload) =>
+      this.applyForwarded(op, userId, payload),
+    );
+
     this.energyTimer = setInterval(() => this.tickEnergyRefill(), 1000);
     // Batched every two seconds rather than written per event: a busy broadcast
     // produces hundreds of events a minute, and a write for each would make the
@@ -208,6 +237,19 @@ export class BattleService implements OnModuleInit, OnModuleDestroy {
         });
 
         this.battles.set(row.userId, {
+          // Restored from the rows, so a resumed round keeps totals for donors
+          // who are not currently on the visible board.
+          donors: new Map(
+            row.donors.map((d) => [
+              d.username,
+              {
+                username: d.username,
+                nickname: d.nickname,
+                teamKey: d.teamKey,
+                totalScore: d.totalScore,
+              },
+            ]),
+          ),
           userId: row.userId,
           battleId: row.id,
           templateId: row.templateId ?? undefined,
@@ -277,18 +319,32 @@ export class BattleService implements OnModuleInit, OnModuleDestroy {
     this.dirty.add(battle.userId);
     await this.flush();
 
-    await this.prisma.battle
-      .update({
-        where: { id: battle.battleId },
+    // `updateMany` with a status guard, not `update`.
+    //
+    // Closing a round has to be idempotent, and the in-process `active` flag at
+    // the top of this method cannot provide that on its own — it is per-process
+    // state. If ownership changes hands at the wrong moment, or a restart
+    // restores a round that another instance is already closing, two processes
+    // reach this line for the same battle. Guarding on RUNNING means the second
+    // one writes nothing and cannot overwrite the winner the first recorded.
+    try {
+      const closed = await this.prisma.battle.updateMany({
+        where: { id: battle.battleId, status: 'RUNNING' },
         data: {
           status: 'FINISHED',
           finishedAt: new Date(),
           winnerTeamKey: battle.state.winnerTeamKey ?? null,
         },
-      })
-      .catch((err) => {
-        this.logger.error(`Khong dong duoc tran ${battle.battleId}: ${message(err)}`);
       });
+
+      if (closed.count === 0) {
+        this.logger.warn(
+          `Tran ${battle.battleId} da duoc dong boi tien trinh khac — bo qua ghi ket qua.`,
+        );
+      }
+    } catch (err) {
+      this.logger.error(`Khong dong duoc tran ${battle.battleId}: ${message(err)}`);
+    }
 
     this.broadcastState(battle.userId);
   }
@@ -326,6 +382,12 @@ export class BattleService implements OnModuleInit, OnModuleDestroy {
       const battle = this.battles.get(userId);
       if (!battle) continue;
 
+      // Only the owner writes. An instance that lost the lease still holds a
+      // copy of the state as of the moment it lost it; flushing that would
+      // overwrite the new owner's live scores with scores that stopped moving
+      // seconds ago, and the audience would watch the board go backwards.
+      if (!this.coordinator.isOwner(userId)) continue;
+
       try {
         await this.prisma.$transaction([
           ...battle.state.teams.map((t) =>
@@ -341,7 +403,7 @@ export class BattleService implements OnModuleInit, OnModuleDestroy {
               update: { score: t.score, castleHp: t.castleHp, soldierCount: t.soldierCount ?? 0 },
             }),
           ),
-          ...battle.state.topDonors.map((d) =>
+          ...[...battle.donors.values()].map((d) =>
             this.prisma.battleDonor.upsert({
               where: { battleId_username: { battleId: battle.battleId, username: d.username } },
               create: {
@@ -359,8 +421,10 @@ export class BattleService implements OnModuleInit, OnModuleDestroy {
             data: { winnerTeamKey: battle.state.winnerTeamKey ?? null },
           }),
         ]);
+        this.metrics.recordFlush(true);
       } catch (err) {
         // Put it back so the next tick retries rather than losing the round.
+        this.metrics.recordFlush(false);
         this.dirty.add(userId);
         this.logger.error(`Khong luu duoc diem tran ${battle.battleId}: ${message(err)}`);
       }
@@ -404,7 +468,22 @@ export class BattleService implements OnModuleInit, OnModuleDestroy {
   }
 
   private tickEnergyRefill() {
+    // Counts what this instance is responsible for, not what it happens to
+    // hold in memory: a battle whose lease moved elsewhere is another
+    // instance's number now, and double-counting it across a fleet would make
+    // the gauge unreadable.
+    this.metrics.setActiveBattles(
+      [...this.battles.values()].filter(
+        (b) => b.state.active && this.coordinator.isOwner(b.userId),
+      ).length,
+    );
+
     for (const battle of this.battles.values()) {
+      // The clock belongs to the owner alone. Two instances ticking the same
+      // battle refill energy at twice the configured rate — a bug that looks
+      // like a balance problem and sends you hunting through the config.
+      if (!this.coordinator.isOwner(battle.userId)) continue;
+
       // Nothing checked `endsAtMs`, so the countdown reached 00:00 and the round
       // simply carried on — no winner, no result, gifts still scoring into a
       // match that had visibly ended. A timer that runs out and changes nothing
@@ -432,7 +511,90 @@ export class BattleService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
-  async getOrCreateBattle(userId: string): Promise<BattleState> {
+
+  // ── Ownership routing ────────────────────────────────────────────────────
+  //
+  // Every entry point that changes a battle goes through here. The instance
+  // that holds the lease does the work; anyone else hands it over and returns
+  // the owner's answer, so there is only ever one copy of a round being played.
+
+  /**
+   * Run a mutation on whichever instance owns this battle.
+   *
+   * On a forwarding failure this throws rather than falling back to running
+   * locally. Running locally would be the whole bug: a second process would
+   * start mutating a battle it does not own, and from that point the two copies
+   * diverge silently. A 503 is recoverable — the owner's lease expires within
+   * fifteen seconds and the next attempt succeeds here.
+   */
+  private async withOwnership<T>(
+    userId: string,
+    op: string,
+    payload: unknown,
+    local: () => Promise<T>,
+  ): Promise<T> {
+    if (await this.coordinator.claim(userId)) return local();
+
+    try {
+      return (await this.coordinator.forward(userId, op, payload)) as T;
+    } catch (err) {
+      this.logger.warn(`Khong chuyen duoc ${op} cho chu so huu tran: ${message(err)}`);
+      throw new ServiceUnavailableException(
+        'Tran dau dang duoc xu ly boi mot tien trinh khac va tien trinh do khong phan hoi. ' +
+          'Thu lai sau vai giay.',
+      );
+    }
+  }
+
+  /** Dispatch for calls forwarded from another instance. */
+  private async applyForwarded(op: string, userId: string, payload: unknown): Promise<unknown> {
+    switch (op) {
+      case 'getOrCreate':
+        return this.getOrCreateBattleLocal(userId);
+      case 'setMapTheme':
+        return this.setMapThemeLocal(userId, payload as string);
+      case 'setRenderEngine':
+        return this.setRenderEngineLocal(userId, payload as '2d' | '3d');
+      case 'reset':
+        return this.resetBattleLocal(userId);
+      case 'simulate':
+        return this.simulateEventLocal(userId, payload as SimulateBattleEventDto);
+      case 'dispatchAction':
+        return this.applyBattleActionDispatchLocal(payload as BattleActionDispatchEvent);
+      default:
+        throw new Error(`unknown forwarded op: ${op}`);
+    }
+  }
+
+  getOrCreateBattle(userId: string): Promise<BattleState> {
+    return this.withOwnership(userId, 'getOrCreate', null, () =>
+      this.getOrCreateBattleLocal(userId),
+    );
+  }
+
+  setMapTheme(userId: string, mapTheme: string): Promise<BattleState> {
+    return this.withOwnership(userId, 'setMapTheme', mapTheme, () =>
+      this.setMapThemeLocal(userId, mapTheme),
+    );
+  }
+
+  setRenderEngine(userId: string, renderEngine: '2d' | '3d'): Promise<BattleState> {
+    return this.withOwnership(userId, 'setRenderEngine', renderEngine, () =>
+      this.setRenderEngineLocal(userId, renderEngine),
+    );
+  }
+
+  resetBattle(userId: string): Promise<BattleState> {
+    return this.withOwnership(userId, 'reset', null, () => this.resetBattleLocal(userId));
+  }
+
+  simulateEvent(userId: string, dto: SimulateBattleEventDto): Promise<BattleState> {
+    return this.withOwnership(userId, 'simulate', dto, () =>
+      this.simulateEventLocal(userId, dto),
+    );
+  }
+
+  private async getOrCreateBattleLocal(userId: string): Promise<BattleState> {
     const existing = this.battles.get(userId);
     if (existing) return existing.state;
 
@@ -487,6 +649,7 @@ export class BattleService implements OnModuleInit, OnModuleDestroy {
     };
 
     this.battles.set(userId, {
+      donors: new Map(),
       userId,
       battleId: state.battleId,
       templateId: applied?.templateId,
@@ -498,7 +661,7 @@ export class BattleService implements OnModuleInit, OnModuleDestroy {
     return state;
   }
 
-  async setMapTheme(userId: string, mapTheme: string): Promise<BattleState> {
+  private async setMapThemeLocal(userId: string, mapTheme: string): Promise<BattleState> {
     const state = await this.getOrCreateBattle(userId);
     state.mapTheme = mapTheme;
     const active = this.battles.get(userId);
@@ -509,7 +672,18 @@ export class BattleService implements OnModuleInit, OnModuleDestroy {
     return active ? active.state : state;
   }
 
-  async resetBattle(userId: string): Promise<BattleState> {
+  private async setRenderEngineLocal(userId: string, renderEngine: '2d' | '3d'): Promise<BattleState> {
+    const state = await this.getOrCreateBattle(userId);
+    state.renderEngine = renderEngine;
+    const active = this.battles.get(userId);
+    if (active) {
+      active.state.renderEngine = renderEngine;
+    }
+    await this.broadcastState(userId);
+    return active ? active.state : state;
+  }
+
+  private async resetBattleLocal(userId: string): Promise<BattleState> {
     const previous = this.battles.get(userId);
     if (previous) {
       // Close the old row instead of leaving it RUNNING, or a restart would
@@ -532,14 +706,39 @@ export class BattleService implements OnModuleInit, OnModuleDestroy {
       t.soldierCount = 0;
     });
     state.topDonors = [];
+    this.battles.get(userId)?.donors.clear();
     state.recentEvents = [];
     state.winnerTeamKey = null;
+
+    // Ba tập theo dõi người xem được xử lý khác nhau, và sự khác nhau đó là có
+    // chủ ý chứ không phải bỏ sót:
+    //
+    // - `viewerEnergy` **được nạp lại**. Nó là hạn mức chống spam trong phạm vi
+    //   một trận, không phải hạn mức trọn đời. Giữ lại thì người xem đã dùng hết
+    //   ở trận trước bước vào trận mới với ví rỗng và không hiểu vì sao like của
+    //   mình không ăn điểm.
+    //
+    // - `allegiance` **được giữ**. Người hâm mộ một phe vẫn là người hâm mộ phe
+    //   đó ở ván sau; bắt họ tặng quà lại chỉ để like được tính sẽ làm đầu mỗi
+    //   trận im ắng một cách vô cớ.
+    //
+    // - `followed` **được giữ**. Một người xem chỉ follow một lần trong đời, và
+    //   phần thưởng follow được trả đúng lần đó. Nạp lại sẽ biến "unfollow rồi
+    //   follow lại" thành cách cày điểm.
+    const prefix = `${userId}:`;
+    for (const key of [...this.viewerEnergy.keys()]) {
+      if (key.startsWith(prefix)) this.viewerEnergy.delete(key);
+    }
 
     this.broadcastState(userId);
     return state;
   }
 
-  async simulateEvent(userId: string, dto: SimulateBattleEventDto): Promise<BattleState> {
+  private async simulateEventLocal(userId: string, dto: SimulateBattleEventDto): Promise<BattleState> {
+    // Timed from accepting the gift to pushing the new state. This is the
+    // number a streamer actually feels: the gap between a viewer paying and
+    // the screen reacting.
+    const acceptedAt = Date.now();
     await this.getOrCreateBattle(userId);
     const battle = this.battles.get(userId);
     if (!battle) return this.getOrCreateBattle(userId);
@@ -607,13 +806,20 @@ export class BattleService implements OnModuleInit, OnModuleDestroy {
     team.soldierCount = (team.soldierCount || 0) + (actionKey === 'soldier' ? 10 * giftCount : 5);
     team.energy = Math.max(0, Math.min(battle.config.energy?.capacity ?? 100, team.energy + Math.round(power * 0.05)));
 
-    // Damage other teams
     const opponents = battle.state.teams.filter((t) => t.key !== team.key);
-    for (const opp of opponents) {
-      if (actionKey === 'castle') {
-        // Castle repairs own wall
-        team.castleHp = Math.min(team.maxHp, team.castleHp + power * 2);
-      } else {
+
+    if (actionKey === 'castle') {
+      // Sửa thành của chính mình — một lần.
+      //
+      // Nhánh này từng nằm bên trong vòng lặp "với mỗi đối thủ" ở dưới, dù nó
+      // không dùng tới `opp` nào cả, nên nó chạy đúng một lần cho mỗi đối thủ:
+      // ba đối thủ nghĩa là hồi gấp ba. Với `power = 10` thì thành hồi 60 máu
+      // thay vì 20, và không có gì báo — chỉ là "Xây thành" mạnh gấp ba lần
+      // ý định của người thiết kế mẫu.
+      team.castleHp = Math.min(team.maxHp, team.castleHp + power * 2);
+    } else {
+      // Sát thương chia đều cho các phe còn lại.
+      for (const opp of opponents) {
         const damagePerOpponent = Math.max(1, Math.round(power / Math.max(1, opponents.length)));
         opp.castleHp = Math.max(0, opp.castleHp - damagePerOpponent);
       }
@@ -628,20 +834,35 @@ export class BattleService implements OnModuleInit, OnModuleDestroy {
       void this.finishBattle(battle, 'conquest');
     }
 
-    // Update Top Donors
-    const existingDonor = battle.state.topDonors.find((d) => d.username === dto.sender && d.teamKey === team.key);
-    if (existingDonor) {
-      existingDonor.totalScore += power;
+    // Every donor is kept; the board is only the head of the list.
+    //
+    // Truncating the stored array to five meant a donor pushed out of the top
+    // five lost their running total, so their next gift started them from zero
+    // and the board understated what they had actually given. The person most
+    // likely to notice is the one who gave the most.
+    //
+    // Matched on username alone, not username-and-team: switching sides is
+    // allowed, and keying on both put the same person on the board twice with
+    // their total split across the rows.
+    const existing = battle.donors.get(dto.sender);
+    if (existing) {
+      existing.totalScore += power;
+      existing.teamKey = team.key;
+      if (dto.senderDisplayName) existing.nickname = dto.senderDisplayName;
     } else {
-      battle.state.topDonors.push({
+      battle.donors.set(dto.sender, {
         username: dto.sender,
-        nickname: dto.sender.replace('@', ''),
+        // The platform's display name when we have it. Stripping the '@' off a
+        // handle showed "ngochan" where the audience knows "Ngọc Hân".
+        nickname: dto.senderDisplayName || dto.sender.replace('@', ''),
         teamKey: team.key,
         totalScore: power,
       });
     }
-    battle.state.topDonors.sort((a, b) => b.totalScore - a.totalScore);
-    battle.state.topDonors = battle.state.topDonors.slice(0, battle.config.battle?.showTopDonors ?? 5);
+
+    battle.state.topDonors = [...battle.donors.values()]
+      .sort((a, b) => b.totalScore - a.totalScore)
+      .slice(0, battle.config.battle?.showTopDonors ?? 5);
 
     // Event Log
     const eventLog: BattleEventLog = {
@@ -661,6 +882,7 @@ export class BattleService implements OnModuleInit, OnModuleDestroy {
     // Persisted by the batching timer rather than here.
     this.dirty.add(userId);
     this.broadcastState(userId);
+    this.metrics.recordGiftLatency(Date.now() - acceptedAt);
     return battle.state;
   }
 
@@ -697,6 +919,7 @@ export class BattleService implements OnModuleInit, OnModuleDestroy {
         this.allegiance.set(`${battle.userId}:${event.senderUsername}`, teamKey);
         await this.simulateEvent(battle.userId, {
           sender,
+          senderDisplayName: event.senderDisplayName,
           teamKey,
           eventType: 'GIFT',
           giftName: event.giftName,
@@ -745,6 +968,122 @@ export class BattleService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
+  @OnEvent(BATTLE_ACTION_DISPATCH)
+  async handleBattleActionDispatch(dispatch: BattleActionDispatchEvent) {
+    const battle = this.battles.get(dispatch.userId);
+    if (!battle || !battle.state.active) return;
+
+    // Must run on owner
+    if (!this.coordinator.isOwner(dispatch.userId)) {
+      try {
+        await this.coordinator.forward(dispatch.userId, 'dispatchAction', dispatch);
+      } catch (e) {
+        this.logger.warn(`Lỗi forward BATTLE_ACTION_DISPATCH: ${message(e)}`);
+      }
+      return;
+    }
+
+    await this.applyBattleActionDispatchLocal(dispatch);
+  }
+
+  /**
+   * Thi hành một hành động do luật kích hoạt.
+   *
+   * Phần tính điểm, sát thương, cập nhật công thần và ghi nhật ký dưới đây là
+   * bản sao gần như nguyên vẹn của `simulateEventLocal`. Đó là nợ đã biết: hai
+   * bản sao của cùng một luật chơi sẽ lệch nhau ở lần sửa tiếp theo, và lỗi hồi
+   * máu gấp ba vừa phải sửa ở **cả hai chỗ** chính là bằng chứng đầu tiên. Nên
+   * gộp thành một hàm nhận `{ teamKey, actionKey, power, sender }` khi tính
+   * năng này ổn định.
+   */
+  private async applyBattleActionDispatchLocal(dispatch: BattleActionDispatchEvent) {
+    const battle = this.battles.get(dispatch.userId);
+    if (!battle || !battle.state.active) return;
+
+    const payload = dispatch.action.payload as unknown as GameBattleActionPayload;
+    if (!payload || !payload.actionKey) return;
+
+    let teamKey = payload.teamKey;
+    if (!teamKey) {
+      teamKey = this.resolveTeam(battle, dispatch.event) ?? undefined;
+    }
+
+    if (!teamKey) {
+      this.logger.warn(`Bỏ qua GAME_BATTLE_ACTION: Không xác định được phe cho ${payload.actionKey}`);
+      return;
+    }
+
+    const team = battle.state.teams.find(t => t.key === teamKey);
+    if (!team) return;
+
+    // Lookup power for the action to simulate damage
+    const actionTier = (battle.config.actions ?? []).find(a => a.key === payload.actionKey);
+    const power = actionTier?.minPower ?? 1;
+
+    // Apply power & score (Simulate impact)
+    team.score += power;
+    team.soldierCount = (team.soldierCount || 0) + (payload.actionKey === 'soldier' ? 10 : 5);
+    team.energy = Math.max(0, Math.min(battle.config.energy?.capacity ?? 100, team.energy + Math.round(power * 0.05)));
+
+    const opponents = battle.state.teams.filter((t) => t.key !== team.key);
+
+    // Giống hệt nhánh trong `simulateEventLocal`, kể cả lỗi hồi máu gấp ba đã
+    // được sửa ở đó. Hai bản sao của cùng một luật chơi sẽ lệch nhau ở lần sửa
+    // tiếp theo — xem ghi chú ở đầu `applyBattleActionDispatchLocal`.
+    if (payload.actionKey === 'castle') {
+      team.castleHp = Math.min(team.maxHp, team.castleHp + power * 2);
+    } else {
+      for (const opp of opponents) {
+        const damagePerOpponent = Math.max(1, Math.round(power / Math.max(1, opponents.length)));
+        opp.castleHp = Math.max(0, opp.castleHp - damagePerOpponent);
+      }
+    }
+
+    const aliveOpponents = opponents.filter((t) => t.castleHp > 0);
+    if (opponents.length > 0 && aliveOpponents.length === 0) {
+      battle.state.winnerTeamKey = team.key;
+      void this.finishBattle(battle, 'conquest');
+    }
+
+    // Keep donors updated based on power
+    if (dispatch.event.senderUsername && dispatch.event.senderUsername !== 'unknown') {
+      const sender = `@${dispatch.event.senderUsername}`;
+      const existing = battle.donors.get(sender);
+      if (existing) {
+        existing.totalScore += power;
+        existing.teamKey = team.key;
+        if (dispatch.event.senderDisplayName) existing.nickname = dispatch.event.senderDisplayName;
+      } else {
+        battle.donors.set(sender, {
+          username: sender,
+          nickname: dispatch.event.senderDisplayName || dispatch.event.senderUsername,
+          teamKey: team.key,
+          totalScore: power,
+        });
+      }
+      battle.state.topDonors = [...battle.donors.values()]
+        .sort((a, b) => b.totalScore - a.totalScore)
+        .slice(0, battle.config.battle?.showTopDonors ?? 5);
+    }
+
+    const eventLog: BattleEventLog = {
+      id: `evt_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      teamKey: team.key,
+      sender: dispatch.event.senderUsername ? `@${dispatch.event.senderUsername}` : 'Hệ thống',
+      actionKey: payload.actionKey,
+      giftName: 'Kịch bản (Rule)',
+      giftCount: 1,
+      powerAdded: power,
+      quote: team.quote,
+      timestamp: Date.now(),
+    };
+
+    battle.state.recentEvents = [eventLog, ...battle.state.recentEvents.slice(0, 19)];
+
+    this.dirty.add(dispatch.userId);
+    this.broadcastState(dispatch.userId);
+  }
+
   /** channelId → owning userId. Ownership effectively never changes. */
   private async resolveOwner(channelId: string): Promise<string | null> {
     const cached = this.channelOwners.get(channelId);
@@ -767,13 +1106,37 @@ export class BattleService implements OnModuleInit, OnModuleDestroy {
    * carries nothing, so it takes the team of the sender's most recent gift —
    * and scores nothing at all if they have never given one.
    */
+  /**
+   * Chuẩn hoá một tên quà về đúng một dạng để so sánh.
+   *
+   * `normalize('NFC')` là phần không hiển nhiên. Tiếng Việt có hai cách mã hoá
+   * cùng một chữ: `ồ` có thể là một ký tự dựng sẵn, hoặc là `o` cộng hai dấu
+   * rời. Trên màn hình chúng giống hệt nhau; với `===` chúng khác nhau, và
+   * `"Hoa Hồng"` dạng NFC dài 8 ký tự trong khi dạng NFD dài 10.
+   *
+   * Nếu TikTok gửi một dạng còn streamer gõ dạng kia vào mẫu thì món quà đó
+   * không khớp phe nào, và theo đúng thiết kế ở dưới, sự kiện bị bỏ qua trong
+   * im lặng: người xem tặng quà, màn hình không phản ứng, log không có gì. Cả
+   * bốn phe mặc định đều dùng tên quà tiếng Việt có dấu, nên bề mặt rủi ro là
+   * toàn bộ trò chơi.
+   *
+   * Phép chuẩn hoá là lũy đẳng — không đổi gì khi hai bên vốn đã cùng dạng —
+   * nên nó an toàn kể cả khi TikTok hoá ra vẫn luôn gửi NFC.
+   */
+  private static normalizeGiftName(raw: string | undefined): string {
+    return (raw ?? '').normalize('NFC').trim().toLowerCase();
+  }
+
   private resolveTeam(battle: ActiveBattle, event: LiveEvent): string | null {
     if (event.type === LiveEventType.GIFT) {
-      const giftName = (event.giftName ?? '').trim().toLowerCase();
+      const giftName = BattleService.normalizeGiftName(event.giftName);
       if (giftName === '') return null;
 
+      // `find` lấy phe đầu tiên khớp. Nếu streamer lỡ khai cùng một tên quà cho
+      // hai phe thì phe đứng trước trong cấu hình thắng — một quy tắc cố định
+      // còn hơn để nó phụ thuộc thứ tự duyệt.
       const match = battle.state.teams.find((t) =>
-        t.giftNames.some((g) => g.trim().toLowerCase() === giftName),
+        t.giftNames.some((g) => BattleService.normalizeGiftName(g) === giftName),
       );
       return match?.key ?? null;
     }

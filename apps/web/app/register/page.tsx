@@ -1,10 +1,11 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '../../context/AuthContext';
 import { Icon } from '../../components/ui/Icon';
+import { TurnstileWidget, type TurnstileHandle } from '../../components/auth/TurnstileWidget';
 
 const inputStyle: React.CSSProperties = {
   width: '100%',
@@ -31,6 +32,10 @@ export default function RegisterPage() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  // Kept beside the other form state so the reset path is obvious: a rejected
+  // submit must redraw the challenge, because the token it used is spent.
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const turnstileRef = useRef<TurnstileHandle | null>(null);
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -53,10 +58,11 @@ export default function RegisterPage() {
 
     setSubmitting(true);
     try {
-      await signUp(email, password, displayName);
+      await signUp(email, password, displayName, turnstileToken ?? undefined);
       router.push(`/verify-otp?email=${encodeURIComponent(email)}&type=REGISTER`);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Đăng ký thất bại');
+      turnstileRef.current?.reset();
     } finally {
       setSubmitting(false);
     }
@@ -214,6 +220,10 @@ export default function RegisterPage() {
                 <Icon name={showConfirmPassword ? 'eyeSlash' : 'eye'} size={18} />
               </button>
             </div>
+          </div>
+
+          <div style={{ marginBottom: '1rem' }}>
+            <TurnstileWidget onToken={setTurnstileToken} handleRef={turnstileRef} />
           </div>
 
           <button

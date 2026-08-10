@@ -123,6 +123,10 @@ jobs:
           NEXT_TELEMETRY_DISABLED: 1
           NEXT_PUBLIC_API_URL: http://localhost:4001
           NEXT_PUBLIC_WS_URL: ws://localhost:4001
+          # A production build refuses to start without this, so that a deploy
+          # can never ship canonical tags pointing at localhost. CI supplies the
+          # real origin; the hosting platform must set its own.
+          NEXT_PUBLIC_SITE_URL: https://livenova.website
 
   # ─────────────────────────────────────────
   # Go Desktop App (Wails) — vet, test & build
@@ -171,9 +175,14 @@ jobs:
         working-directory: apps/desktop-app
         run: go vet ./...
 
+      # `-race` chứ không phải `go test` trần. Local Bridge ghi nhật ký từ vòng
+      # lặp đọc socket trong khi giao diện đọc nó mỗi hai giây; một lỗi đồng
+      # thời ở đó không làm test đỏ, nó chỉ thỉnh thoảng làm hỏng dữ liệu trên
+      # máy streamer. Runner của GitHub có sẵn trình biên dịch C nên bật được,
+      # còn máy phát triển Windows thường thì không.
       - name: go test
         working-directory: apps/desktop-app
-        run: go test ./...
+        run: go test -race ./...
 
       - name: Build desktop app
         working-directory: apps/desktop-app

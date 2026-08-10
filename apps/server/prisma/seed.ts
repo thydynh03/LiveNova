@@ -170,6 +170,53 @@ function starterTemplates(assets: string): StarterTemplateDef[] {
       },
     },
     {
+      slug: 'game-dragon-comment',
+      kind: TemplateKind.RULE_PACK,
+      name: 'Bình luận Gọi Rồng (Đấu trường Game)',
+      description: 'Ai bình luận chữ "rồng" sẽ lập tức thả rồng vào Đấu trường Game.',
+      config: {
+        rules: [
+          {
+            name: 'Bình luận Gọi Rồng',
+            enabled: true,
+            priority: 2,
+            conditions: {
+              eventType: [LiveEventType.COMMENT],
+              keywords: ['rồng', 'rong', 'dragon'],
+            },
+            actions: [
+              {
+                type: RuleActionType.GAME_BATTLE_ACTION,
+                payload: { actionKey: 'dragon', teamKey: '' },
+              },
+            ],
+          },
+        ],
+      },
+    },
+    {
+      slug: 'game-meteor-like',
+      kind: TemplateKind.RULE_PACK,
+      name: 'Thả tim rơi Thiên Thạch (Đấu trường Game)',
+      description: 'Mỗi mốc thả tim sẽ giáng Thiên Thạch xuống Đấu trường Game.',
+      config: {
+        rules: [
+          {
+            name: 'Thả tim giáng Thiên Thạch',
+            enabled: true,
+            priority: 3,
+            conditions: { eventType: [LiveEventType.LIKE] },
+            actions: [
+              {
+                type: RuleActionType.GAME_BATTLE_ACTION,
+                payload: { actionKey: 'meteor', teamKey: '' },
+              },
+            ],
+          },
+        ],
+      },
+    },
+    {
       slug: 'cat-vs-dog-battle',
       kind: TemplateKind.GAME,
       gameMode: GameMode.TEAM_BATTLE,

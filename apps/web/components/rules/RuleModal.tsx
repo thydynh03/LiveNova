@@ -2,7 +2,7 @@
 
 import React, { useState, useRef } from 'react';
 import { Icon } from '../ui/Icon';
-import { uploadImage, api } from '../../lib/api-client';
+import { uploadMedia, api } from '../../lib/api-client';
 
 export interface RuleModalProps {
   rule?: any | null;
@@ -67,7 +67,7 @@ export function RuleModal({ rule, onClose, onSuccess }: RuleModalProps) {
     setError(null);
 
     try {
-      const res = await uploadImage(file);
+      const res = await uploadMedia(file);
       const newActions = [...actions];
       newActions[actionIndex].payload.url = res.url;
       // Auto-detect media type
@@ -114,6 +114,8 @@ export function RuleModal({ rule, onClose, onSuccess }: RuleModalProps) {
       };
     } else if (type === 'tts_read') {
       newActions[index].payload = { text: 'Cảm ơn {sender}!' };
+    } else if (type === 'game_battle_action') {
+      newActions[index].payload = { actionKey: 'dragon', teamKey: '' };
     }
     setActions(newActions);
   }
@@ -458,6 +460,7 @@ export function RuleModal({ rule, onClose, onSuccess }: RuleModalProps) {
                     >
                       <option value="media_popup">Video / Ảnh Popup trên OBS Overlay</option>
                       <option value="tts_read">Đọc giọng nói TTS (Text-to-Speech)</option>
+                      <option value="game_battle_action">Gửi hiệu ứng vào Đấu trường Game</option>
                     </select>
                   </div>
 
@@ -567,6 +570,41 @@ export function RuleModal({ rule, onClose, onSuccess }: RuleModalProps) {
                         onChange={(e) => updateActionPayload(idx, 'text', e.target.value)}
                         style={{ ...inputStyle, fontSize: '0.85rem' }}
                       />
+                    </div>
+                  )}
+
+                  {act.type === 'game_battle_action' && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                        <div>
+                          <label style={{ display: 'block', marginBottom: '0.3rem', fontSize: '0.85rem' }}>Loại hiệu ứng (Game Action)</label>
+                          <select
+                            value={act.payload.actionKey || 'dragon'}
+                            onChange={(e) => updateActionPayload(idx, 'actionKey', e.target.value)}
+                            style={{ ...inputStyle, background: '#18181b', padding: '0.5rem', fontSize: '0.85rem' }}
+                          >
+                            <option value="soldier">Triệu hồi Lính (Soldier)</option>
+                            <option value="castle">Xây thành (Castle)</option>
+                            <option value="bomb">Ném bom (Bomb)</option>
+                            <option value="dragon">Gọi rồng (Dragon)</option>
+                            <option value="cannon">Bắn đại bác (Cannon)</option>
+                            <option value="meteor">Thiên thạch (Meteor)</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label style={{ display: 'block', marginBottom: '0.3rem', fontSize: '0.85rem' }}>Phe nhận hiệu ứng (Tùy chọn)</label>
+                          <input
+                            type="text"
+                            placeholder="VD: cat, dog (Để trống để tự động)"
+                            value={act.payload.teamKey || ''}
+                            onChange={(e) => updateActionPayload(idx, 'teamKey', e.target.value)}
+                            style={{ ...inputStyle, fontSize: '0.85rem' }}
+                          />
+                          <span style={{ fontSize: '0.7rem', color: 'hsl(var(--muted-foreground))', marginTop: '0.2rem', display: 'block' }}>
+                            Nếu để trống, Game sẽ tự động xác định phe theo món quà hoặc lịch sử tặng của người xem.
+                          </span>
+                        </div>
+                      </div>
                     </div>
                   )}
                 </div>

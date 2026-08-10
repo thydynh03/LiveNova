@@ -81,6 +81,46 @@ export interface AppEnv {
    * address of the front end and a second knob would only let the two drift.
    */
   publicWebUrl: string;
+
+  /**
+   * Redis connection string, or null for single-instance mode.
+   *
+   * Null is a legitimate configuration — a solo streamer running one process
+   * needs no coordination and should not be forced to run Redis. But it is only
+   * legitimate for **one** process. With it unset, two replicas each keep their
+   * own copy of every live battle, each run their own one-second energy tick on
+   * it, and each flush their divergent scores over the other's every two
+   * seconds; meanwhile a Socket.IO room broadcast never leaves the instance that
+   * emitted it, so an overlay attached to the other replica goes dark forever
+   * without a single error being logged.
+   *
+   * Production therefore has to say out loud that it is single-instance, via
+   * `ALLOW_SINGLE_INSTANCE=true`, rather than arriving at it by forgetting to
+   * set a variable.
+   */
+  redisUrl: string | null;
+
+  /** Set when production deliberately runs one process with no Redis. */
+  allowSingleInstance: boolean;
+
+  /**
+   * Whether Cloudflare Turnstile is verifying the public auth endpoints.
+   *
+   * The secret itself is never held here — `TurnstileService` reads
+   * `process.env.TURNSTILE_SECRET` at the point of use, so the value has one
+   * home and does not get copied into a config object that gets logged.
+   */
+  turnstileEnabled: boolean;
+
+  /**
+   * Identifies this process in the ownership leases it takes on battles.
+   *
+   * Defaults to a random value per boot. A restarted process must not inherit
+   * its own previous lease, because the state that lease protected died with
+   * it — it has to wait out the TTL and rebuild from the database like any
+   * other claimant.
+   */
+  instanceId: string;
 }
 
 let cached: AppEnv | null = null;
@@ -110,9 +150,44 @@ export function loadEnv(): AppEnv {
     );
   }
 
+  const redisUrl = process.env.REDIS_URL?.trim() || null;
+  const allowSingleInstance = process.env.ALLOW_SINGLE_INSTANCE === 'true';
+
+  // Refusing to start is the only reliable way to surface this. The failure it
+  // prevents is silent by nature: nothing throws, nothing logs, the overlay
+  // simply stops updating for whichever half of the audience is attached to the
+  // wrong replica.
+  if (isProduction && !redisUrl && !allowSingleInstance) {
+    throw new Error(
+      '[env] REDIS_URL is required in production, or set ALLOW_SINGLE_INSTANCE=true ' +
+        'to confirm this deployment really does run exactly one process. Two processes ' +
+        'without Redis will double-count energy, overwrite each other\'s scores, and ' +
+        'leave overlays connected to the other instance frozen with no error.',
+    );
+  }
+
+  // Same shape as the Redis rule above: production must not arrive at
+  // "bot protection is off" by forgetting a variable. The signup and login
+  // endpoints are public and reachable directly, so an unset secret there is a
+  // silent downgrade nobody would notice until the spam started.
+  const turnstileEnabled = Boolean(process.env.TURNSTILE_SECRET?.trim());
+  if (isProduction && !turnstileEnabled && process.env.ALLOW_NO_TURNSTILE !== 'true') {
+    throw new Error(
+      '[env] TURNSTILE_SECRET is required in production, or set ALLOW_NO_TURNSTILE=true ' +
+        'to confirm the public auth endpoints are deliberately running without bot ' +
+        'verification.',
+    );
+  }
+
   cached = {
     nodeEnv,
     isProduction,
+    turnstileEnabled,
+    redisUrl,
+    allowSingleInstance,
+    instanceId:
+      process.env.INSTANCE_ID?.trim() ||
+      `${process.pid}-${Math.random().toString(36).slice(2, 10)}`,
     port: optionalInt('PORT', 4001),
     jwtSecret,
     jwtRefreshSecret,

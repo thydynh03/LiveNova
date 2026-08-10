@@ -1,12 +1,16 @@
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { LiveEventType } from '@livenova/shared';
 import { BattleService } from './battle.service';
+import { BattleCoordinatorService } from './battle-coordinator.service';
+import { MetricsService } from '../../common/metrics/metrics.service';
 import { PrismaService } from '../../prisma/prisma.service';
 
 describe('BattleService (Kingdom War 4-Way)', () => {
   let service: BattleService;
   let prisma: PrismaService;
   let emitter: EventEmitter2;
+  let coordinator: BattleCoordinatorService;
+  let metrics: MetricsService;
 
   beforeEach(() => {
     prisma = {
@@ -23,6 +27,7 @@ describe('BattleService (Kingdom War 4-Way)', () => {
         create: jest.fn().mockResolvedValue({ id: 'battle_row_1' }),
         findMany: jest.fn().mockResolvedValue([]),
         update: jest.fn().mockResolvedValue({}),
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
       },
       battleScore: { upsert: jest.fn() },
       battleDonor: { upsert: jest.fn() },
@@ -33,7 +38,27 @@ describe('BattleService (Kingdom War 4-Way)', () => {
       emit: jest.fn(),
     } as unknown as EventEmitter2;
 
-    service = new BattleService(prisma, emitter);
+    // Single-instance behaviour: this process owns everything and never
+    // forwards. The multi-instance paths have their own spec.
+    coordinator = {
+      registerHandler: jest.fn(),
+      isOwner: jest.fn().mockReturnValue(true),
+      claim: jest.fn().mockResolvedValue(true),
+      release: jest.fn().mockResolvedValue(undefined),
+      ownedBattles: jest.fn().mockReturnValue([]),
+      forward: jest.fn(),
+    } as unknown as BattleCoordinatorService;
+
+    metrics = {
+      setActiveBattles: jest.fn(),
+      socketConnected: jest.fn(),
+      socketDisconnected: jest.fn(),
+      recordFlush: jest.fn(),
+      recordGiftLatency: jest.fn(),
+      render: jest.fn().mockReturnValue(''),
+    } as unknown as MetricsService;
+
+    service = new BattleService(prisma, emitter, coordinator, metrics);
   });
 
   afterEach(() => {
@@ -219,7 +244,7 @@ describe('BattleService (Kingdom War 4-Way)', () => {
         },
       ]);
 
-      const fresh = new BattleService(prisma, emitter);
+      const fresh = new BattleService(prisma, emitter, coordinator, metrics);
       fresh.onModuleInit();
       await new Promise((r) => setImmediate(r));
 
@@ -238,7 +263,7 @@ describe('BattleService (Kingdom War 4-Way)', () => {
     it('does not resume a round whose clock has already run out', async () => {
       (prisma.battle.findMany as jest.Mock).mockResolvedValue([]);
 
-      const fresh = new BattleService(prisma, emitter);
+      const fresh = new BattleService(prisma, emitter, coordinator, metrics);
       fresh.onModuleInit();
       await new Promise((r) => setImmediate(r));
 
@@ -377,8 +402,12 @@ describe('BattleService (Kingdom War 4-Way)', () => {
 
       // FINISHED existed in the schema from the start and nothing wrote it, so
       // a restart would happily resume a match that ended hours ago.
-      expect(prisma.battle.update).toHaveBeenCalledWith(
+      expect(prisma.battle.updateMany).toHaveBeenCalledWith(
         expect.objectContaining({
+          // Guarded on RUNNING, so a second process reaching this line for the
+          // same battle writes nothing instead of overwriting the winner the
+          // first one recorded.
+          where: { id: 'battle_row_1', status: 'RUNNING' },
           data: expect.objectContaining({ status: 'FINISHED', winnerTeamKey: 'cat' }),
         }),
       );
@@ -461,4 +490,140 @@ describe('BattleService (Kingdom War 4-Way)', () => {
       );
     });
   });
+  describe('top donors', () => {
+    const give = (sender: string, coins: number, team = 'cat', displayName?: string) =>
+      service.simulateEvent('user_1', {
+        sender,
+        senderDisplayName: displayName,
+        teamKey: team,
+        eventType: 'GIFT',
+        giftName: 'Rose',
+        coinValue: coins,
+      });
+
+    beforeEach(async () => {
+      await service.getOrCreateBattle('user_1');
+    });
+
+    it('keeps a total after the donor drops off the visible board', async () => {
+      await give('@small', 10);
+      // Five bigger donors push @small out of the top five.
+      for (let i = 0; i < 5; i += 1) await give(`@big${i}`, 500 + i);
+
+      const board = () => service['battles'].get('user_1')!.state.topDonors;
+      expect(board().some((d) => d.username === '@small')).toBe(false);
+
+      await give('@small', 5000);
+
+      // Truncating the stored list meant @small restarted from zero, so the
+      // board understated the person most likely to notice.
+      expect(board().find((d) => d.username === '@small')?.totalScore).toBe(5010);
+    });
+
+    it('counts a donor once when they switch sides', async () => {
+      await give('@switcher', 100, 'cat');
+      await give('@switcher', 200, 'dog');
+
+      const rows = service['battles']
+        .get('user_1')!
+        .state.topDonors.filter((d) => d.username === '@switcher');
+
+      // Keying on username *and* team put the same person on the board twice
+      // with their total split between the rows.
+      expect(rows).toHaveLength(1);
+      expect(rows[0].totalScore).toBe(300);
+      expect(rows[0].teamKey).toBe('dog');
+    });
+
+    it('shows the platform display name rather than the handle', async () => {
+      await give('@ngochan', 50, 'cat', 'Ngọc Hân');
+
+      const row = service['battles']
+        .get('user_1')!
+        .state.topDonors.find((d) => d.username === '@ngochan');
+      expect(row?.nickname).toBe('Ngọc Hân');
+    });
+
+    it('falls back to the handle when the platform sent no name', async () => {
+      await give('@anon', 50);
+
+      const row = service['battles']
+        .get('user_1')!
+        .state.topDonors.find((d) => d.username === '@anon');
+      expect(row?.nickname).toBe('anon');
+    });
+
+    it('shows only as many rows as the template asks for', async () => {
+      for (let i = 0; i < 12; i += 1) await give(`@d${i}`, 100 + i);
+
+      const battle = service['battles'].get('user_1')!;
+      expect(battle.state.topDonors).toHaveLength(battle.config.battle.showTopDonors);
+      // …while still tracking everyone underneath.
+      expect(battle.donors.size).toBe(12);
+    });
+
+    it('persists every donor, not only the visible ones', async () => {
+      for (let i = 0; i < 8; i += 1) await give(`@d${i}`, 100 + i);
+
+      await service['flush']();
+
+      const upserts = (prisma.battleDonor.upsert as jest.Mock).mock.calls.length;
+      expect(upserts).toBe(8);
+    });
+
+    it('clears the board when the round is reset', async () => {
+      await give('@someone', 100);
+      await service.resetBattle('user_1');
+
+      const battle = service['battles'].get('user_1')!;
+      expect(battle.state.topDonors).toHaveLength(0);
+      expect(battle.donors.size).toBe(0);
+    });
+  });
+
+  describe('when another instance owns the battle', () => {
+    it('does not run the clock, so energy cannot refill at twice the rate', async () => {
+      await service.getOrCreateBattle('user_1');
+      const battle = service['battles'].get('user_1')!;
+      battle.state.teams.forEach((t) => (t.energy = 10));
+
+      // The lease moved to another process. This one still holds a copy of the
+      // state, and ticking it would refill the same battle a second time every
+      // second — a bug that reads as a balance problem in the config.
+      (coordinator.isOwner as jest.Mock).mockReturnValue(false);
+      service['tickEnergyRefill']();
+      await new Promise((r) => setImmediate(r));
+
+      expect(battle.state.teams.every((t) => t.energy === 10)).toBe(true);
+    });
+
+    it('does not flush, so it cannot overwrite the live scores of the owner', async () => {
+      await service.getOrCreateBattle('user_1');
+      service['dirty'].add('user_1');
+
+      (coordinator.isOwner as jest.Mock).mockReturnValue(false);
+      await service['flush']();
+
+      // Our copy stopped moving when we lost the lease. Writing it would drag
+      // the scoreboard backwards in front of the audience.
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+    });
+
+    it('ends the round without overwriting a result another instance recorded', async () => {
+      await service.getOrCreateBattle('user_1');
+      const battle = service['battles'].get('user_1')!;
+      battle.state.teams.find((t) => t.key === 'cat')!.score = 50;
+      battle.state.endsAtMs = Date.now() - 1;
+
+      // The guarded update matched no row: someone else closed this battle.
+      (prisma.battle.updateMany as jest.Mock).mockResolvedValue({ count: 0 });
+
+      service['tickEnergyRefill']();
+      await new Promise((r) => setImmediate(r));
+
+      // No throw, and no second FINISHED write with a different winner.
+      expect(prisma.battle.updateMany).toHaveBeenCalledTimes(1);
+    });
+  });
+
 });
