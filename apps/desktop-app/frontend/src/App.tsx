@@ -333,6 +333,72 @@ export default function App() {
           <Tile icon={<Clock size={18} />} label="Đang chạy" value={uptime} />
         </div>
 
+        {/* Mã kết nối Session Token & Test Che màn hình */}
+        <div
+          className="card"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '1rem',
+            background: 'var(--card-bg)',
+            border: '1px solid var(--border)',
+            padding: '1rem 1.25rem',
+            marginTop: '0.75rem',
+          }}
+        >
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <span style={{ display: 'block', fontSize: '0.8rem', color: 'var(--muted-foreground)', fontWeight: 600 }}>
+              🔑 Mã kết nối Local Bridge (Session Token):
+            </span>
+            <code
+              style={{
+                display: 'inline-block',
+                fontFamily: 'monospace',
+                fontSize: '0.875rem',
+                background: 'var(--muted-bg, rgba(0,0,0,0.1))',
+                padding: '0.25rem 0.5rem',
+                borderRadius: '4px',
+                marginTop: '0.25rem',
+                wordBreak: 'break-all',
+                color: 'var(--primary, #3b82f6)',
+              }}
+            >
+              {bridgeStatus?.session_token || 'Đang lấy mã...'}
+            </code>
+          </div>
+          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+            <button
+              type="button"
+              className="btn-secondary"
+              style={{ padding: '0.5rem 0.85rem', fontSize: '0.85rem', whiteSpace: 'nowrap' }}
+              onClick={() => {
+                if (bridgeStatus?.session_token) {
+                  navigator.clipboard.writeText(bridgeStatus.session_token);
+                  alert('Đã copy Mã kết nối Session Token vào Clipboard!');
+                }
+              }}
+            >
+              📋 Copy Mã Kết Nối
+            </button>
+            <button
+              type="button"
+              className="btn-danger"
+              style={{ padding: '0.5rem 0.85rem', fontSize: '0.85rem', whiteSpace: 'nowrap', background: '#e11d48', color: '#fff' }}
+              onClick={() => {
+                setBlindData({
+                  type: 'blackout',
+                  caption: '🙈 DÙNG THỬ CHE MÀN HÌNH MÁY TÍNH 5s GÂY ỨC CHẾ 😈',
+                  durationMs: 5000,
+                });
+                setTimeout(() => setBlindData(null), 5000);
+              }}
+            >
+              ⚡ Thử Che Màn Hình (5s)
+            </button>
+          </div>
+        </div>
+
         <Disclosure title="Nhật ký hoạt động" icon={<ScrollText size={16} />}>
           {activity.length === 0 ? (
             <p style={{ fontSize: '0.85rem', color: 'var(--muted-foreground)', margin: 0 }}>
