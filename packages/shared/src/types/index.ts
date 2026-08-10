@@ -21,6 +21,8 @@ export enum RuleActionType {
   MEDIA_POPUP = 'media_popup',
   TTS_READ = 'tts_read',
   EFFECT = 'effect',
+  /** Makes the VRM character on the stage overlay perform a motion. */
+  AVATAR_MOTION = 'avatar_motion',
   SOUND = 'sound',
   OBS_COMMAND = 'obs_command',
   GAME_INPUT = 'game_input',
@@ -339,6 +341,170 @@ export function readEffectPayload(payload: unknown): EffectPayload | null {
   if (typeof raw.caption === 'string' && raw.caption !== '') {
     result.caption = raw.caption.slice(0, STAGE_EFFECT_LIMITS.MAX_CAPTION_LENGTH);
   }
+
+  return result;
+}
+
+/**
+ * The motions the VRM character on the stage overlay can perform.
+ *
+ * Deliberately a closed set rather than a free-form clip name. The overlay has
+ * to have something to play the moment an action arrives — a rule pointing at
+ * an asset that has not loaded, or never existed, would leave the character
+ * standing still on the one gift the viewer paid for.
+ */
+export enum AvatarMotionKind {
+  /** Raises one arm and waves. Reads as a greeting or a thank-you. */
+  WAVE = 'wave',
+  /** Bends forward from the waist. The standard thank-you for a large gift. */
+  BOW = 'bow',
+  /** Both arms up, hips leaving the ground. */
+  JUMP = 'jump',
+  /** Rhythmic clapping in front of the chest. */
+  CLAP = 'clap',
+  /** Both arms overhead forming a heart. */
+  HEART = 'heart',
+  /** A full turn on the spot. */
+  SPIN = 'spin',
+}
+
+/**
+ * VRM 1.0 standard expression presets.
+ *
+ * Only the emotion set: the mouth shapes (`aa`, `ih`, …) belong to lip-sync and
+ * would fight with it if a rule could drive them.
+ */
+export enum AvatarExpression {
+  NEUTRAL = 'neutral',
+  HAPPY = 'happy',
+  ANGRY = 'angry',
+  SAD = 'sad',
+  RELAXED = 'relaxed',
+  SURPRISED = 'surprised',
+}
+
+/** Payload of a RuleActionType.AVATAR_MOTION action. */
+export interface AvatarMotionPayload {
+  clip: AvatarMotionKind;
+  /** Face held for the duration of the motion. Absent leaves the face alone. */
+  expression?: AvatarExpression;
+  /** Repeat the clip until `durationMs` elapses instead of playing it once. */
+  loop: boolean;
+  /** Total time on screen, blending included. Clamped server-side. */
+  durationMs: number;
+  /**
+   * Higher wins. A more expensive gift should interrupt a cheaper one that is
+   * still playing rather than wait its turn behind it.
+   */
+  priority: number;
+  /** 0..1. Drives amplitude — how big the motion reads. */
+  intensity: number;
+  /** Crossfade time in and out of the clip. Clamped server-side. */
+  blendMs: number;
+}
+
+export const AVATAR_MOTION_LIMITS = {
+  MIN_DURATION_MS: 400,
+  MAX_DURATION_MS: 20_000,
+  DEFAULT_DURATION_MS: 2_500,
+  MIN_BLEND_MS: 0,
+  MAX_BLEND_MS: 1_000,
+  DEFAULT_BLEND_MS: 200,
+  MIN_PRIORITY: 0,
+  MAX_PRIORITY: 10,
+  DEFAULT_PRIORITY: 1,
+  DEFAULT_INTENSITY: 0.7,
+  /**
+   * Beyond this the overlay drops the lowest-priority waiting motion. A queue
+   * of thirty motions is half a minute of the character acting out gifts that
+   * were sent long enough ago that nobody in chat still remembers them.
+   */
+  MAX_QUEUE_LENGTH: 6,
+  /**
+   * Two identical motions arriving inside this window become one bigger motion
+   * instead of two in a row.
+   *
+   * This is the difference between a gift spam surviving contact with the
+   * stage and not: twenty roses in a second is twenty actions, and playing them
+   * sequentially means the character is still waving forty seconds later, at
+   * nothing.
+   */
+  MERGE_WINDOW_MS: 1_200,
+} as const;
+
+function isAvatarMotionKind(value: unknown): value is AvatarMotionKind {
+  return (
+    typeof value === 'string' &&
+    (Object.values(AvatarMotionKind) as string[]).includes(value)
+  );
+}
+
+function isAvatarExpression(value: unknown): value is AvatarExpression {
+  return (
+    typeof value === 'string' &&
+    (Object.values(AvatarExpression) as string[]).includes(value)
+  );
+}
+
+function clampNumber(value: unknown, min: number, max: number, fallback: number): number {
+  const n = typeof value === 'number' && Number.isFinite(value) ? value : fallback;
+  return Math.min(Math.max(n, min), max);
+}
+
+/**
+ * Read an AVATAR_MOTION payload written by a rule author.
+ *
+ * Same contract as `readEffectPayload`: an unknown `clip` is the only fatal
+ * case, everything else falls back to a usable default. Run it on the server
+ * before dispatch *and* in the overlay on receipt — the overlay also replays
+ * actions after a reconnect, and a `durationMs` of 999999999 would freeze the
+ * character mid-bow for the rest of the broadcast.
+ */
+export function readAvatarMotionPayload(payload: unknown): AvatarMotionPayload | null {
+  const raw = (payload ?? {}) as Record<string, unknown>;
+
+  if (!isAvatarMotionKind(raw.clip)) return null;
+
+  const result: AvatarMotionPayload = {
+    clip: raw.clip,
+    loop: raw.loop === true,
+    durationMs: Math.round(
+      clampNumber(
+        raw.durationMs,
+        AVATAR_MOTION_LIMITS.MIN_DURATION_MS,
+        AVATAR_MOTION_LIMITS.MAX_DURATION_MS,
+        AVATAR_MOTION_LIMITS.DEFAULT_DURATION_MS,
+      ),
+    ),
+    priority: Math.round(
+      clampNumber(
+        raw.priority,
+        AVATAR_MOTION_LIMITS.MIN_PRIORITY,
+        AVATAR_MOTION_LIMITS.MAX_PRIORITY,
+        AVATAR_MOTION_LIMITS.DEFAULT_PRIORITY,
+      ),
+    ),
+    intensity: clampNumber(raw.intensity, 0, 1, AVATAR_MOTION_LIMITS.DEFAULT_INTENSITY),
+    blendMs: Math.round(
+      clampNumber(
+        raw.blendMs,
+        AVATAR_MOTION_LIMITS.MIN_BLEND_MS,
+        AVATAR_MOTION_LIMITS.MAX_BLEND_MS,
+        AVATAR_MOTION_LIMITS.DEFAULT_BLEND_MS,
+      ),
+    ),
+  };
+
+  // An unknown expression drops the field rather than failing the motion: the
+  // face staying neutral is a far smaller loss than the character not moving.
+  if (isAvatarExpression(raw.expression)) {
+    result.expression = raw.expression;
+  }
+
+  // Two blends cannot be longer than the motion they wrap, or the clip never
+  // reaches full weight and every gift produces the same faint twitch.
+  const maxBlend = Math.floor(result.durationMs / 2);
+  if (result.blendMs > maxBlend) result.blendMs = maxBlend;
 
   return result;
 }

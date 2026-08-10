@@ -17,6 +17,7 @@ import {
   GameInputDispatch,
   clampMediaDuration,
   readEffectPayload,
+  readAvatarMotionPayload,
   readGameInput,
   BATTLE_ACTION_DISPATCH,
   BattleActionDispatchEvent,
@@ -65,6 +66,7 @@ export class RuleEngineService {
   private static readonly OVERLAY_ACTIONS: ReadonlySet<RuleActionType> = new Set([
     RuleActionType.MEDIA_POPUP,
     RuleActionType.EFFECT,
+    RuleActionType.AVATAR_MOTION,
     RuleActionType.SOUND,
     RuleActionType.TTS_READ,
   ]);
@@ -176,6 +178,20 @@ export class RuleEngineService {
         return;
       }
       payload = effect as unknown as Record<string, unknown>;
+    }
+
+    // Same reasoning as EFFECT: an unknown clip has nothing to play, and the
+    // overlay would rather be told nothing than be handed a motion it cannot
+    // resolve while a paying viewer watches for a reaction.
+    if (action.type === RuleActionType.AVATAR_MOTION) {
+      const motion = readAvatarMotionPayload(payload);
+      if (!motion) {
+        this.logger.warn(
+          `Rule "${rule.name}" has an avatar motion action with no usable clip; skipping`,
+        );
+        return;
+      }
+      payload = motion as unknown as Record<string, unknown>;
     }
 
     if (action.type === RuleActionType.TTS_READ) {
@@ -300,9 +316,14 @@ export class RuleEngineService {
     userId: string,
     actionType: RuleActionType,
   ): Promise<string | null> {
-    if (actionType === RuleActionType.EFFECT) {
+    // AVATAR_MOTION joins EFFECT here for a stronger reason than sizing: the
+    // character only exists on the stage overlay. Falling back to the alerts
+    // source gives that source a motion for a model it does not render — the
+    // action is better dropped, and the warning below says why.
+    if (actionType === RuleActionType.EFFECT || actionType === RuleActionType.AVATAR_MOTION) {
       const stage = await this.resolveStageOverlay(userId);
       if (stage) return stage;
+      if (actionType === RuleActionType.AVATAR_MOTION) return null;
     }
     return this.resolveAlertOverlay(userId);
   }
