@@ -30,6 +30,10 @@ export function SendRconCommand(arg1, arg2, arg3, arg4) {
   return window['go']['main']['App']['SendRconCommand'](arg1, arg2, arg3, arg4);
 }
 
+export function SetOBSScene(arg1, arg2, arg3, arg4) {
+  return window['go']['main']['App']['SetOBSScene'](arg1, arg2, arg3, arg4);
+}
+
 export function SimulateKeyPress(arg1, arg2, arg3) {
   return window['go']['main']['App']['SimulateKeyPress'](arg1, arg2, arg3);
 }

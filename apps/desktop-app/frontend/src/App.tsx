@@ -19,6 +19,7 @@ import {
   ConnectOBS,
   GetBridgeStatus,
   SendRconCommand,
+  SetOBSScene,
   SimulateKeyPress,
   EmergencyStop,
   ResumeAfterStop,
@@ -102,6 +103,7 @@ export default function App() {
   const [obsHost, setObsHost] = useState<string>('127.0.0.1');
   const [obsPort, setObsPort] = useState<number>(4455);
   const [obsPassword, setObsPassword] = useState<string>('');
+  const [obsScene, setObsScene] = useState<string>('');
 
   const [rconHost, setRconHost] = useState<string>('127.0.0.1');
   const [rconPort, setRconPort] = useState<number>(25575);
@@ -183,6 +185,18 @@ export default function App() {
       addLog(ok ? 'Đã kết nối OBS' : 'Không kết nối được OBS — kiểm tra lại cài đặt WebSocket trong OBS');
     } catch (err: any) {
       addLog(`Không kết nối được OBS: ${err?.message || err}`);
+    }
+  };
+
+  const handleSetObsScene = async () => {
+    addLog(`Đang đổi cảnh OBS sang "${obsScene}"`);
+    try {
+      await SetOBSScene(obsHost, obsPort, obsPassword, obsScene);
+      addLog(`Đã đổi sang cảnh "${obsScene}"`);
+    } catch (err: any) {
+      // Lý do OBS đưa ra được giữ nguyên: "không có cảnh nào tên đó" và "sai
+      // mật khẩu" dẫn tới hai chỗ sửa khác nhau.
+      addLog(`Không đổi được cảnh: ${err?.message || err}`);
     }
   };
 
@@ -331,26 +345,7 @@ export default function App() {
           )}
         </Disclosure>
 
-        <Disclosure title="Cài đặt OBS (chưa dùng được)" icon={<Video size={16} />}>
-          {/* Nói trước, không để người dùng bấm rồi mới biết.
-              Hai phần này là stub có chủ ý: `obs.Connect` và `rcon.Execute`
-              trả về `ErrNotImplemented` thay vì giả vờ thành công. Đó là lựa
-              chọn đúng ở phía Go — nhưng ở phía giao diện thì một ô nhập đầy
-              đủ kèm nút bấm vẫn là một lời hứa, và lời hứa đó chỉ bị rút lại
-              sau khi người dùng đã điền mật khẩu. */}
-          <p
-            style={{
-              margin: '0 0 0.75rem',
-              padding: '0.5rem 0.7rem',
-              borderRadius: 6,
-              border: '1px solid var(--border)',
-              background: 'var(--muted, rgba(127,127,127,0.08))',
-              fontSize: '0.8rem',
-              color: 'var(--muted-foreground)',
-            }}
-          >
-            Chưa dùng được — phần này đang được xây. Bạn điền trước cũng không kết nối được.
-          </p>
+        <Disclosure title="Cài đặt OBS" icon={<Video size={16} />}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
             <div style={{ display: 'flex', gap: '0.5rem' }}>
               <div style={{ flex: 2 }}>
@@ -369,6 +364,27 @@ export default function App() {
             <button type="button" className="btn-primary" onClick={handleConnectObs}>
               Kết nối OBS
             </button>
+            <div>
+              {/* Đổi cảnh là việc duy nhất một luồng quà thực sự cần ở OBS, nên
+                  nó là lệnh duy nhất được mở ra — thay vì một đường gọi tuỳ ý
+                  khiến mọi lệnh OBS trong tương lai tự động nằm sau ranh giới
+                  tin cậy này. */}
+              <label className="field-label" htmlFor="obs-scene">Đổi sang cảnh</label>
+              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <input
+                  id="obs-scene"
+                  className="field-input"
+                  type="text"
+                  value={obsScene}
+                  placeholder="Tên cảnh trong OBS"
+                  onChange={(e) => setObsScene(e.target.value)}
+                  style={{ flex: 1 }}
+                />
+                <button type="button" className="btn-secondary" onClick={handleSetObsScene}>
+                  Đổi cảnh
+                </button>
+              </div>
+            </div>
           </div>
         </Disclosure>
 
@@ -449,26 +465,7 @@ export default function App() {
           </div>
         </Disclosure>
 
-        <Disclosure title="Gửi lệnh tới máy chủ game (chưa dùng được)" icon={<Swords size={16} />}>
-          {/* Nói trước, không để người dùng bấm rồi mới biết.
-              Hai phần này là stub có chủ ý: `obs.Connect` và `rcon.Execute`
-              trả về `ErrNotImplemented` thay vì giả vờ thành công. Đó là lựa
-              chọn đúng ở phía Go — nhưng ở phía giao diện thì một ô nhập đầy
-              đủ kèm nút bấm vẫn là một lời hứa, và lời hứa đó chỉ bị rút lại
-              sau khi người dùng đã điền mật khẩu. */}
-          <p
-            style={{
-              margin: '0 0 0.75rem',
-              padding: '0.5rem 0.7rem',
-              borderRadius: 6,
-              border: '1px solid var(--border)',
-              background: 'var(--muted, rgba(127,127,127,0.08))',
-              fontSize: '0.8rem',
-              color: 'var(--muted-foreground)',
-            }}
-          >
-            Chưa dùng được — phần này đang được xây. Bạn điền trước cũng không kết nối được.
-          </p>
+        <Disclosure title="Gửi lệnh tới máy chủ game" icon={<Swords size={16} />}>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
             <div style={{ display: 'flex', gap: '0.5rem' }}>
