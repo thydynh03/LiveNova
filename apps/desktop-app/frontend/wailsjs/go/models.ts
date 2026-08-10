@@ -18,7 +18,6 @@ export namespace bridge {
 	        this.ok = source["ok"];
 	    }
 	}
-	
 	export class Status {
 	    is_running: boolean;
 	    port: number;
