@@ -22,7 +22,7 @@ jest.mock('next/navigation', () => ({
 
 process.env.NEXT_PUBLIC_API_URL = 'http://api.test';
 
-// eslint-disable-next-line @typescript-eslint/no-var-requires
+// eslint-disable-next-line @typescript-eslint/no-var-requires, @typescript-eslint/no-require-imports
 const { Tracker } = require('./Tracker') as typeof import('./Tracker');
 
 interface Sent {
