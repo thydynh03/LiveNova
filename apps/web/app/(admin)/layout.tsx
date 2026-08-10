@@ -256,16 +256,22 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
       {/* ── MAIN ADMIN VIEW CONTAINER ────────────────────────────────────────── */}
       <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
-        {/* Top bar */}
+        {/* Sticky Glass Top bar */}
         <header
           style={{
-            height: '60px',
-            borderBottom: '1px solid hsl(var(--border))',
-            background: 'hsl(var(--card))',
+            height: '64px',
+            borderBottom: '1px solid var(--glass-border)',
+            background: 'var(--glass-bg)',
+            backdropFilter: 'blur(16px)',
+            WebkitBackdropFilter: 'blur(16px)',
+            position: 'sticky',
+            top: 0,
+            zIndex: 100,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
             padding: '0 2rem',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.02)',
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>

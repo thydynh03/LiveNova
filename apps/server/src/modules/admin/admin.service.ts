@@ -19,6 +19,7 @@ const USER_SUMMARY = {
   emailVerified: true,
   deletedAt: true,
   createdAt: true,
+  creditBalance: { select: { balance: true } },
 } satisfies Prisma.UserSelect;
 
 @Injectable()

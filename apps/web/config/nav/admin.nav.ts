@@ -42,7 +42,7 @@ export const ADMIN_NAV_ITEMS: AdminNavItem[] = [
   // II. Vận hành Live & Game
   {
     id: 'admin-games',
-    href: '/battle/simulator',
+    href: '/admin/games',
     label: 'Đại Chiến & Sàn Đấu',
     icon: 'versus',
     badge: '4-Way',

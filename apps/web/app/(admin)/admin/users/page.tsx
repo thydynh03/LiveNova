@@ -16,6 +16,7 @@ interface AdminUser {
   emailVerified: boolean;
   deletedAt: string | null;
   createdAt: string;
+  creditBalance?: { balance: number } | null;
 }
 
 export default function AdminUsersPage() {
@@ -94,70 +95,66 @@ export default function AdminUsersPage() {
         <EmptyState title="Không tìm thấy" description="Thử từ khoá khác." />
       )}
 
-      <div style={{ display: 'grid', gap: '0.6rem' }}>
-        {data?.users.map((user) => (
-          <div
-            key={user.id}
-            className="card"
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '1rem',
-              flexWrap: 'wrap',
-              padding: '0.9rem 1.15rem',
-              opacity: user.deletedAt ? 0.6 : 1,
-            }}
-          >
-            <div style={{ flex: '1 1 240px', minWidth: 0 }}>
-              <strong style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                {user.displayName || '(chưa đặt tên)'}
-              </strong>
-              <span
-                style={{
-                  fontSize: '0.85rem',
-                  color: 'hsl(var(--muted-foreground))',
-                  overflowWrap: 'anywhere',
-                }}
-              >
-                {user.email}
-              </span>
-            </div>
-
-            <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
-              {user.role === 'ADMIN' && <Tag tone="primary">Quản trị</Tag>}
-              {!user.emailVerified && <Tag tone="muted">Chưa xác minh</Tag>}
-              {user.deletedAt && <Tag tone="destructive">Đã khoá</Tag>}
-            </div>
-
-            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-              <button
-                type="button"
-                className="btn btn-secondary"
-                onClick={() => setAdjusting(user)}
-              >
-                <Icon name="coins" size={16} />
-                Credit
-              </button>
-
-              {/* An admin cannot be suspended, and the server refuses it too —
-                  hiding the control avoids offering an action that will fail. */}
-              {user.role !== 'ADMIN' && (
-                <ConfirmAction
-                  label={user.deletedAt ? 'Mở khoá' : 'Khoá'}
-                  question={
-                    user.deletedAt
-                      ? 'Mở khoá tài khoản này?'
-                      : 'Khoá tài khoản này? Họ sẽ không đăng nhập được.'
-                  }
-                  confirmLabel={user.deletedAt ? 'Mở khoá' : 'Khoá'}
-                  busyLabel="Đang xử lý…"
-                  onConfirm={() => toggleSuspended(user)}
-                  disabled={busyId === user.id}
-                />
-              )}
-            </div>
-          </div>
-        ))}
+      <div className="admin-panel" style={{ overflowX: 'auto' }}>
+        <table className="admin-table">
+          <thead>
+            <tr>
+              <th>Người Dùng</th>
+              <th>Tình Trạng</th>
+              <th>Số Dư</th>
+              <th>Thao Tác</th>
+            </tr>
+          </thead>
+          <tbody>
+            {data?.users.map((user) => (
+              <tr key={user.id} style={{ opacity: user.deletedAt ? 0.6 : 1 }}>
+                <td>
+                  <strong style={{ display: 'block' }}>{user.displayName || '(chưa đặt tên)'}</strong>
+                  <span style={{ fontSize: '0.85rem', color: 'hsl(var(--muted-foreground))' }}>{user.email}</span>
+                </td>
+                <td>
+                  <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
+                    {user.role === 'ADMIN' && <Tag tone="primary">Quản trị</Tag>}
+                    {!user.emailVerified && <Tag tone="muted">Chưa xác minh</Tag>}
+                    {user.deletedAt && <Tag tone="destructive">Đã khoá</Tag>}
+                    {!user.deletedAt && user.emailVerified && user.role !== 'ADMIN' && <Tag tone="primary">Bình thường</Tag>}
+                  </div>
+                </td>
+                <td>
+                  <strong className="tabular" style={{ color: 'hsl(var(--primary))' }}>
+                    {user.creditBalance?.balance?.toLocaleString('vi-VN') || '0'}
+                  </strong>
+                </td>
+                <td>
+                  <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                    <button
+                      type="button"
+                      className="btn btn-secondary"
+                      onClick={() => setAdjusting(user)}
+                    >
+                      <Icon name="coins" size={16} />
+                      Credit
+                    </button>
+                    {user.role !== 'ADMIN' && (
+                      <ConfirmAction
+                        label={user.deletedAt ? 'Mở khoá' : 'Khoá'}
+                        question={
+                          user.deletedAt
+                            ? 'Mở khoá tài khoản này?'
+                            : 'Khoá tài khoản này? Họ sẽ không đăng nhập được.'
+                        }
+                        confirmLabel={user.deletedAt ? 'Mở khoá' : 'Khoá'}
+                        busyLabel="Đang xử lý…"
+                        onConfirm={() => toggleSuspended(user)}
+                        disabled={busyId === user.id}
+                      />
+                    )}
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
 
       {adjusting && (
