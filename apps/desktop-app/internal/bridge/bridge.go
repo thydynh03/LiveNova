@@ -267,6 +267,20 @@ func (s *State) Activity() []Entry {
 	return s.activity.snapshot()
 }
 
+// RecordExternal ghi lại một lần gọi ra ngoài — OBS hoặc máy chủ game.
+//
+// Chúng không đi qua Local Bridge, nhưng chúng hỏng theo đúng kiểu mà nhật ký
+// này tồn tại để giải thích: người xem tặng quà, cảnh không đổi, và streamer
+// không có gì để phân biệt "OBS chưa bật obs-websocket" với "sai mật khẩu" hay
+// "không có cảnh nào tên đó".
+func (s *State) RecordExternal(ok bool, detail string) {
+	kind := ActivityClient
+	if !ok {
+		kind = ActivityRejected
+	}
+	s.activity.add(kind, ok, detail)
+}
+
 // recordCommand ghi lại kết quả của một lệnh vừa xử lý.
 //
 // Ghi ở đây chứ không ở trong `handleCommand` vì hàm đó là hàm thuần và các

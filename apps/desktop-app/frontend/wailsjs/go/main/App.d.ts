@@ -16,4 +16,6 @@ export function ResumeAfterStop():Promise<void>;
 
 export function SendRconCommand(arg1:string,arg2:number,arg3:string,arg4:string):Promise<string>;
 
+export function SetOBSScene(arg1:string,arg2:number,arg3:string,arg4:string):Promise<void>;
+
 export function SimulateKeyPress(arg1:number,arg2:number,arg3:number):Promise<void>;
