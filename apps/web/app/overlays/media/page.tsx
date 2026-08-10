@@ -290,43 +290,9 @@ function MediaOverlayContent() {
               width: '100vw',
               height: '100vh',
               backgroundColor: '#ffffff',
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
               zIndex: 999999,
-              fontFamily: 'system-ui, sans-serif',
             }}
-          >
-            <div
-              style={{
-                fontSize: '3.5rem',
-                fontWeight: 900,
-                color: '#111111',
-                letterSpacing: '0.05em',
-                textTransform: 'uppercase',
-                textShadow: '0 0 20px rgba(0, 0, 0, 0.3)',
-                textAlign: 'center',
-                padding: '0 1rem',
-                animation: 'pulseGlow 0.8s infinite alternate ease-in-out',
-              }}
-            >
-              ⚡ FLASHBANG MÙ MẮT!
-            </div>
-            <div
-              style={{
-                fontSize: '1.25rem',
-                color: '#333333',
-                marginTop: '1.25rem',
-                background: 'rgba(0, 0, 0, 0.08)',
-                padding: '0.6rem 1.2rem',
-                borderRadius: '12px',
-                textAlign: 'center',
-              }}
-            >
-              {activePopup.caption || 'Mù trắng 5 giây cực gây ức chế! 🙈'}
-            </div>
-          </div>
+          />
         ) : (
           <div
             className="media-popup"

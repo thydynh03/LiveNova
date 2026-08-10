@@ -749,46 +749,12 @@ export default function App() {
             position: 'fixed',
             inset: 0,
             zIndex: 99999999,
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
             backgroundImage: blindData.type === 'flashbang' ? 'none' : `url(${brokenScreenImg})`,
             backgroundSize: 'cover',
             backgroundPosition: 'center',
             backgroundColor: blindData.type === 'flashbang' ? '#ffffff' : '#000000',
-            color: blindData.type === 'flashbang' ? '#000000' : '#ff3344',
-            padding: '2rem',
-            textAlign: 'center',
-            fontFamily: 'system-ui, sans-serif',
           }}
-        >
-          {blindData.type === 'flashbang' && (
-            <>
-              <h1
-                style={{
-                  fontSize: '3.5rem',
-                  fontWeight: 900,
-                  margin: 0,
-                  letterSpacing: '0.05em',
-                }}
-              >
-                ⚡ MÀN HÌNH TRẮNG CHÓI (FLASHBANG)!
-              </h1>
-              <p
-                style={{
-                  fontSize: '1.75rem',
-                  marginTop: '1.5rem',
-                  color: '#333333',
-                  maxWidth: '800px',
-                  fontWeight: 600,
-                }}
-              >
-                {blindData.caption || 'Cảm ơn bạn đã Donate! Mù trắng 5 giây 😈'}
-              </p>
-            </>
-          )}
-        </div>
+        />
       )}
     </div>
   );
