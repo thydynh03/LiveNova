@@ -262,7 +262,6 @@ func (s *State) Start(ctx context.Context) error {
 	return nil
 }
 
-
 // Activity trả về nhật ký gần đây, mới nhất trước.
 func (s *State) Activity() []Entry {
 	return s.activity.snapshot()
