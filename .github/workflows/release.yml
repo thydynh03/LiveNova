@@ -206,7 +206,11 @@ jobs:
           $out.Add('|---|---|')
           Get-ChildItem -Filter *.exe | ForEach-Object {
             $h = (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower()
-            $out.Add("| $tick$($_.Name)$tick | $tick$h$tick |")
+            # GitHub đổi dấu cách trong tên tệp thành dấu chấm khi đính kèm, nên
+            # tên trên đĩa lúc dựng không phải tên người dùng tải về. Ghi tên
+            # gốc thì bảng này không khớp với thứ họ đang cầm.
+            $name = $_.Name -replace ' ', '.'
+            $out.Add("| $tick$name$tick | $tick$h$tick |")
           }
           $out | Set-Content "$env:RUNNER_TEMP/notes.md" -Encoding utf8
           Get-Content "$env:RUNNER_TEMP/notes.md"
