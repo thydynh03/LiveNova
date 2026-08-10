@@ -121,7 +121,13 @@ function ActionPreview({
           <span style={{ display: 'block', fontSize: '0.8125rem', color: 'hsl(var(--muted-foreground))' }}>
             Sẽ hiện lên màn hình live:
           </span>
-          <strong>{payload.name ?? payload.url ?? 'Video/ảnh đã chọn'}</strong>
+          <strong>
+            {payload.mediaType === 'blackout' || payload.url === 'blackout'
+              ? '🙈 Troll Streamer - Che Màn Hình Đen 5s'
+              : payload.mediaType === 'flashbang' || payload.url === 'flashbang'
+              ? '⚡ Troll Streamer - Màn Hình Trắng Chói 5s'
+              : payload.name ?? payload.url ?? 'Video/ảnh đã chọn'}
+          </strong>
         </span>
       </div>
     );
