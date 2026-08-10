@@ -182,7 +182,9 @@ jobs:
         run: |
           # Không dùng here-string: dấu đóng `"@` của PowerShell bắt buộc nằm ở
           # cột 0, mà mọi dòng trong khối YAML này đều bị thụt lề.
-          $tick = [char]0x60
+          # [string] chứ không phải [char]: PowerShell không định nghĩa phép
+          # nhân cho [char], nên `$tick * 3` ném lỗi ngay dòng thứ hai.
+          $tick = [string][char]0x60
           $fence = $tick * 3
           $out = New-Object System.Collections.Generic.List[string]
           $out.Add('## Tải về')
