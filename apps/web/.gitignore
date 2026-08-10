@@ -6,3 +6,10 @@
 # LiveNova là sản phẩm thương mại. Nó chỉ dùng làm vật đo trên máy lập trình,
 # và bản dựng phát hành phải thay bằng mô hình có giấy phép phù hợp.
 public/lab/*.vrm
+
+# Mo hinh VRM do nguoi dung tai len (fallback luu tren dia cua UploadModule) va
+# ban sao cuc bo cua mo hinh nhan vat.
+#
+# Khong commit: sieu du lieu VRM 1.0 cua chung thuong ghi allowRedistribution
+# false, nen dat chung vao mot kho ma cong khai chinh la phat tan lai.
+public/vrm/

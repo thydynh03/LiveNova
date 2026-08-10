@@ -4,7 +4,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import type { AvatarMotionPayload } from '@livenova/shared';
 import type { LightingSettings } from '../../lib/vrm/lighting';
-import { isUsingLocalDevModel, resolveVrmModelUrl } from '../../lib/vrm/model';
+import { LOCAL_DEV_MODEL_URL, resolveVrmModelUrl } from '../../lib/vrm/model';
 import { VrmStage, type CameraPreset, type StageStats } from '../../lib/vrm/vrm-stage';
 
 export type { CameraPreset, StageStats };
@@ -19,6 +19,8 @@ export type { LightingSettings };
  */
 
 interface Props {
+  /** Đổi giá trị này sẽ dựng lại cảnh với mô hình mới. */
+  modelUrl?: string;
   settings: LightingSettings;
   showModel: boolean;
   cameraPreset: CameraPreset;
@@ -31,6 +33,7 @@ interface Props {
 }
 
 export function VrmLightingStudio({
+  modelUrl,
   settings,
   showModel,
   cameraPreset,
@@ -51,22 +54,26 @@ export function VrmLightingStudio({
   const settingsRef = useRef(settings);
   settingsRef.current = settings;
 
+  const url = modelUrl ?? resolveVrmModelUrl();
+
   useEffect(() => {
     const host = hostRef.current;
     if (!host) return;
 
+    setStatus('Đang tải mô hình…');
+
     const stage = new VrmStage(host, {
-      modelUrl: resolveVrmModelUrl(),
+      modelUrl: url,
       lighting: settingsRef.current,
-      // Thông báo mặc định chỉ nói "404". Trên bản dựng phát hành thì nguyên
-      // nhân gần như luôn là chưa cấu hình mô hình — mô hình đo tại chỗ bị loại
-      // khỏi git vì giấy phép cấm dùng thương mại — nên nói thẳng cách sửa.
+      // Thông báo mặc định chỉ nói "404". Khi vẫn đang trỏ vào mô hình đo tại
+      // chỗ — thứ không tồn tại trên bản phát hành vì giấy phép cấm dùng thương
+      // mại — nguyên nhân gần như luôn là chưa có mô hình, nên nói cách sửa.
       onStatus: (text, ok) =>
         setStatus(
           ok
             ? text
-            : isUsingLocalDevModel()
-            ? 'Chưa có mô hình VRM. Đặt NEXT_PUBLIC_VRM_MODEL_URL trỏ tới một mô hình có giấy phép thương mại.'
+            : url === LOCAL_DEV_MODEL_URL
+            ? 'Chưa có mô hình VRM. Tải lên tệp .vrm ở bảng “Mô hình nhân vật” bên trên.'
             : text,
         ),
       onStats: (s) => onStatsRef.current?.(s),
@@ -100,7 +107,7 @@ export function VrmLightingStudio({
       stage.dispose();
       stageRef.current = null;
     };
-  }, []);
+  }, [url]);
 
   useEffect(() => {
     stageRef.current?.setLighting(settings);

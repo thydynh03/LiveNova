@@ -1,5 +1,7 @@
 'use client';
 
+import type { VrmModelMeta } from '@livenova/shared';
+
 export class ApiError extends Error {
   constructor(
     message: string,
@@ -355,6 +357,42 @@ export async function uploadMedia(file: File): Promise<{ url: string; publicId: 
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     const message = Array.isArray(err?.message) ? err.message.join(', ') : (err?.message || 'Tải tệp lên thất bại');
+    throw new ApiError(message, res.status);
+  }
+
+  return res.json();
+}
+
+/**
+ * Tải mô hình VRM cho nhân vật trên sân khấu.
+ *
+ * Máy chủ đọc giấy phép nhúng trong tệp và từ chối mô hình không cho phép
+ * doanh nghiệp dùng thương mại, nên `message` trong lỗi 400 là câu giải thích
+ * dành cho người dùng — hiển thị nguyên văn, đừng thay bằng câu chung chung.
+ */
+export async function uploadVrmModel(file: File): Promise<{
+  url: string;
+  publicId: string;
+  bytes: number;
+  meta: VrmModelMeta;
+}> {
+  const formData = new FormData();
+  formData.append('file', file);
+
+  const token = getAccessToken();
+  const res = await fetch(`${apiBase()}/upload/vrm`, {
+    method: 'POST',
+    headers: {
+      ...(token ? { authorization: `Bearer ${token}` } : {}),
+    },
+    body: formData,
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    const message = Array.isArray(err?.message)
+      ? err.message.join(', ')
+      : err?.message || 'Tải mô hình VRM lên thất bại';
     throw new ApiError(message, res.status);
   }
 

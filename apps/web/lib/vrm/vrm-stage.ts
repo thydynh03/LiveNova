@@ -216,6 +216,14 @@ export class VrmStage {
 
   // ── Tải mô hình ─────────────────────────────────────────────────────────
   private load(): void {
+    // Một URL rỗng làm `GLTFLoader` ném lỗi đồng bộ ngay trong hàm dựng của
+    // `VrmStage`, và lỗi đó hạ cả overlay — mất luôn khói, pháo giấy và mọi thứ
+    // không liên quan gì đến nhân vật. Vắng mô hình chỉ nên là vắng nhân vật.
+    if (!this.opts.modelUrl) {
+      this.opts.onStatus?.('Chưa cấu hình mô hình VRM', false);
+      return;
+    }
+
     const loader = new GLTFLoader();
     loader.register((parser) => new VRMLoaderPlugin(parser));
     const t0 = performance.now();
