@@ -697,36 +697,31 @@ export default function App() {
             fontFamily: 'system-ui, sans-serif',
           }}
         >
-          <h1
-            style={{
-              fontSize: '3.5rem',
-              fontWeight: 900,
-              margin: 0,
-              letterSpacing: '0.05em',
-              textShadow: blindData.type === 'flashbang' ? 'none' : '0 0 25px rgba(255, 51, 68, 0.9), 0 0 10px rgba(0, 0, 0, 0.9)',
-              background: blindData.type === 'flashbang' ? 'transparent' : 'rgba(0, 0, 0, 0.7)',
-              padding: '0.5rem 1.5rem',
-              borderRadius: '16px',
-              border: blindData.type === 'flashbang' ? 'none' : '1px solid rgba(255, 51, 68, 0.4)',
-            }}
-          >
-            {blindData.type === 'flashbang' ? '⚡ MÀN HÌNH TRẮNG CHÓI (FLASHBANG)!' : '💥 MÀN HÌNH HỎNG CỰC TROLL!'}
-          </h1>
-          <p
-            style={{
-              fontSize: '1.75rem',
-              marginTop: '1.5rem',
-              color: blindData.type === 'flashbang' ? '#333333' : '#f8fafc',
-              maxWidth: '800px',
-              fontWeight: 600,
-              background: blindData.type === 'flashbang' ? 'transparent' : 'rgba(0, 0, 0, 0.8)',
-              padding: '0.6rem 1.5rem',
-              borderRadius: '12px',
-              border: blindData.type === 'flashbang' ? 'none' : '1px solid rgba(255, 255, 255, 0.3)',
-            }}
-          >
-            {blindData.caption || 'Cảm ơn bạn đã Donate! Màn hình hỏng 5 giây cực gây ức chế 😈'}
-          </p>
+          {blindData.type === 'flashbang' && (
+            <>
+              <h1
+                style={{
+                  fontSize: '3.5rem',
+                  fontWeight: 900,
+                  margin: 0,
+                  letterSpacing: '0.05em',
+                }}
+              >
+                ⚡ MÀN HÌNH TRẮNG CHÓI (FLASHBANG)!
+              </h1>
+              <p
+                style={{
+                  fontSize: '1.75rem',
+                  marginTop: '1.5rem',
+                  color: '#333333',
+                  maxWidth: '800px',
+                  fontWeight: 600,
+                }}
+              >
+                {blindData.caption || 'Cảm ơn bạn đã Donate! Mù trắng 5 giây 😈'}
+              </p>
+            </>
+          )}
         </div>
       )}
     </div>

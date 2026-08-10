@@ -212,49 +212,9 @@ function MediaOverlayContent() {
               backgroundSize: 'cover',
               backgroundPosition: 'center',
               backgroundColor: '#000000',
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
               zIndex: 999999,
-              fontFamily: 'system-ui, sans-serif',
             }}
-          >
-            <div
-              style={{
-                fontSize: '3.2rem',
-                fontWeight: 900,
-                color: '#ff3344',
-                letterSpacing: '0.05em',
-                textTransform: 'uppercase',
-                textShadow: '0 0 25px rgba(255, 51, 68, 0.9), 0 0 10px rgba(0, 0, 0, 0.8)',
-                textAlign: 'center',
-                padding: '0 1rem',
-                background: 'rgba(0, 0, 0, 0.65)',
-                borderRadius: '16px',
-                border: '1px solid rgba(255, 51, 68, 0.4)',
-                animation: 'pulseGlow 0.8s infinite alternate ease-in-out',
-              }}
-            >
-              💥 MÀN HÌNH HỎNG CỰC TROLL!
-            </div>
-            <div
-              style={{
-                fontSize: '1.35rem',
-                color: '#ffffff',
-                marginTop: '1.25rem',
-                background: 'rgba(0, 0, 0, 0.75)',
-                border: '1px solid rgba(255, 255, 255, 0.3)',
-                padding: '0.6rem 1.4rem',
-                borderRadius: '12px',
-                backdropFilter: 'blur(10px)',
-                textAlign: 'center',
-                fontWeight: 600,
-              }}
-            >
-              {activePopup.caption || 'Cảm ơn đã Donate! Màn hình hỏng 5s cực gây ức chế 😈'}
-            </div>
-          </div>
+          />
         ) : activePopup.mediaType === 'flashbang' ? (
           <div
             className="media-popup"
