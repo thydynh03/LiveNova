@@ -15,6 +15,43 @@ interface MediaPopupItem {
   caption?: string;
 }
 
+function playTVStaticSound(durationMs = 5000) {
+  try {
+    const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+    if (!AudioCtx) return;
+    const ctx = new AudioCtx();
+    const bufferSize = ctx.sampleRate * (durationMs / 1000);
+    const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+
+    for (let i = 0; i < bufferSize; i++) {
+      // Crackling harsh TV static sound "tusttttt"
+      data[i] = (Math.random() * 2 - 1) * 0.75 + (Math.sin(i * 0.05) > 0 ? 0.1 : -0.1);
+    }
+
+    const noise = ctx.createBufferSource();
+    noise.buffer = buffer;
+
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'bandpass';
+    filter.frequency.value = 1400;
+    filter.Q.value = 0.9;
+
+    noise.connect(filter);
+    filter.connect(ctx.destination);
+    noise.start();
+
+    setTimeout(() => {
+      try {
+        noise.stop();
+        ctx.close();
+      } catch {}
+    }, durationMs);
+  } catch (e) {
+    console.error('TV Static sound error:', e);
+  }
+}
+
 function MediaOverlayContent() {
   const searchParams = useSearchParams();
   const token = searchParams.get('token');
@@ -91,6 +128,10 @@ function MediaOverlayContent() {
       caption: payload.caption,
     };
 
+    if (isBlackout) {
+      playTVStaticSound(item.durationMs);
+    }
+
     setActivePopup(item);
 
     setTimeout(() => {
@@ -155,6 +196,8 @@ function MediaOverlayContent() {
         </div>
       )}
 
+
+
       {/* Donate Popup Reaction Video / Image / Blackout Effect */}
       {activePopup ? (
         activePopup.mediaType === 'blackout' ? (
@@ -165,6 +208,9 @@ function MediaOverlayContent() {
               inset: 0,
               width: '100vw',
               height: '100vh',
+              backgroundImage: 'url(/uploads/broken-screen.png)',
+              backgroundSize: 'cover',
+              backgroundPosition: 'center',
               backgroundColor: '#000000',
               display: 'flex',
               flexDirection: 'column',
@@ -178,31 +224,35 @@ function MediaOverlayContent() {
               style={{
                 fontSize: '3.2rem',
                 fontWeight: 900,
-                color: '#ff4d4f',
+                color: '#ff3344',
                 letterSpacing: '0.05em',
                 textTransform: 'uppercase',
-                textShadow: '0 0 25px rgba(255, 77, 79, 0.9), 0 0 10px rgba(255, 0, 0, 0.7)',
+                textShadow: '0 0 25px rgba(255, 51, 68, 0.9), 0 0 10px rgba(0, 0, 0, 0.8)',
                 textAlign: 'center',
                 padding: '0 1rem',
+                background: 'rgba(0, 0, 0, 0.65)',
+                borderRadius: '16px',
+                border: '1px solid rgba(255, 51, 68, 0.4)',
                 animation: 'pulseGlow 0.8s infinite alternate ease-in-out',
               }}
             >
-              🙈 MÀN HÌNH BỊ CHE!
+              💥 MÀN HÌNH HỎNG CỰC TROLL!
             </div>
             <div
               style={{
-                fontSize: '1.25rem',
+                fontSize: '1.35rem',
                 color: '#ffffff',
                 marginTop: '1.25rem',
-                background: 'rgba(255, 255, 255, 0.1)',
-                border: '1px solid rgba(255, 255, 255, 0.2)',
-                padding: '0.6rem 1.2rem',
+                background: 'rgba(0, 0, 0, 0.75)',
+                border: '1px solid rgba(255, 255, 255, 0.3)',
+                padding: '0.6rem 1.4rem',
                 borderRadius: '12px',
                 backdropFilter: 'blur(10px)',
                 textAlign: 'center',
+                fontWeight: 600,
               }}
             >
-              {activePopup.caption || 'Cảm ơn đã Donate! Màn hình mù 5 giây gây ức chế 😈'}
+              {activePopup.caption || 'Cảm ơn đã Donate! Màn hình hỏng 5s cực gây ức chế 😈'}
             </div>
           </div>
         ) : activePopup.mediaType === 'flashbang' ? (

@@ -1,5 +1,6 @@
 import type React from 'react';
 import { useState, useEffect, useCallback } from 'react';
+import brokenScreenImg from './assets/broken-screen.png';
 import {
   CheckCircle2,
   AlertTriangle,
@@ -28,6 +29,43 @@ import {
 } from '../wailsjs/go/main/App';
 import type { bridge } from '../wailsjs/go/models';
 import { EventsOn } from '../wailsjs/runtime/runtime';
+
+function playTVStaticSound(durationMs = 5000) {
+  try {
+    const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+    if (!AudioCtx) return;
+    const ctx = new AudioCtx();
+    const bufferSize = ctx.sampleRate * (durationMs / 1000);
+    const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+
+    for (let i = 0; i < bufferSize; i++) {
+      // Crackling harsh TV static sound "tusttttt"
+      data[i] = (Math.random() * 2 - 1) * 0.75 + (Math.sin(i * 0.05) > 0 ? 0.1 : -0.1);
+    }
+
+    const noise = ctx.createBufferSource();
+    noise.buffer = buffer;
+
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'bandpass';
+    filter.frequency.value = 1400;
+    filter.Q.value = 0.9;
+
+    noise.connect(filter);
+    filter.connect(ctx.destination);
+    noise.start();
+
+    setTimeout(() => {
+      try {
+        noise.stop();
+        ctx.close();
+      } catch {}
+    }, durationMs);
+  } catch (e) {
+    console.error('TV Static sound error:', e);
+  }
+}
 
 interface KeyOption {
   label: string;
@@ -100,10 +138,14 @@ export default function App() {
 
   useEffect(() => {
     const unsubBlind = EventsOn('desktop-blind', (data: any) => {
+      const durationMs = data?.durationMs || 5000;
+      if (data?.type !== 'flashbang') {
+        playTVStaticSound(durationMs);
+      }
       setBlindData({
         type: data?.type || 'blackout',
         caption: data?.caption || '🙈 MÀN HÌNH BỊ CHE (5s)!',
-        durationMs: data?.durationMs || 5000,
+        durationMs,
       });
     });
 
@@ -645,6 +687,9 @@ export default function App() {
             flexDirection: 'column',
             alignItems: 'center',
             justifyContent: 'center',
+            backgroundImage: blindData.type === 'flashbang' ? 'none' : `url(${brokenScreenImg})`,
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
             backgroundColor: blindData.type === 'flashbang' ? '#ffffff' : '#000000',
             color: blindData.type === 'flashbang' ? '#000000' : '#ff3344',
             padding: '2rem',
@@ -658,10 +703,14 @@ export default function App() {
               fontWeight: 900,
               margin: 0,
               letterSpacing: '0.05em',
-              textShadow: blindData.type === 'flashbang' ? 'none' : '0 0 25px rgba(255, 51, 68, 0.9)',
+              textShadow: blindData.type === 'flashbang' ? 'none' : '0 0 25px rgba(255, 51, 68, 0.9), 0 0 10px rgba(0, 0, 0, 0.9)',
+              background: blindData.type === 'flashbang' ? 'transparent' : 'rgba(0, 0, 0, 0.7)',
+              padding: '0.5rem 1.5rem',
+              borderRadius: '16px',
+              border: blindData.type === 'flashbang' ? 'none' : '1px solid rgba(255, 51, 68, 0.4)',
             }}
           >
-            {blindData.type === 'flashbang' ? '⚡ MÀN HÌNH TRẮNG CHÓI (FLASHBANG)!' : '🙈 MÀN HÌNH MÁY TÍNH BỊ CHE!'}
+            {blindData.type === 'flashbang' ? '⚡ MÀN HÌNH TRẮNG CHÓI (FLASHBANG)!' : '💥 MÀN HÌNH HỎNG CỰC TROLL!'}
           </h1>
           <p
             style={{
@@ -670,9 +719,13 @@ export default function App() {
               color: blindData.type === 'flashbang' ? '#333333' : '#f8fafc',
               maxWidth: '800px',
               fontWeight: 600,
+              background: blindData.type === 'flashbang' ? 'transparent' : 'rgba(0, 0, 0, 0.8)',
+              padding: '0.6rem 1.5rem',
+              borderRadius: '12px',
+              border: blindData.type === 'flashbang' ? 'none' : '1px solid rgba(255, 255, 255, 0.3)',
             }}
           >
-            {blindData.caption || 'Cảm ơn bạn đã Donate! Màn hình máy tính bị che 5 giây 😈'}
+            {blindData.caption || 'Cảm ơn bạn đã Donate! Màn hình hỏng 5 giây cực gây ức chế 😈'}
           </p>
         </div>
       )}
