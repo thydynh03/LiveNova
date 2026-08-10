@@ -175,9 +175,14 @@ jobs:
         working-directory: apps/desktop-app
         run: go vet ./...
 
+      # `-race` chứ không phải `go test` trần. Local Bridge ghi nhật ký từ vòng
+      # lặp đọc socket trong khi giao diện đọc nó mỗi hai giây; một lỗi đồng
+      # thời ở đó không làm test đỏ, nó chỉ thỉnh thoảng làm hỏng dữ liệu trên
+      # máy streamer. Runner của GitHub có sẵn trình biên dịch C nên bật được,
+      # còn máy phát triển Windows thường thì không.
       - name: go test
         working-directory: apps/desktop-app
-        run: go test ./...
+        run: go test -race ./...
 
       - name: Build desktop app
         working-directory: apps/desktop-app

@@ -13,6 +13,7 @@ import {
   Video,
   Swords,
   Gamepad2,
+  ScrollText,
 } from 'lucide-react';
 import {
   ConnectOBS,
@@ -22,6 +23,7 @@ import {
   EmergencyStop,
   ResumeAfterStop,
   IsHalted,
+  GetActivity,
 } from '../wailsjs/go/main/App';
 import type { bridge } from '../wailsjs/go/models';
 
@@ -106,6 +108,17 @@ export default function App() {
   const [rconPassword, setRconPassword] = useState<string>('');
   const [rconCommand, setRconCommand] = useState<string>('');
 
+  /**
+   * Nhật ký hoạt động của Local Bridge.
+   *
+   * Cho tới giờ ứng dụng này chỉ nói được "bridge đang chạy". Khi một món quà
+   * đáng lẽ bấm phím vào game mà không có gì xảy ra, đó là bốn khả năng khác
+   * nhau — lệnh chưa tới, phím ngoài danh sách, còn cooldown, hay đang dừng
+   * khẩn cấp — và bốn cách sửa khác nhau. Giữa buổi live thì không có thời gian
+   * để đoán.
+   */
+  const [activity, setActivity] = useState<bridge.Entry[]>([]);
+
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
   }, [theme]);
@@ -113,9 +126,14 @@ export default function App() {
   useEffect(() => {
     const fetchStatus = async () => {
       try {
-        const [status, isHalted] = await Promise.all([GetBridgeStatus(), IsHalted()]);
+        const [status, isHalted, log] = await Promise.all([
+          GetBridgeStatus(),
+          IsHalted(),
+          GetActivity(),
+        ]);
         setBridgeStatus(status);
         setHalted(isHalted);
+        setActivity(log ?? []);
         setStatusError(false);
       } catch (err) {
         console.error('Failed to get bridge status', err);
@@ -280,7 +298,59 @@ export default function App() {
           <Tile icon={<Clock size={18} />} label="Đang chạy" value={uptime} />
         </div>
 
-        <Disclosure title="Cài đặt OBS" icon={<Video size={16} />}>
+        <Disclosure title="Nhật ký hoạt động" icon={<ScrollText size={16} />}>
+          {activity.length === 0 ? (
+            <p style={{ fontSize: '0.85rem', color: 'var(--muted-foreground)', margin: 0 }}>
+              Chưa có gì. Khi bảng điều khiển kết nối và quà bắt đầu bấm phím, mọi thứ sẽ hiện ở đây.
+            </p>
+          ) : (
+            <ul style={{ listStyle: 'none', padding: 0, margin: 0, maxHeight: 260, overflowY: 'auto' }}>
+              {activity.map((e, i) => (
+                <li
+                  key={`${e.atMs}-${i}`}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'baseline',
+                    gap: '0.6rem',
+                    padding: '0.35rem 0',
+                    borderBottom: '1px solid var(--border)',
+                    fontSize: '0.82rem',
+                  }}
+                >
+                  <span style={{ color: 'var(--muted-foreground)', fontVariantNumeric: 'tabular-nums' }}>
+                    {new Date(e.atMs).toLocaleTimeString('vi-VN')}
+                  </span>
+                  {/* Đỏ cho dòng bị từ chối. Một lệnh hỏng trôi qua cùng màu với
+                      một lệnh thành công thì nhật ký này chẳng giúp được gì. */}
+                  <span style={{ color: e.ok ? 'var(--foreground)' : 'var(--danger, #ef4444)', flex: 1 }}>
+                    {e.detail}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Disclosure>
+
+        <Disclosure title="Cài đặt OBS (chưa dùng được)" icon={<Video size={16} />}>
+          {/* Nói trước, không để người dùng bấm rồi mới biết.
+              Hai phần này là stub có chủ ý: `obs.Connect` và `rcon.Execute`
+              trả về `ErrNotImplemented` thay vì giả vờ thành công. Đó là lựa
+              chọn đúng ở phía Go — nhưng ở phía giao diện thì một ô nhập đầy
+              đủ kèm nút bấm vẫn là một lời hứa, và lời hứa đó chỉ bị rút lại
+              sau khi người dùng đã điền mật khẩu. */}
+          <p
+            style={{
+              margin: '0 0 0.75rem',
+              padding: '0.5rem 0.7rem',
+              borderRadius: 6,
+              border: '1px solid var(--border)',
+              background: 'var(--muted, rgba(127,127,127,0.08))',
+              fontSize: '0.8rem',
+              color: 'var(--muted-foreground)',
+            }}
+          >
+            Chưa dùng được — phần này đang được xây. Bạn điền trước cũng không kết nối được.
+          </p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
             <div style={{ display: 'flex', gap: '0.5rem' }}>
               <div style={{ flex: 2 }}>
@@ -379,7 +449,27 @@ export default function App() {
           </div>
         </Disclosure>
 
-        <Disclosure title="Gửi lệnh tới máy chủ game" icon={<Swords size={16} />}>
+        <Disclosure title="Gửi lệnh tới máy chủ game (chưa dùng được)" icon={<Swords size={16} />}>
+          {/* Nói trước, không để người dùng bấm rồi mới biết.
+              Hai phần này là stub có chủ ý: `obs.Connect` và `rcon.Execute`
+              trả về `ErrNotImplemented` thay vì giả vờ thành công. Đó là lựa
+              chọn đúng ở phía Go — nhưng ở phía giao diện thì một ô nhập đầy
+              đủ kèm nút bấm vẫn là một lời hứa, và lời hứa đó chỉ bị rút lại
+              sau khi người dùng đã điền mật khẩu. */}
+          <p
+            style={{
+              margin: '0 0 0.75rem',
+              padding: '0.5rem 0.7rem',
+              borderRadius: 6,
+              border: '1px solid var(--border)',
+              background: 'var(--muted, rgba(127,127,127,0.08))',
+              fontSize: '0.8rem',
+              color: 'var(--muted-foreground)',
+            }}
+          >
+            Chưa dùng được — phần này đang được xây. Bạn điền trước cũng không kết nối được.
+          </p>
+
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
             <div style={{ display: 'flex', gap: '0.5rem' }}>
               <div style={{ flex: 2 }}>

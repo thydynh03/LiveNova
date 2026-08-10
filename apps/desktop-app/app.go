@@ -51,6 +51,16 @@ func (a *App) GetBridgeStatus() bridge.Status {
 	return a.bridge.Status()
 }
 
+// GetActivity returns the recent Local Bridge activity, newest first.
+//
+// Đây là thứ trả lời câu hỏi duy nhất mà streamer hỏi giữa buổi live khi quà
+// không bấm được phím: chuyện gì vừa xảy ra. Trạng thái "đang chạy" không phân
+// biệt được lệnh chưa tới, phím ngoài danh sách, còn cooldown, hay đang dừng
+// khẩn cấp — bốn cách sửa khác nhau.
+func (a *App) GetActivity() []bridge.Entry {
+	return a.bridge.Activity()
+}
+
 // ConnectOBS connects to an OBS instance.
 func (a *App) ConnectOBS(host string, port uint16, password string) (bool, error) {
 	if !netguard.IsPermittedTarget(host) {

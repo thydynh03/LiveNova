@@ -64,15 +64,15 @@ export const GUIDES: Guide[] = [
           { name: 'Nối kênh', text: 'Vào mục Kênh trong bảng điều khiển, thêm tên tài khoản TikTok của bạn.' },
           { name: 'Bật đọc bình luận', text: 'Vào mục Giọng đọc, chọn giọng và tốc độ đọc.' },
           { name: 'Đặt luật lọc', text: 'Vào mục Luật, chọn bình luận nào được đọc — tất cả, hoặc theo điều kiện.' },
-          { name: 'Phát âm thanh', text: 'Chạy ứng dụng máy tính để tiếng đọc phát ra ở máy bạn và lọt vào OBS.' },
+          { name: 'Thêm overlay media vào OBS', text: 'Tiếng đọc phát ra từ overlay media, nên thêm nó vào OBS như một Browser Source và bật tiếng cho nguồn đó.' },
         ],
       },
       {
-        heading: 'Vì sao cần ứng dụng máy tính cho phần âm thanh',
+        heading: 'Không cần cài phần mềm nào',
         paragraphs: [
-          'Overlay hình ảnh chạy thẳng trong OBS qua Browser Source, không cần cài gì. Nhưng âm thanh thì khác: OBS không lấy được tiếng phát ra từ một Browser Source một cách đáng tin cậy trên mọi máy, nên phần đọc chạy qua ứng dụng máy tính để tiếng đi thẳng vào thiết bị âm thanh bạn chọn.',
+          'Cả hình lẫn tiếng đều chạy trong OBS qua Browser Source. Overlay media vừa hiện hiệu ứng vừa phát giọng đọc, nên bạn chỉ cần thêm đúng một nguồn và nhớ bật tiếng cho nó — trong OBS, Browser Source có tuỳ chọn tắt tiếng riêng và nó là lý do phổ biến nhất khiến người ta không nghe thấy gì.',
         ],
-        note: 'Nếu bạn chỉ cần hiệu ứng hình ảnh và bảng điểm, không cần giọng đọc, thì không phải cài gì cả.',
+        note: 'Ứng dụng máy tính là thứ khác và không liên quan tới giọng đọc: nó dùng khi bạn muốn quà của người xem bấm phím vào một trò chơi đang chạy trên máy bạn.',
       },
       {
         heading: 'Chi phí',
@@ -186,7 +186,7 @@ export const GUIDES: Guide[] = [
     faq: [
       {
         q: 'Có cần cài phần mềm gì không?',
-        a: 'Không. Overlay chạy thẳng trong OBS qua Browser Source. Chỉ phần đọc bình luận bằng giọng nói mới cần ứng dụng máy tính.',
+        a: 'Không. Cả hiệu ứng lẫn giọng đọc đều chạy trong OBS qua Browser Source. Ứng dụng máy tính chỉ cần khi bạn muốn quà bấm phím vào một trò chơi trên máy bạn.',
       },
       {
         q: 'Link overlay lộ ra thì sao?',
@@ -291,7 +291,7 @@ export const GUIDES: Guide[] = [
         paragraphs: [
           'Overlay bị cắt mất phần trên và dưới: Browser Source đang để khổ ngang. Đặt lại 1080×1920.',
           'Overlay hiện nhưng đứng yên: kết nối thời gian thực chưa lên. Tải lại Browser Source, và kiểm xem link đã sao chép đủ mã bí mật ở cuối chưa.',
-          'Không nghe thấy giọng đọc: phần đọc phát qua ứng dụng máy tính, không phải qua Browser Source. Kiểm ứng dụng đã chạy và đã chọn đúng thiết bị âm thanh.',
+          'Không nghe thấy giọng đọc: giọng đọc phát từ overlay media, và Browser Source trong OBS có tuỳ chọn tắt tiếng riêng. Kiểm nguồn đó chưa bị tắt tiếng, và kiểm trong Audio Mixer xem nó có lên vạch không.',
         ],
       },
     ],

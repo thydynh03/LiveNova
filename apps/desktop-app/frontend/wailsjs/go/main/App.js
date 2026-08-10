@@ -10,6 +10,10 @@ export function EmergencyStop() {
   return window['go']['main']['App']['EmergencyStop']();
 }
 
+export function GetActivity() {
+  return window['go']['main']['App']['GetActivity']();
+}
+
 export function GetBridgeStatus() {
   return window['go']['main']['App']['GetBridgeStatus']();
 }

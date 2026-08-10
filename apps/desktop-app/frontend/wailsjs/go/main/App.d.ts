@@ -6,6 +6,8 @@ export function ConnectOBS(arg1:string,arg2:number,arg3:string):Promise<boolean>
 
 export function EmergencyStop():Promise<void>;
 
+export function GetActivity():Promise<Array<bridge.Entry>>;
+
 export function GetBridgeStatus():Promise<bridge.Status>;
 
 export function IsHalted():Promise<boolean>;
