@@ -41,10 +41,10 @@ type Reply struct {
 }
 
 const (
-	CommandKeyPress = "key_press"
-	CommandHalt     = "halt"
-	CommandPing     = "ping"
-	CommandBlackout = "blackout"
+	CommandKeyPress  = "key_press"
+	CommandHalt      = "halt"
+	CommandPing      = "ping"
+	CommandBlackout  = "blackout"
 	CommandFlashbang = "flashbang"
 )
 
