@@ -11,6 +11,12 @@ export interface PresetLibraryModalProps {
 
 const PRESETS_LIST = [
   {
+    id: 'blackout-troll',
+    title: '🙈 Troll Streamer - Che Màn Hình 5s khi được Donate',
+    description: 'Mỗi khi khán giả donate quà TikTok LIVE, màn hình live bị đen xì 5s gây ức chế cực hài!',
+    badge: '🔥 Troll cực vui',
+  },
+  {
     id: 'rose-popup',
     title: 'Cảm ơn khi có người tặng Hoa hồng',
     description: 'Ai tặng Hoa hồng là màn hình live hiện ngay lời cảm ơn.',

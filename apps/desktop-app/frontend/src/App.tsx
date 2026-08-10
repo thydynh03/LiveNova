@@ -1,5 +1,6 @@
 import type React from 'react';
 import { useState, useEffect, useCallback } from 'react';
+import brokenScreenImg from './assets/broken-screen.png';
 import {
   CheckCircle2,
   AlertTriangle,
@@ -27,6 +28,108 @@ import {
   GetActivity,
 } from '../wailsjs/go/main/App';
 import type { bridge } from '../wailsjs/go/models';
+import { EventsOn } from '../wailsjs/runtime/runtime';
+
+function playTVStaticSound(durationMs = 5000) {
+  try {
+    const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+    if (!AudioCtx) return;
+    const ctx = new AudioCtx();
+    const bufferSize = ctx.sampleRate * (durationMs / 1000);
+    const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+
+    for (let i = 0; i < bufferSize; i++) {
+      // Crackling harsh TV static sound "tusttttt"
+      data[i] = (Math.random() * 2 - 1) * 0.75 + (Math.sin(i * 0.05) > 0 ? 0.1 : -0.1);
+    }
+
+    const noise = ctx.createBufferSource();
+    noise.buffer = buffer;
+
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'bandpass';
+    filter.frequency.value = 1400;
+    filter.Q.value = 0.9;
+
+    noise.connect(filter);
+    filter.connect(ctx.destination);
+    noise.start();
+
+    setTimeout(() => {
+      try {
+        noise.stop();
+        ctx.close();
+      } catch {}
+    }, durationMs);
+  } catch (e) {
+    console.error('TV Static sound error:', e);
+  }
+}
+
+function playCSGOFlashbangSound(durationMs = 5000) {
+  try {
+    const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+    if (!AudioCtx) return;
+    const ctx = new AudioCtx();
+    const now = ctx.currentTime;
+    const durSec = durationMs / 1000;
+
+    // 1. CS:GO Grenade Explosion Bang (Noise Burst + Low Frequency Sub-Bass Kick)
+    const bangBuffer = ctx.createBuffer(1, ctx.sampleRate * 0.4, ctx.sampleRate);
+    const bangData = bangBuffer.getChannelData(0);
+    for (let i = 0; i < bangData.length; i++) {
+      bangData[i] = (Math.random() * 2 - 1) * Math.exp(-i / (ctx.sampleRate * 0.07));
+    }
+    const bangSource = ctx.createBufferSource();
+    bangSource.buffer = bangBuffer;
+
+    const bangGain = ctx.createGain();
+    bangGain.gain.setValueAtTime(1.0, now);
+    bangGain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+
+    bangSource.connect(bangGain);
+    bangGain.connect(ctx.destination);
+    bangSource.start(now);
+
+    // Sub-bass impact oscillator
+    const kickOsc = ctx.createOscillator();
+    kickOsc.type = 'sine';
+    kickOsc.frequency.setValueAtTime(160, now);
+    kickOsc.frequency.exponentialRampToValueAtTime(30, now + 0.3);
+
+    const kickGain = ctx.createGain();
+    kickGain.gain.setValueAtTime(0.95, now);
+    kickGain.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
+
+    kickOsc.connect(kickGain);
+    kickGain.connect(ctx.destination);
+    kickOsc.start(now);
+    kickOsc.stop(now + 0.3);
+
+    // 2. Iconic CS:GO High-Pitched Tinnitus Ear Ringing Tone (4200 Hz Sine Wave)
+    const ringOsc = ctx.createOscillator();
+    ringOsc.type = 'sine';
+    ringOsc.frequency.setValueAtTime(4200, now); // Iconic CS:GO tinnitus pitch
+
+    const ringGain = ctx.createGain();
+    ringGain.gain.setValueAtTime(0.5, now + 0.05); // Starts right after bang
+    ringGain.gain.exponentialRampToValueAtTime(0.0001, now + durSec);
+
+    ringOsc.connect(ringGain);
+    ringGain.connect(ctx.destination);
+    ringOsc.start(now + 0.05);
+    ringOsc.stop(now + durSec);
+
+    setTimeout(() => {
+      try {
+        ctx.close();
+      } catch {}
+    }, durationMs + 200);
+  } catch (e) {
+    console.error('CS:GO Flashbang sound error:', e);
+  }
+}
 
 interface KeyOption {
   label: string;
@@ -95,6 +198,32 @@ export default function App() {
   const [logs, setLogs] = useState<string[]>([]);
   const [startedAt] = useState(() => Date.now());
   const [uptime, setUptime] = useState('0 phút');
+  const [blindData, setBlindData] = useState<{ type: string; caption?: string; durationMs: number } | null>(null);
+
+  useEffect(() => {
+    const unsubBlind = EventsOn('desktop-blind', (data: any) => {
+      const durationMs = data?.durationMs || 5000;
+      if (data?.type === 'flashbang') {
+        playCSGOFlashbangSound(durationMs);
+      } else {
+        playTVStaticSound(durationMs);
+      }
+      setBlindData({
+        type: data?.type || 'blackout',
+        caption: data?.caption || '🙈 MÀN HÌNH BỊ CHE (5s)!',
+        durationMs,
+      });
+    });
+
+    const unsubBlindEnd = EventsOn('desktop-blind-end', () => {
+      setBlindData(null);
+    });
+
+    return () => {
+      if (unsubBlind) unsubBlind();
+      if (unsubBlindEnd) unsubBlindEnd();
+    };
+  }, []);
 
   const [selectedKey, setSelectedKey] = useState<number>(0x20);
   const [holdTime, setHoldTime] = useState<number>(200);
@@ -310,6 +439,72 @@ export default function App() {
             value={`${bridgeStatus?.connected_clients ?? 0}`}
           />
           <Tile icon={<Clock size={18} />} label="Đang chạy" value={uptime} />
+        </div>
+
+        {/* Mã kết nối Session Token & Test Che màn hình */}
+        <div
+          className="card"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '1rem',
+            background: 'var(--card-bg)',
+            border: '1px solid var(--border)',
+            padding: '1rem 1.25rem',
+            marginTop: '0.75rem',
+          }}
+        >
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <span style={{ display: 'block', fontSize: '0.8rem', color: 'var(--muted-foreground)', fontWeight: 600 }}>
+              🔑 Mã kết nối Local Bridge (Session Token):
+            </span>
+            <code
+              style={{
+                display: 'inline-block',
+                fontFamily: 'monospace',
+                fontSize: '0.875rem',
+                background: 'var(--muted-bg, rgba(0,0,0,0.1))',
+                padding: '0.25rem 0.5rem',
+                borderRadius: '4px',
+                marginTop: '0.25rem',
+                wordBreak: 'break-all',
+                color: 'var(--primary, #3b82f6)',
+              }}
+            >
+              {bridgeStatus?.session_token || 'Đang lấy mã...'}
+            </code>
+          </div>
+          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+            <button
+              type="button"
+              className="btn-secondary"
+              style={{ padding: '0.5rem 0.85rem', fontSize: '0.85rem', whiteSpace: 'nowrap' }}
+              onClick={() => {
+                if (bridgeStatus?.session_token) {
+                  navigator.clipboard.writeText(bridgeStatus.session_token);
+                  alert('Đã copy Mã kết nối Session Token vào Clipboard!');
+                }
+              }}
+            >
+              📋 Copy Mã Kết Nối
+            </button>
+            <button
+              type="button"
+              className="btn-danger"
+              style={{ padding: '0.5rem 0.85rem', fontSize: '0.85rem', whiteSpace: 'nowrap', background: '#e11d48', color: '#fff' }}
+              onClick={() => {
+                setBlindData({
+                  type: 'blackout',
+                  caption: '🙈 DÙNG THỬ CHE MÀN HÌNH MÁY TÍNH 5s GÂY ỨC CHẾ 😈',
+                  durationMs: 5000,
+                });
+                setTimeout(() => setBlindData(null), 5000);
+              }}
+            >
+              ⚡ Thử Che Màn Hình (5s)
+            </button>
+          </div>
         </div>
 
         <Disclosure title="Nhật ký hoạt động" icon={<ScrollText size={16} />}>
@@ -546,6 +741,21 @@ export default function App() {
           DỪNG KHẨN CẤP
         </button>
       </footer>
+
+      {/* Desktop Physical Screen Blackout / Flashbang Overlay */}
+      {blindData && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 99999999,
+            backgroundImage: blindData.type === 'flashbang' ? 'none' : `url(${brokenScreenImg})`,
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+            backgroundColor: blindData.type === 'flashbang' ? '#ffffff' : '#000000',
+          }}
+        />
+      )}
     </div>
   );
 }

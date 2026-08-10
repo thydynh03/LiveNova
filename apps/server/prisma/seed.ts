@@ -89,6 +89,34 @@ interface StarterTemplateDef {
 function starterTemplates(assets: string): StarterTemplateDef[] {
   return [
     {
+      slug: 'blackout-troll',
+      kind: TemplateKind.RULE_PACK,
+      name: 'Troll Streamer - Che Màn Hình 5s',
+      description: 'Màn hình bị đen xì 5s gây ức chế mỗi khi khán giả donate quà.',
+      config: {
+        rules: [
+          {
+            name: 'Troll Che Màn Hình 5s',
+            enabled: true,
+            priority: 0,
+            conditions: { eventType: [LiveEventType.GIFT], minCoinValue: 1 },
+            actions: [
+              {
+                type: RuleActionType.MEDIA_POPUP,
+                payload: {
+                  mediaType: 'blackout',
+                  url: 'blackout',
+                  durationMs: 5000,
+                  position: 'center',
+                  caption: '🙈 MÀN HÌNH BỊ CHE 5s! Cảm ơn {sender} đã tặng {gift}!',
+                },
+              },
+            ],
+          },
+        ],
+      },
+    },
+    {
       slug: 'rose-popup',
       kind: TemplateKind.RULE_PACK,
       name: 'Cảm ơn khi được tặng Hoa Hồng',

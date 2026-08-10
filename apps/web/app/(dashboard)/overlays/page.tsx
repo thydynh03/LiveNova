@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { useApi } from '../../../lib/use-api';
-import { api } from '../../../lib/api-client';
+import { api, uploadImage } from '../../../lib/api-client';
 import { LoadingState, ErrorState, EmptyState } from '../../../components/common/States';
 import { Icon, type IconName } from '../../../components/ui/Icon';
 import { ConfirmAction } from '../../../components/common/ConfirmAction';
@@ -116,6 +116,126 @@ function ObsGuide() {
         </ol>
       )}
     </section>
+  );
+}
+
+function MediaIdleVideoSection({ overlay, reload }: { overlay: Overlay; reload: () => void }) {
+  const currentVideo = (overlay.config as Record<string, string> | undefined)?.defaultVideo || '/DogDefault.mp4';
+  const [videoUrl, setVideoUrl] = useState(currentVideo);
+  const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    setVideoUrl((overlay.config as Record<string, string> | undefined)?.defaultVideo || '/DogDefault.mp4');
+  }, [overlay.config]);
+
+  async function handleSave() {
+    setSaving(true);
+    setMessage(null);
+    try {
+      await api.patch(`/overlays/${overlay.id}/config`, {
+        config: {
+          ...(overlay.config as Record<string, unknown>),
+          defaultVideo: videoUrl,
+        },
+      });
+      setMessage('✅ Đã lưu Video chờ riêng cho tài khoản!');
+      setTimeout(() => setMessage(null), 3000);
+      reload();
+    } catch (err: unknown) {
+      const errMsg = err instanceof Error ? err.message : 'Không lưu được';
+      setMessage(`❌ Lỗi: ${errMsg}`);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    setMessage(null);
+    try {
+      const res = await uploadImage(file);
+      if (res?.url) {
+        setVideoUrl(res.url);
+        setMessage('✅ Đã tải file lên! Bấm nút "Lưu" để cập nhật.');
+      }
+    } catch (err: unknown) {
+      const errMsg = err instanceof Error ? err.message : 'Lỗi không xác định';
+      setMessage(`❌ Tải file thất bại: ${errMsg}`);
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  return (
+    <div
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '0.5rem',
+        padding: '0.75rem',
+        borderRadius: 'var(--radius)',
+        background: 'hsl(var(--accent-surface) / 0.5)',
+        border: '1px solid hsl(var(--border) / 0.6)',
+        marginTop: '0.25rem',
+      }}
+    >
+      <label style={{ fontSize: '0.85rem', fontWeight: 600 }}>
+        🎥 Video chờ riêng (Chạy khi chưa có donate):
+      </label>
+      <input
+        type="text"
+        value={videoUrl}
+        onChange={(e) => setVideoUrl(e.target.value)}
+        placeholder="/DogDefault.mp4 hoặc dán Link URL video..."
+        style={{
+          width: '100%',
+          padding: '0.45rem 0.6rem',
+          borderRadius: 'var(--radius)',
+          border: '1px solid hsl(var(--border))',
+          background: 'hsl(var(--background))',
+          color: 'inherit',
+          fontSize: '0.8125rem',
+          boxSizing: 'border-box',
+        }}
+      />
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*,video/*"
+        onChange={handleFileUpload}
+        style={{ display: 'none' }}
+      />
+      <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.2rem' }}>
+        <button
+          type="button"
+          disabled={uploading}
+          onClick={() => fileInputRef.current?.click()}
+          className="btn btn-secondary"
+          style={{ flex: 1, padding: '0.4rem 0.5rem', fontSize: '0.8125rem', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.3rem' }}
+        >
+          {uploading ? 'Đang tải...' : 'Tải video lên'}
+        </button>
+        <button
+          type="button"
+          disabled={saving || videoUrl === currentVideo}
+          onClick={handleSave}
+          className="btn btn-primary"
+          style={{ flex: 1, padding: '0.4rem 0.5rem', fontSize: '0.8125rem', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.3rem' }}
+        >
+          {saving ? 'Đang lưu...' : 'Lưu video chờ'}
+        </button>
+      </div>
+      {message && (
+        <span style={{ fontSize: '0.8rem', color: message.startsWith('✅') ? '#4ade80' : '#f87171' }}>
+          {message}
+        </span>
+      )}
+    </div>
   );
 }
 
@@ -313,6 +433,10 @@ export default function OverlaysPage() {
                 )}
                 {!url && <span className="pill">Đang phát triển</span>}
               </div>
+
+              {overlay.type === 'MEDIA' && (
+                <MediaIdleVideoSection overlay={overlay} reload={reload} />
+              )}
 
               {url ? (
                 <>

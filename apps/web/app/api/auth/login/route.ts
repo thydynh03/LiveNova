@@ -57,7 +57,8 @@ export async function POST(request: NextRequest) {
   const data = await readJson(upstream);
 
   if (!upstream.ok) {
-    const rawError = data as any;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const rawError = data as Record<string, any> | null;
     const msg =
       (typeof rawError?.message === 'string' ? rawError.message : null) ??
       (Array.isArray(rawError?.message) ? rawError.message.join(', ') : null) ??

@@ -17,7 +17,8 @@ import (
 // either uses a refused key (0x5B, Left Windows) or halts first.
 func decode(t *testing.T, raw string) Reply {
 	t.Helper()
-	return handleCommand([]byte(raw))
+	st := &State{}
+	return handleCommand(st, []byte(raw))
 }
 
 func TestPingIsAcknowledged(t *testing.T) {

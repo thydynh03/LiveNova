@@ -54,6 +54,7 @@ export interface UseLocalBridgeResult {
   /** Last error the bridge reported, if it refused a command. */
   lastError: string | null;
   send: (command: GameInputCommand) => void;
+  sendBlind: (effectType: string, durationMs?: number, caption?: string) => void;
 }
 
 export function useLocalBridge(options: Options): UseLocalBridgeResult {
@@ -136,5 +137,19 @@ export function useLocalBridge(options: Options): UseLocalBridgeResult {
     );
   }, []);
 
-  return { status, lastError, send };
+  const sendBlind = useCallback((effectType: string, durationMs?: number, caption?: string) => {
+    const socket = socketRef.current;
+    if (!socket || socket.readyState !== 1 /* OPEN */) return;
+
+    socket.send(
+      JSON.stringify({
+        type: effectType === 'flashbang' ? 'flashbang' : 'blackout',
+        id: `blind-${Date.now()}`,
+        durationMs: durationMs ?? 5000,
+        caption,
+      }),
+    );
+  }, []);
+
+  return { status, lastError, send, sendBlind };
 }
