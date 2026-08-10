@@ -566,6 +566,8 @@ export default function App() {
           <AlertTriangle size={18} />
           DỪNG KHẨN CẤP
         </button>
+      </footer>
+
       {/* Desktop Physical Screen Blackout / Flashbang Overlay */}
       {blindData && (
         <div
