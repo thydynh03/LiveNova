@@ -41,6 +41,41 @@ function StageOverlayContent() {
   const [motion, setMotion] = useState<{ id: string; payload: AvatarMotionPayload } | null>(null);
   const seenActions = useRef(new Set<string>());
 
+  /**
+   * Mô hình do người dùng tải lên, lấy từ cấu hình của chính overlay này.
+   *
+   * Đọc bằng token công khai nên browser source không cần đăng nhập. `undefined`
+   * nghĩa là chưa biết và `VrmAvatarLayer` sẽ tự quyết theo biến môi trường —
+   * đó là lý do state khởi tạo là `undefined` chứ không phải chuỗi rỗng.
+   */
+  const [configuredModelUrl, setConfiguredModelUrl] = useState<string | undefined>(undefined);
+
+  useEffect(() => {
+    if (!token) return;
+    let cancelled = false;
+
+    // Bọc trong try/catch chứ không chỉ `.catch()`: nếu `fetch` không tồn tại
+    // thì lỗi ném ra *đồng bộ*, trước khi có promise nào để bắt, và cả overlay
+    // sập theo. Một sân khấu không đọc được cấu hình vẫn phải dựng được — khói
+    // và pháo giấy không phụ thuộc vào mô hình nhân vật.
+    try {
+      fetch(`${process.env.NEXT_PUBLIC_API_URL ?? ''}/public/overlays/${encodeURIComponent(token)}`)
+        .then((res) => (res.ok ? res.json() : null))
+        .then((data: { config?: Record<string, unknown> } | null) => {
+          if (cancelled) return;
+          const url = data?.config?.vrmModelUrl;
+          if (typeof url === 'string' && url.trim() !== '') setConfiguredModelUrl(url.trim());
+        })
+        .catch(() => undefined);
+    } catch {
+      /* Không đọc được cấu hình thì dùng mô hình mặc định. */
+    }
+
+    return () => {
+      cancelled = true;
+    };
+  }, [token]);
+
   useEffect(() => {
     // Transparent background for OBS chromakey
     document.body.style.backgroundColor = 'transparent';
@@ -182,7 +217,7 @@ function StageOverlayContent() {
       >
         {/* Nhân vật nằm dưới lớp hiệu ứng: khói và pháo giấy phải phủ lên
             người, không phải bị người che mất. */}
-        {avatarEnabled && <VrmAvatarLayer motion={motion} />}
+        {avatarEnabled && <VrmAvatarLayer motion={motion} modelUrl={configuredModelUrl} />}
 
         <EffectLayer effects={effects} reducedMotion={reducedMotion} />
 

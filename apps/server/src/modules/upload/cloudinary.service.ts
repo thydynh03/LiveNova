@@ -5,6 +5,21 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { v4 as uuidv4 } from 'uuid';
 
+export interface UploadOptions {
+  /**
+   * `raw` giữ nguyên byte. Cần cho `.vrm`: dưới `auto` Cloudinary nhận ra đây
+   * là mô hình 3D và có thể chuyển mã, mà nhiều giấy phép VRM ghi rõ
+   * `modification: prohibited` — chưa kể three-vrm cần đúng file gốc.
+   */
+  resourceType?: 'auto' | 'raw' | 'image' | 'video';
+  /** Đuôi tệp được phép khi rơi về lưu trên đĩa. */
+  allowedExtensions?: string[];
+  /** Đuôi dùng khi tên tệp gốc không có đuôi hợp lệ. */
+  defaultExtension?: string;
+  /** Thư mục con dưới `public/` khi lưu trên đĩa. */
+  localFolder?: string;
+}
+
 @Injectable()
 export class CloudinaryService {
   private readonly logger = new Logger(CloudinaryService.name);
@@ -22,17 +37,26 @@ export class CloudinaryService {
     }
   }
 
-  async uploadFile(file: Express.Multer.File, folder = 'livenova'): Promise<UploadApiResponse> {
+  async uploadFile(
+    file: Express.Multer.File,
+    folder = 'livenova',
+    options: UploadOptions = {},
+  ): Promise<UploadApiResponse> {
     if (!file || !file.buffer) {
       throw new BadRequestException('Vui lòng chọn tệp media để tải lên');
     }
+
+    const resourceType = options.resourceType ?? 'auto';
 
     // Try Cloudinary if credentials present
     if (process.env.CLOUDINARY_CLOUD_NAME) {
       try {
         return await new Promise((resolve, reject) => {
           const uploadStream = cloudinary.uploader.upload_stream(
-            { folder, resource_type: 'auto' },
+            // `.vrm` phải đi đường `raw`: dưới `auto` Cloudinary đoán đây là mô
+            // hình 3D và có thể chuyển mã nó, mà giấy phép của nhiều mô hình
+            // cấm sửa đổi — chưa kể three-vrm cần đúng byte gốc.
+            { folder, resource_type: resourceType },
             (error, result) => {
               if (error) {
                 this.logger.error(`Cloudinary upload error: ${error.message}`);
@@ -57,16 +81,25 @@ export class CloudinaryService {
 
     // Local Disk Storage Fallback
     try {
-      const allowedExts = ['.png', '.jpg', '.jpeg', '.webp', '.gif', '.svg', '.mp4', '.webm'];
+      const allowedExts = options.allowedExtensions ?? [
+        '.png',
+        '.jpg',
+        '.jpeg',
+        '.webp',
+        '.gif',
+        '.svg',
+        '.mp4',
+        '.webm',
+      ];
       const rawExt = path.extname(file.originalname || '').toLowerCase();
       const ext = allowedExts.includes(rawExt)
         ? rawExt
-        : file.mimetype.startsWith('video/')
-        ? '.mp4'
-        : '.png';
+        : options.defaultExtension ??
+          (file.mimetype.startsWith('video/') ? '.mp4' : '.png');
 
+      const localFolder = options.localFolder ?? 'uploads';
       const safeFilename = `${uuidv4()}${ext}`;
-      const targetDir = path.resolve(process.cwd(), '../web/public/uploads');
+      const targetDir = path.resolve(process.cwd(), `../web/public/${localFolder}`);
 
       if (!fs.existsSync(targetDir)) {
         fs.mkdirSync(targetDir, { recursive: true });
@@ -79,7 +112,7 @@ export class CloudinaryService {
 
       fs.writeFileSync(filePath, file.buffer);
 
-      const localUrl = `/uploads/${safeFilename}`;
+      const localUrl = `/${localFolder}/${safeFilename}`;
       this.logger.log(`Local file saved successfully at: ${localUrl}`);
 
       return {

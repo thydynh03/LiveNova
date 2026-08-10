@@ -26,3 +26,7 @@ coverage/
 
 # Bản build dùng để kiểm chứng khi dev server đang chạy (xem apps/web/next.config.mjs).
 .next-verify/
+
+# Mo hinh VRM de o thu muc goc khi thu nghiem. Khong commit — xem
+# apps/web/.gitignore de biet ly do giay phep.
+*.vrm

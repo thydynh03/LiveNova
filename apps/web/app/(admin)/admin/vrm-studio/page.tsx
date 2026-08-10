@@ -14,6 +14,8 @@ import {
   sanitiseLighting,
   type LightingSettings,
 } from '../../../../lib/vrm/lighting';
+import { resolveVrmModelUrl } from '../../../../lib/vrm/model';
+import { VrmModelPanel } from '../../../../components/admin/VrmModelPanel';
 import {
   VrmLightingStudio,
   type CameraPreset,
@@ -263,6 +265,7 @@ export default function VrmStudioPage() {
   const [stageResolution, setStageResolution] = useState(false);
   const [stats, setStats] = useState<StageStats | null>(null);
   const [note, setNote] = useState<string | null>(null);
+  const [modelUrl, setModelUrl] = useState(resolveVrmModelUrl);
   const fileRef = useRef<HTMLInputElement | null>(null);
 
   // ── Bảng thử động tác ──────────────────────────────────────────────────
@@ -416,6 +419,8 @@ export default function VrmStudioPage() {
             minHeight: 0,
           }}
         >
+          <VrmModelPanel modelUrl={modelUrl} onModelUrlChange={setModelUrl} onNote={setNote} />
+
           <Panel title="Giả lập quà tặng" subtitle="Bấm để xem nhân vật phản ứng đúng như trên sóng.">
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
               {GIFT_TIERS.map((g) => (
@@ -714,6 +719,7 @@ export default function VrmStudioPage() {
             }}
           >
             <VrmLightingStudio
+              modelUrl={modelUrl}
               settings={settings}
               showModel={showModel}
               cameraPreset={cameraPreset}
