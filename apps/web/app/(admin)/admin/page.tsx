@@ -267,7 +267,7 @@ export default function AdminDashboardPage() {
           </div>
 
           <div className="chart-grid-bg" style={{ height: '260px', display: 'flex', alignItems: 'flex-end', gap: '0.5rem', marginTop: '1rem', position: 'relative' }}>
-            {revenueTrend.map((d, i) => (
+            {revenueTrend.map((d) => (
               <div key={d.date} className="group" style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', gap: '0.25rem', height: '100%' }}>
                 <div style={{ display: 'flex', gap: '2px', height: '100%', alignItems: 'flex-end' }}>
                   <div
@@ -407,7 +407,7 @@ export default function AdminDashboardPage() {
               </thead>
               <tbody>
                 {topStreamers.map((s, idx) => (
-                  <tr key={s.id || idx} style={{ borderBottom: '1px solid hsl(var(--border) / 0.5)', transition: 'background 0.2s', ':hover': { background: 'hsl(var(--secondary)/0.5)' } } as any}>
+                  <tr key={s.id || idx} style={{ borderBottom: '1px solid hsl(var(--border) / 0.5)', transition: 'background 0.2s' }} className="hover:bg-secondary/50">
                     <td style={{ padding: '0.75rem 0' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                         <span
