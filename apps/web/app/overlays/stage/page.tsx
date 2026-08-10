@@ -1,21 +1,45 @@
 'use client';
 
-import React, { useCallback, useEffect, useMemo, useState, Suspense } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState, Suspense } from 'react';
+import dynamic from 'next/dynamic';
 import { useSearchParams } from 'next/navigation';
 import {
+  AvatarMotionPayload,
   OverlayAction,
   RuleActionType,
   StageEffectKind,
   STAGE_EFFECT_LIMITS,
+  readAvatarMotionPayload,
   readEffectPayload,
 } from '@livenova/shared';
 import { useOverlaySocket } from '../../../lib/use-overlay-socket';
 import { EffectLayer, ActiveEffect } from '../../../components/overlays/EffectLayer';
 
+/**
+ * Three.js và three-vrm cộng lại là vài trăm KB. Nạp tĩnh sẽ bắt mọi sân khấu
+ * trả giá đó, kể cả những sân khấu chỉ dùng khói và pháo giấy — nên lớp nhân
+ * vật chỉ được tải khi thực sự có người dùng tới nó.
+ */
+const VrmAvatarLayer = dynamic(
+  () => import('../../../components/overlays/VrmAvatarLayer').then((m) => m.VrmAvatarLayer),
+  { ssr: false },
+);
+
 function StageOverlayContent() {
-  const token = useSearchParams().get('token');
+  const params = useSearchParams();
+  const token = params.get('token');
   const [effects, setEffects] = useState<ActiveEffect[]>([]);
   const [reducedMotion, setReducedMotion] = useState(false);
+
+  /**
+   * Bật sẵn bằng `?avatar=1` khi dán URL vào OBS, hoặc tự bật ở hành động đầu
+   * tiên. Tự bật khiến món quà đầu tiên phải chờ mô hình tải xong — vài trăm
+   * mili-giây — nên tham số này có mặt để buổi phát quan trọng không phải chịu
+   * độ trễ đó đúng vào lần đầu.
+   */
+  const [avatarEnabled, setAvatarEnabled] = useState(params.get('avatar') === '1');
+  const [motion, setMotion] = useState<{ id: string; payload: AvatarMotionPayload } | null>(null);
+  const seenActions = useRef(new Set<string>());
 
   useEffect(() => {
     // Transparent background for OBS chromakey
@@ -32,6 +56,24 @@ function StageOverlayContent() {
   }, []);
 
   const handleAction = useCallback((action: OverlayAction) => {
+    if (action.type === RuleActionType.AVATAR_MOTION) {
+      // Re-đọc thay vì ép kiểu, cùng lý do như EFFECT bên dưới.
+      const payload = readAvatarMotionPayload(action.payload);
+      if (!payload) return;
+
+      // Phát lại sau khi kết nối lại sẽ gửi lại đúng những hành động vừa diễn.
+      // Không lọc thì nhân vật diễn lại toàn bộ lịch sử mỗi lần mạng chớp.
+      if (seenActions.current.has(action.id)) return;
+      seenActions.current.add(action.id);
+      if (seenActions.current.size > 256) {
+        seenActions.current.delete(seenActions.current.values().next().value as string);
+      }
+
+      setAvatarEnabled(true);
+      setMotion({ id: action.id, payload });
+      return;
+    }
+
     if (action.type !== RuleActionType.EFFECT) return;
 
     // Re-read rather than cast. The server clamps everything before dispatch,
@@ -138,6 +180,10 @@ function StageOverlayContent() {
           } as React.CSSProperties
         }
       >
+        {/* Nhân vật nằm dưới lớp hiệu ứng: khói và pháo giấy phải phủ lên
+            người, không phải bị người che mất. */}
+        {avatarEnabled && <VrmAvatarLayer motion={motion} />}
+
         <EffectLayer effects={effects} reducedMotion={reducedMotion} />
 
         {captions.length > 0 && (

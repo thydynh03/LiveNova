@@ -49,6 +49,13 @@ export const ADMIN_NAV_ITEMS: AdminNavItem[] = [
     category: 'operations',
   },
   {
+    id: 'admin-vrm-studio',
+    href: '/admin/vrm-studio',
+    label: 'Studio VRM 3D',
+    icon: 'spark',
+    category: 'operations',
+  },
+  {
     id: 'admin-templates',
     href: '/admin/templates',
     label: 'Kho Mẫu & Widgets',
