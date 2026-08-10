@@ -52,6 +52,70 @@ function playTVStaticSound(durationMs = 5000) {
   }
 }
 
+function playCSGOFlashbangSound(durationMs = 5000) {
+  try {
+    const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+    if (!AudioCtx) return;
+    const ctx = new AudioCtx();
+    const now = ctx.currentTime;
+    const durSec = durationMs / 1000;
+
+    // 1. CS:GO Grenade Explosion Bang (Noise Burst + Low Frequency Sub-Bass Kick)
+    const bangBuffer = ctx.createBuffer(1, ctx.sampleRate * 0.4, ctx.sampleRate);
+    const bangData = bangBuffer.getChannelData(0);
+    for (let i = 0; i < bangData.length; i++) {
+      bangData[i] = (Math.random() * 2 - 1) * Math.exp(-i / (ctx.sampleRate * 0.07));
+    }
+    const bangSource = ctx.createBufferSource();
+    bangSource.buffer = bangBuffer;
+
+    const bangGain = ctx.createGain();
+    bangGain.gain.setValueAtTime(1.0, now);
+    bangGain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+
+    bangSource.connect(bangGain);
+    bangGain.connect(ctx.destination);
+    bangSource.start(now);
+
+    // Sub-bass impact oscillator
+    const kickOsc = ctx.createOscillator();
+    kickOsc.type = 'sine';
+    kickOsc.frequency.setValueAtTime(160, now);
+    kickOsc.frequency.exponentialRampToValueAtTime(30, now + 0.3);
+
+    const kickGain = ctx.createGain();
+    kickGain.gain.setValueAtTime(0.95, now);
+    kickGain.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
+
+    kickOsc.connect(kickGain);
+    kickGain.connect(ctx.destination);
+    kickOsc.start(now);
+    kickOsc.stop(now + 0.3);
+
+    // 2. Iconic CS:GO High-Pitched Tinnitus Ear Ringing Tone (4200 Hz Sine Wave)
+    const ringOsc = ctx.createOscillator();
+    ringOsc.type = 'sine';
+    ringOsc.frequency.setValueAtTime(4200, now); // Iconic CS:GO tinnitus pitch
+
+    const ringGain = ctx.createGain();
+    ringGain.gain.setValueAtTime(0.5, now + 0.05); // Starts right after bang
+    ringGain.gain.exponentialRampToValueAtTime(0.0001, now + durSec);
+
+    ringOsc.connect(ringGain);
+    ringGain.connect(ctx.destination);
+    ringOsc.start(now + 0.05);
+    ringOsc.stop(now + durSec);
+
+    setTimeout(() => {
+      try {
+        ctx.close();
+      } catch {}
+    }, durationMs + 200);
+  } catch (e) {
+    console.error('CS:GO Flashbang sound error:', e);
+  }
+}
+
 function MediaOverlayContent() {
   const searchParams = useSearchParams();
   const token = searchParams.get('token');
@@ -130,6 +194,8 @@ function MediaOverlayContent() {
 
     if (isBlackout) {
       playTVStaticSound(item.durationMs);
+    } else if (isFlashbang) {
+      playCSGOFlashbangSound(item.durationMs);
     }
 
     setActivePopup(item);
