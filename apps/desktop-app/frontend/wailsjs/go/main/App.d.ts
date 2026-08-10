@@ -19,3 +19,5 @@ export function SendRconCommand(arg1:string,arg2:number,arg3:string,arg4:string)
 export function SetOBSScene(arg1:string,arg2:number,arg3:string,arg4:string):Promise<void>;
 
 export function SimulateKeyPress(arg1:number,arg2:number,arg3:number):Promise<void>;
+
+export function TriggerDesktopBlind(arg1:string,arg2:number,arg3:string):Promise<void>;

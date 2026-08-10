@@ -6,11 +6,14 @@ import (
 	"fmt"
 	"log/slog"
 
+	"time"
+
 	"github.com/livenova/desktop-app/internal/bridge"
 	"github.com/livenova/desktop-app/internal/keysim"
 	"github.com/livenova/desktop-app/internal/netguard"
 	"github.com/livenova/desktop-app/internal/obs"
 	"github.com/livenova/desktop-app/internal/rcon"
+	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
 // App is the struct bound to the WebView. Every exported method here is
@@ -30,6 +33,10 @@ func NewApp() *App {
 func (a *App) startup(ctx context.Context) {
 	a.ctx, a.cancel = context.WithCancel(ctx)
 
+	a.bridge.SetBlindHandler(func(effectType string, durationMS uint64, caption string) {
+		a.TriggerDesktopBlind(effectType, durationMS, caption)
+	})
+
 	go func() {
 		if err := a.bridge.Start(a.ctx); err != nil {
 			slog.Error("Local Bridge failed to start", "err", err)
@@ -37,6 +44,32 @@ func (a *App) startup(ctx context.Context) {
 	}()
 
 	slog.Info("LiveNova Desktop started")
+}
+
+// TriggerDesktopBlind makes the Wails window fullscreen + always on top + renders blackout overlay.
+func (a *App) TriggerDesktopBlind(effectType string, durationMS uint64, caption string) {
+	if a.ctx == nil {
+		return
+	}
+	if durationMS == 0 {
+		durationMS = 5000
+	}
+
+	runtime.WindowSetAlwaysOnTop(a.ctx, true)
+	runtime.WindowFullscreen(a.ctx)
+	runtime.WindowShow(a.ctx)
+	runtime.EventsEmit(a.ctx, "desktop-blind", map[string]any{
+		"type":       effectType,
+		"durationMs": durationMS,
+		"caption":    caption,
+	})
+
+	go func() {
+		time.Sleep(time.Duration(durationMS) * time.Millisecond)
+		runtime.WindowUnfullscreen(a.ctx)
+		runtime.WindowSetAlwaysOnTop(a.ctx, false)
+		runtime.EventsEmit(a.ctx, "desktop-blind-end", nil)
+	}()
 }
 
 // shutdown stops the Local Bridge so the port is free on the next launch.

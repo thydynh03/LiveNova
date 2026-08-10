@@ -27,6 +27,7 @@ import {
   GetActivity,
 } from '../wailsjs/go/main/App';
 import type { bridge } from '../wailsjs/go/models';
+import { EventsOn } from '../wailsjs/runtime/runtime';
 
 interface KeyOption {
   label: string;
@@ -95,6 +96,26 @@ export default function App() {
   const [logs, setLogs] = useState<string[]>([]);
   const [startedAt] = useState(() => Date.now());
   const [uptime, setUptime] = useState('0 phút');
+  const [blindData, setBlindData] = useState<{ type: string; caption?: string; durationMs: number } | null>(null);
+
+  useEffect(() => {
+    const unsubBlind = EventsOn('desktop-blind', (data: any) => {
+      setBlindData({
+        type: data?.type || 'blackout',
+        caption: data?.caption || '🙈 MÀN HÌNH BỊ CHE (5s)!',
+        durationMs: data?.durationMs || 5000,
+      });
+    });
+
+    const unsubBlindEnd = EventsOn('desktop-blind-end', () => {
+      setBlindData(null);
+    });
+
+    return () => {
+      if (unsubBlind) unsubBlind();
+      if (unsubBlindEnd) unsubBlindEnd();
+    };
+  }, []);
 
   const [selectedKey, setSelectedKey] = useState<number>(0x20);
   const [holdTime, setHoldTime] = useState<number>(200);
@@ -545,7 +566,48 @@ export default function App() {
           <AlertTriangle size={18} />
           DỪNG KHẨN CẤP
         </button>
-      </footer>
+      {/* Desktop Physical Screen Blackout / Flashbang Overlay */}
+      {blindData && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 99999999,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: blindData.type === 'flashbang' ? '#ffffff' : '#000000',
+            color: blindData.type === 'flashbang' ? '#000000' : '#ff3344',
+            padding: '2rem',
+            textAlign: 'center',
+            fontFamily: 'system-ui, sans-serif',
+          }}
+        >
+          <h1
+            style={{
+              fontSize: '3.5rem',
+              fontWeight: 900,
+              margin: 0,
+              letterSpacing: '0.05em',
+              textShadow: blindData.type === 'flashbang' ? 'none' : '0 0 25px rgba(255, 51, 68, 0.9)',
+            }}
+          >
+            {blindData.type === 'flashbang' ? '⚡ MÀN HÌNH TRẮNG CHÓI (FLASHBANG)!' : '🙈 MÀN HÌNH MÁY TÍNH BỊ CHE!'}
+          </h1>
+          <p
+            style={{
+              fontSize: '1.75rem',
+              marginTop: '1.5rem',
+              color: blindData.type === 'flashbang' ? '#333333' : '#f8fafc',
+              maxWidth: '800px',
+              fontWeight: 600,
+            }}
+          >
+            {blindData.caption || 'Cảm ơn bạn đã Donate! Màn hình máy tính bị che 5 giây 😈'}
+          </p>
+        </div>
+      )}
     </div>
   );
 }

@@ -37,3 +37,7 @@ export function SetOBSScene(arg1, arg2, arg3, arg4) {
 export function SimulateKeyPress(arg1, arg2, arg3) {
   return window['go']['main']['App']['SimulateKeyPress'](arg1, arg2, arg3);
 }
+
+export function TriggerDesktopBlind(arg1, arg2, arg3) {
+  return window['go']['main']['App']['TriggerDesktopBlind'](arg1, arg2, arg3);
+}
