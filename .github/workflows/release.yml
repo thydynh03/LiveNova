@@ -7,6 +7,10 @@ on:
   push:
     tags:
       - 'v*'
+      # Ứng dụng máy tính có nhịp phát hành riêng với web và máy chủ, nên nó có
+      # tiền tố tag riêng. Thiếu dòng này thì `desktop-v0.2.0` không khớp `v*`
+      # và bản phát hành lặng lẽ chỉ còn mã nguồn — đúng chuyện đã xảy ra.
+      - 'desktop-v*'
   workflow_dispatch:
 
 permissions:
@@ -136,26 +140,84 @@ jobs:
             git describe --tags --abbrev=0 2>$null
             if (-not $?) { "v0.0.0-dev" }
           }
-          $version = $tag -replace '^v', ''
+          # Bỏ cả tiền tố `desktop-`, không chỉ chữ `v`. Nếu không, phiên bản
+          # trở thành chuỗi "desktop-v0.2.0" và NSIS từ chối nó.
+          $version = $tag -replace '^(desktop-)?v', ''
           echo "tag=$tag" >> $env:GITHUB_OUTPUT
           echo "version=$version" >> $env:GITHUB_OUTPUT
           Write-Host "Building version: $version (tag: $tag)"
+
+      # Phiên bản in trong installer lấy từ wails.json, còn tên bản phát hành
+      # lấy từ tag. Hai nguồn khác nhau thì chúng sẽ lệch nhau, và người dùng
+      # tải "0.2.0" về rồi thấy Programs and Features ghi 0.1.0.
+      - name: Stamp version into wails.json
+        working-directory: apps/desktop-app
+        shell: pwsh
+        run: |
+          $cfg = Get-Content wails.json -Raw | ConvertFrom-Json
+          $cfg.info.productVersion = '${{ steps.ver.outputs.version }}'
+          $cfg | ConvertTo-Json -Depth 10 | Set-Content wails.json -Encoding utf8
+          Write-Host "productVersion = ${{ steps.ver.outputs.version }}"
 
       # Build Wails desktop app with NSIS installer
       - name: Build Wails Desktop App
         working-directory: apps/desktop-app
         run: wails build -nsis -skipbindings
 
+      # Người dùng phải kiểm được thứ họ vừa tải là thứ CI vừa dựng.
+      #
+      # Không thay được cho chữ ký số — bất cứ ai sửa được tệp cũng sửa được
+      # trang ghi mã băm. Nhưng nó chặn được trường hợp hay gặp hơn nhiều: tải
+      # hỏng, hoặc một bản chép lại từ nhóm Facebook nào đó. Cho tới khi có
+      # chứng thư ký số thì đây là thứ duy nhất ta đưa ra được.
+      - name: Compute SHA-256 of every artifact
+        id: sums
+        working-directory: apps/desktop-app/build/bin
+        shell: pwsh
+        run: |
+          # Không dùng here-string: dấu đóng `"@` của PowerShell bắt buộc nằm ở
+          # cột 0, mà mọi dòng trong khối YAML này đều bị thụt lề.
+          $tick = [char]0x60
+          $fence = $tick * 3
+          $out = New-Object System.Collections.Generic.List[string]
+          $out.Add('## Tải về')
+          $out.Add('')
+          $out.Add("- **$tick*-installer.exe$tick** — bản cài đặt. Chọn cái này nếu không chắc.")
+          $out.Add("- **${tick}LiveNova Desktop.exe$tick** — bản chạy thẳng, không cài.")
+          $out.Add('')
+          $out.Add('## ⚠️ Bản này chưa được ký số')
+          $out.Add('')
+          $out.Add('Windows SmartScreen sẽ cảnh báo khi bạn mở. Đó là hành vi đúng của SmartScreen — chúng tôi chưa có chứng thư ký số, nên Windows không có cách nào xác minh tệp này đến từ ai.')
+          $out.Add('')
+          $out.Add('Trước khi mở, hãy đối chiếu mã băm bên dưới với tệp bạn vừa tải:')
+          $out.Add('')
+          $out.Add("${fence}powershell")
+          $out.Add('Get-FileHash "đường\dẫn\tới\tệp.exe" -Algorithm SHA256')
+          $out.Add($fence)
+          $out.Add('')
+          $out.Add('| Tệp | SHA-256 |')
+          $out.Add('|---|---|')
+          Get-ChildItem -Filter *.exe | ForEach-Object {
+            $h = (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower()
+            $out.Add("| $tick$($_.Name)$tick | $tick$h$tick |")
+          }
+          $out | Set-Content "$env:RUNNER_TEMP/notes.md" -Encoding utf8
+          Get-Content "$env:RUNNER_TEMP/notes.md"
+
       # Create GitHub Release with installer
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.ver.outputs.tag }}
-          name: TikTok LIVE Platform ${{ steps.ver.outputs.tag }}
+          name: LiveNova Desktop ${{ steps.ver.outputs.tag }}
           draft: false
-          prerelease: ${{ contains(steps.ver.outputs.tag, '-') }}
+          prerelease: ${{ contains(steps.ver.outputs.version, '-') }}
           generate_release_notes: true
+          body_path: ${{ runner.temp }}/notes.md
+          # Cả bản cài lẫn bản chạy thẳng. Trước đây chỉ đính kèm installer,
+          # nên ai muốn thử mà không cài vào máy thì không có đường nào.
           files: |
             apps/desktop-app/build/bin/*installer.exe
+            apps/desktop-app/build/bin/LiveNova Desktop.exe
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
