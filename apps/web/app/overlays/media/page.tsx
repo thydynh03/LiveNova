@@ -8,10 +8,11 @@ import { useSpeechQueue } from '../../../lib/use-speech-queue';
 
 interface MediaPopupItem {
   id: string;
-  mediaType: 'video' | 'image';
+  mediaType: 'video' | 'image' | 'blackout' | 'flashbang';
   url: string;
   volume: number;
   durationMs: number;
+  caption?: string;
 }
 
 function MediaOverlayContent() {
@@ -66,22 +67,28 @@ function MediaOverlayContent() {
 
     if (action.type !== RuleActionType.MEDIA_POPUP) return;
 
-    const payload = action.payload as unknown as MediaPopupPayload;
+    const payload = action.payload as unknown as MediaPopupPayload & { caption?: string };
+
+    const isBlackout = (payload.mediaType as string) === 'blackout' || payload.url === 'blackout';
+    const isFlashbang = (payload.mediaType as string) === 'flashbang' || payload.url === 'flashbang';
 
     const isVideoUrl =
-      payload.url?.endsWith('.mp4') ||
-      payload.url?.endsWith('.webm') ||
-      payload.mediaType === 'video';
+      !isBlackout &&
+      !isFlashbang &&
+      (payload.url?.endsWith('.mp4') ||
+        payload.url?.endsWith('.webm') ||
+        payload.mediaType === 'video');
 
     // If url is missing or points to old asset, default to /DogDonate.mp4
     const popupUrl = payload.url || '/DogDonate.mp4';
 
     const item: MediaPopupItem = {
       id: action.id,
-      mediaType: isVideoUrl ? 'video' : 'image',
+      mediaType: isBlackout ? 'blackout' : isFlashbang ? 'flashbang' : isVideoUrl ? 'video' : 'image',
       url: popupUrl,
       volume: payload.volume ?? 0.8,
       durationMs: payload.durationMs || 5000,
+      caption: payload.caption,
     };
 
     setActivePopup(item);
@@ -120,6 +127,10 @@ function MediaOverlayContent() {
           from { opacity: 0; }
           to { opacity: 1; }
         }
+        @keyframes pulseGlow {
+          0% { transform: scale(1); opacity: 0.9; }
+          100% { transform: scale(1.03); opacity: 1; }
+        }
         .media-popup {
           animation: popupIn 0.25s ease-out forwards;
         }
@@ -144,57 +155,153 @@ function MediaOverlayContent() {
         </div>
       )}
 
-      {/* Donate Popup Reaction Video / Image */}
+      {/* Donate Popup Reaction Video / Image / Blackout Effect */}
       {activePopup ? (
-        <div
-          className="media-popup"
-          style={{
-            position: 'absolute',
-            inset: 0,
-            width: '100%',
-            height: '100%',
-            overflow: 'hidden',
-          }}
-        >
-          {activePopup.url && (
-            activePopup.mediaType === 'video' ? (
-              <video
-                src={activePopup.url}
-                autoPlay
-                playsInline
-                style={{
-                  display: 'block',
-                  width: '100%',
-                  height: '100%',
-                  objectFit: 'fill',
-                }}
-                ref={(el) => {
-                  if (el) {
-                    el.volume = activePopup.volume;
-                    el.play().catch(() => {
-                      el.muted = true;
-                      el.play().catch(() => {});
-                    });
-                  }
-                }}
-              />
-            ) : (
-              <img
-                src={activePopup.url}
-                alt="Popup effect"
-                onError={(e) => {
-                  (e.target as HTMLImageElement).src = 'https://media.giphy.com/media/3o7TKrEzvLbsVAud8I/giphy.gif';
-                }}
-                style={{
-                  display: 'block',
-                  width: '100%',
-                  height: '100%',
-                  objectFit: 'fill',
-                }}
-              />
-            )
-          )}
-        </div>
+        activePopup.mediaType === 'blackout' ? (
+          <div
+            className="media-popup"
+            style={{
+              position: 'fixed',
+              inset: 0,
+              width: '100vw',
+              height: '100vh',
+              backgroundColor: '#000000',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              zIndex: 999999,
+              fontFamily: 'system-ui, sans-serif',
+            }}
+          >
+            <div
+              style={{
+                fontSize: '3.2rem',
+                fontWeight: 900,
+                color: '#ff4d4f',
+                letterSpacing: '0.05em',
+                textTransform: 'uppercase',
+                textShadow: '0 0 25px rgba(255, 77, 79, 0.9), 0 0 10px rgba(255, 0, 0, 0.7)',
+                textAlign: 'center',
+                padding: '0 1rem',
+                animation: 'pulseGlow 0.8s infinite alternate ease-in-out',
+              }}
+            >
+              🙈 MÀN HÌNH BỊ CHE!
+            </div>
+            <div
+              style={{
+                fontSize: '1.25rem',
+                color: '#ffffff',
+                marginTop: '1.25rem',
+                background: 'rgba(255, 255, 255, 0.1)',
+                border: '1px solid rgba(255, 255, 255, 0.2)',
+                padding: '0.6rem 1.2rem',
+                borderRadius: '12px',
+                backdropFilter: 'blur(10px)',
+                textAlign: 'center',
+              }}
+            >
+              {activePopup.caption || 'Cảm ơn đã Donate! Màn hình mù 5 giây gây ức chế 😈'}
+            </div>
+          </div>
+        ) : activePopup.mediaType === 'flashbang' ? (
+          <div
+            className="media-popup"
+            style={{
+              position: 'fixed',
+              inset: 0,
+              width: '100vw',
+              height: '100vh',
+              backgroundColor: '#ffffff',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              zIndex: 999999,
+              fontFamily: 'system-ui, sans-serif',
+            }}
+          >
+            <div
+              style={{
+                fontSize: '3.5rem',
+                fontWeight: 900,
+                color: '#111111',
+                letterSpacing: '0.05em',
+                textTransform: 'uppercase',
+                textShadow: '0 0 20px rgba(0, 0, 0, 0.3)',
+                textAlign: 'center',
+                padding: '0 1rem',
+                animation: 'pulseGlow 0.8s infinite alternate ease-in-out',
+              }}
+            >
+              ⚡ FLASHBANG MÙ MẮT!
+            </div>
+            <div
+              style={{
+                fontSize: '1.25rem',
+                color: '#333333',
+                marginTop: '1.25rem',
+                background: 'rgba(0, 0, 0, 0.08)',
+                padding: '0.6rem 1.2rem',
+                borderRadius: '12px',
+                textAlign: 'center',
+              }}
+            >
+              {activePopup.caption || 'Mù trắng 5 giây cực gây ức chế! 🙈'}
+            </div>
+          </div>
+        ) : (
+          <div
+            className="media-popup"
+            style={{
+              position: 'absolute',
+              inset: 0,
+              width: '100%',
+              height: '100%',
+              overflow: 'hidden',
+            }}
+          >
+            {activePopup.url && (
+              activePopup.mediaType === 'video' ? (
+                <video
+                  src={activePopup.url}
+                  autoPlay
+                  playsInline
+                  style={{
+                    display: 'block',
+                    width: '100%',
+                    height: '100%',
+                    objectFit: 'fill',
+                  }}
+                  ref={(el) => {
+                    if (el) {
+                      el.volume = activePopup.volume;
+                      el.play().catch(() => {
+                        el.muted = true;
+                        el.play().catch(() => {});
+                      });
+                    }
+                  }}
+                />
+              ) : (
+                <img
+                  src={activePopup.url}
+                  alt="Popup effect"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src = 'https://media.giphy.com/media/3o7TKrEzvLbsVAud8I/giphy.gif';
+                  }}
+                  style={{
+                    display: 'block',
+                    width: '100%',
+                    height: '100%',
+                    objectFit: 'fill',
+                  }}
+                />
+              )
+            )}
+          </div>
+        )
       ) : (
         /* Default Idle Video: DogDefault.mp4 plays continuously on loop */
         <video

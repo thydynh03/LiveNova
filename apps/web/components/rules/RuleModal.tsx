@@ -466,44 +466,69 @@ export function RuleModal({ rule, onClose, onSuccess }: RuleModalProps) {
 
                   {act.type === 'media_popup' && (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                      {/* Media Upload & URL */}
+                      {/* Media Type / Troll Mode Selector */}
                       <div>
-                        <label style={{ display: 'block', marginBottom: '0.3rem', fontSize: '0.85rem' }}>Tệp Video / Ảnh (Upload lên Cloudinary hoặc dán Link)</label>
-                        <div style={{ display: 'flex', gap: '0.5rem' }}>
-                          <input
-                            type="text"
-                            placeholder="https://res.cloudinary.com/.../video.mp4"
-                            value={act.payload.url || ''}
-                            onChange={(e) => updateActionPayload(idx, 'url', e.target.value)}
-                            style={{ ...inputStyle, flex: 1 }}
-                          />
-                          <input
-                            ref={(el) => { fileInputRefs.current[idx] = el; }}
-                            type="file"
-                            accept="image/*,video/*"
-                            onChange={(e) => handleFileUpload(idx, e)}
-                            style={{ display: 'none' }}
-                          />
-                          <button
-                            type="button"
-                            disabled={uploadingActionIdx === idx}
-                            onClick={() => fileInputRefs.current[idx]?.click()}
-                            style={{
-                              padding: '0.5rem 0.85rem',
-                              borderRadius: 'var(--radius)',
-                              background: 'hsl(var(--primary))',
-                              color: '#fff',
-                              border: 'none',
-                              fontWeight: 600,
-                              fontSize: '0.85rem',
-                              cursor: 'pointer',
-                              whiteSpace: 'nowrap',
-                            }}
-                          >
-                            {uploadingActionIdx === idx ? 'Đang tải...' : 'Upload Cloudinary'}
-                          </button>
-                        </div>
+                        <label style={{ display: 'block', marginBottom: '0.3rem', fontSize: '0.85rem', fontWeight: 600 }}>Chế độ & Loại hiệu ứng</label>
+                        <select
+                          value={act.payload.mediaType || (act.payload.url === 'blackout' ? 'blackout' : act.payload.url === 'flashbang' ? 'flashbang' : 'image')}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            updateActionPayload(idx, 'mediaType', val);
+                            if (val === 'blackout' || val === 'flashbang') {
+                              updateActionPayload(idx, 'url', val);
+                            } else if (act.payload.url === 'blackout' || act.payload.url === 'flashbang') {
+                              updateActionPayload(idx, 'url', '');
+                            }
+                          }}
+                          style={{ ...inputStyle, background: '#18181b', padding: '0.5rem', fontWeight: 600, color: '#f43f5e' }}
+                        >
+                          <option value="image">🖼️ Hình ảnh / GIF Custom</option>
+                          <option value="video">🎥 Video MP4 / WEBM Custom</option>
+                          <option value="blackout">🙈 Troll Streamer: Che Màn Hình Đen Xì (Blackout 5s)</option>
+                          <option value="flashbang">⚡ Troll Streamer: Màn Hình Trắng Chói (Flashbang 5s)</option>
+                        </select>
                       </div>
+
+                      {/* Media Upload & URL (hidden if preset blackout/flashbang) */}
+                      {act.payload.mediaType !== 'blackout' && act.payload.mediaType !== 'flashbang' && act.payload.url !== 'blackout' && act.payload.url !== 'flashbang' && (
+                        <div>
+                          <label style={{ display: 'block', marginBottom: '0.3rem', fontSize: '0.85rem' }}>Tệp Video / Ảnh (Upload lên Cloudinary hoặc dán Link)</label>
+                          <div style={{ display: 'flex', gap: '0.5rem' }}>
+                            <input
+                              type="text"
+                              placeholder="https://res.cloudinary.com/.../video.mp4"
+                              value={act.payload.url || ''}
+                              onChange={(e) => updateActionPayload(idx, 'url', e.target.value)}
+                              style={{ ...inputStyle, flex: 1 }}
+                            />
+                            <input
+                              ref={(el) => { fileInputRefs.current[idx] = el; }}
+                              type="file"
+                              accept="image/*,video/*"
+                              onChange={(e) => handleFileUpload(idx, e)}
+                              style={{ display: 'none' }}
+                            />
+                            <button
+                              type="button"
+                              disabled={uploadingActionIdx === idx}
+                              onClick={() => fileInputRefs.current[idx]?.click()}
+                              style={{
+                                padding: '0.5rem 0.85rem',
+                                borderRadius: 'var(--radius)',
+                                background: 'hsl(var(--primary))',
+                                color: '#fff',
+                                border: 'none',
+                                fontWeight: 600,
+                                fontSize: '0.85rem',
+                                cursor: 'pointer',
+                                whiteSpace: 'nowrap',
+                              }}
+                            >
+                              {uploadingActionIdx === idx ? 'Đang tải...' : 'Upload Cloudinary'}
+                            </button>
+                          </div>
+                        </div>
+                      )}
 
                       {/* Display Settings */}
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.75rem' }}>
