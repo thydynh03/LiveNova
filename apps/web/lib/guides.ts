@@ -165,9 +165,21 @@ export const GUIDES: Guide[] = [
           { name: 'Lấy link overlay', text: 'Vào mục Overlay trong bảng điều khiển, bấm sao chép link OBS.' },
           { name: 'Thêm nguồn trong OBS', text: 'Trong OBS, thêm Source mới, chọn Browser.' },
           { name: 'Dán link và đặt kích thước', text: 'Dán link vào ô URL, đặt Width 1080 và Height 1920.' },
+          {
+            name: 'Bỏ tick "Shutdown source when not visible"',
+            text: 'Trong cửa sổ thuộc tính của Browser Source, bỏ dấu tick ở ô "Shutdown source when not visible" (bản tiếng Việt: "Tắt nguồn khi không hiển thị"). Ô này bật sẵn.',
+          },
           { name: 'Kéo vào đúng vị trí', text: 'Kéo lớp overlay lên trên nguồn camera trong danh sách Sources.' },
         ],
         note: 'Kích thước 1080×1920 là bắt buộc, không phải gợi ý — xem phần dưới.',
+      },
+      {
+        heading: 'Ô tick khiến trận đấu tự về 0 mỗi lần đổi cảnh',
+        paragraphs: [
+          'OBS bật sẵn "Shutdown source when not visible". Nghĩa là mỗi lần bạn chuyển sang cảnh khác, OBS đóng hẳn trang overlay; khi bạn quay lại, nó mở một trang mới tinh. Trang mới không biết gì về những gì vừa xảy ra.',
+          'Hậu quả thấy được là trận đấu về lại vạch xuất phát giữa buổi live, ngay sau một lần chuyển cảnh — thường là lúc bạn vừa cắt qua cảnh "sắp bắt đầu" rồi quay lại. Quà người xem vừa tặng biến mất cùng với nó.',
+          'Đây là loại lỗi gần như không ai tự tìm ra, vì chỗ hỏng và chỗ biểu hiện cách nhau quá xa: bạn thấy game reset, còn nguyên nhân là một ô tick trong hộp thoại thuộc tính bạn mở một lần rồi không mở lại nữa. Bỏ tick nó ngay từ đầu, và bỏ cho mọi cảnh có chứa overlay.',
+        ],
       },
       {
         heading: 'Vì sao phải là 1080×1920 chứ không phải 1920×1080',
@@ -187,6 +199,14 @@ export const GUIDES: Guide[] = [
       {
         q: 'Có cần cài phần mềm gì không?',
         a: 'Không. Cả hiệu ứng lẫn giọng đọc đều chạy trong OBS qua Browser Source. Ứng dụng máy tính chỉ cần khi bạn muốn quà bấm phím vào một trò chơi trên máy bạn.',
+      },
+      {
+        q: 'Có cần stream key của TikTok không?',
+        a: 'Không, và bạn cũng không cần lấy được nó. LiveNova không đẩy hình đi đâu cả: bạn vẫn LIVE như bình thường bằng điện thoại hoặc TikTok LIVE Studio, còn overlay chỉ là một lớp hiển thị nằm trong OBS trên máy bạn. Phần kết nối TikTok chỉ đọc bình luận và quà theo tên kênh — một chiều, không đụng gì tới luồng phát.',
+      },
+      {
+        q: 'Overlay tự về 0 giữa buổi live thì sao?',
+        a: 'Gần như chắc chắn là ô "Shutdown source when not visible" trong Browser Source còn được tick. Mỗi lần đổi cảnh, OBS đóng trang overlay và mở lại một trang mới, nên trạng thái trận đấu mất theo. Bỏ tick ô đó ở mọi cảnh có chứa overlay.',
       },
       {
         q: 'Link overlay lộ ra thì sao?',

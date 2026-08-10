@@ -21,6 +21,7 @@ import { warmVideos } from '../../lib/video-pool';
 import { SkillCinematic, type CinematicRequest } from './SkillCinematic';
 import { BattleVictory } from './BattleVictory';
 import { frameBudget } from '../../lib/frame-budget';
+import { buildFillerSquad } from '../../lib/filler-troops';
 /**
  * three.js is loaded only if a streamer actually switches to 3D.
  *
@@ -41,6 +42,9 @@ const LANE_OF: Record<string, string> = {
   bear: 'bear',
   capy: 'capy',
 };
+
+/** Bốn phe, theo thứ tự cố định — quân nền chia đều vòng tròn cho chúng. */
+const TEAM_KEYS = ['cat', 'dog', 'bear', 'capy'];
 
 const TEAM_COLOUR: Record<string, string> = {
   cat: '#c084fc',
@@ -153,9 +157,17 @@ const DEFAULT_4_KINGDOMS_STATE: BattleState = {
 export function BattleOverlayContent({
   customState,
   onCardClick,
+  fillerCount = 8,
 }: {
   customState?: BattleState;
   onCardClick?: (actionKey: string, giftName: string, power: number) => void;
+  /**
+   * Số quân nền đi lại khi chưa có ai tham gia. 0 để tắt.
+   *
+   * Mặc định bật: một bản đồ trống ở phút đầu trông như phần mềm hỏng, và
+   * người xem đầu tiên không có lý do gì để bước vào một chỗ không có ai.
+   */
+  fillerCount?: number;
 }) {
   const searchParams = useSearchParams();
   const token = searchParams ? searchParams.get('token') : null;
@@ -232,6 +244,43 @@ export function BattleOverlayContent({
   // Mirrors the branch in BattleMap: everything except the vector theme ends up
   // showing a painted field, either an uploaded background or the preset's.
   const hasPaintedMap = battle.mapTheme !== 'vector_runic_river';
+
+  /**
+   * Quân nền, cho tới khi có người thật.
+   *
+   * Điều kiện dừng là `battle.recentEvents.length > 0`, không phải một bộ đếm
+   * thời gian: khoảnh khắc món quà đầu tiên tới nơi thì bản đồ phải là của
+   * người đó. Một đợt quân trang trí đi lẫn vào đợt quân họ vừa mua sẽ làm loãng
+   * đúng cái mà họ vừa trả tiền để nhìn thấy.
+   *
+   * Chúng chỉ được sinh ra và tự đi hết bản đồ như mọi đơn vị khác; không có
+   * bước xoá, vì xoá giữa chừng sẽ là một nhóm lính biến mất trước mắt khán giả.
+   */
+  const fillerSeqRef = useRef(0);
+  const hasRealEvents = battle.recentEvents.length > 0;
+  useEffect(() => {
+    if (fillerCount <= 0 || hasRealEvents || !battle.active) return;
+
+    const emit = () => {
+      fillerSeqRef.current += 1;
+      troopCanvasRef.current?.spawn(
+        buildFillerSquad(fillerSeqRef.current, {
+          count: fillerCount,
+          teamKeys: TEAM_KEYS,
+          colourOf: (k) => TEAM_COLOUR[k] ?? '#e2e8f0',
+          laneOf: (k) => (LANE_OF[k] ?? 'cat') as LaneKey,
+          spriteOf: (k) => troopSpriteUrl(k, assets),
+        }),
+      );
+    };
+
+    emit();
+    // Thưa hơn nhịp quà thật rõ rệt. Đây là hậu cảnh có người qua lại, không
+    // phải một trận đấu đang diễn ra — dày quá thì lúc người thật tặng quà sẽ
+    // không thấy có gì thay đổi.
+    const id = setInterval(emit, 4000);
+    return () => clearInterval(id);
+  }, [fillerCount, hasRealEvents, battle.active, assets]);
 
   // Spawn troops & floating texts on recent events
   useEffect(() => {
