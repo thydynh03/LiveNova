@@ -1,8 +1,7 @@
-'use client';
-
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Icon } from '../ui/Icon';
 import { api } from '../../lib/api-client';
+import { readStoredBridgeToken, useLocalBridge } from '../../lib/use-local-bridge';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -150,6 +149,13 @@ export function RuleDryRunModal({ rule, onClose }: RuleDryRunModalProps) {
   const [result, setResult] = useState<any | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  const [bridgeToken, setBridgeToken] = useState('');
+  useEffect(() => {
+    setBridgeToken(readStoredBridgeToken());
+  }, []);
+
+  const bridge = useLocalBridge({ token: bridgeToken });
+
   async function handleRunTest(e: React.FormEvent) {
     e.preventDefault();
     setTesting(true);
@@ -165,6 +171,21 @@ export function RuleDryRunModal({ rule, onClose }: RuleDryRunModalProps) {
         content: eventType === 'comment' ? content : undefined,
       });
       setResult(res);
+
+      if (res?.match && Array.isArray(res.actionsTriggered)) {
+        for (const action of res.actionsTriggered) {
+          const payload = action.payload || {};
+          const isBlackout = payload.mediaType === 'blackout' || payload.url === 'blackout';
+          const isFlashbang = payload.mediaType === 'flashbang' || payload.url === 'flashbang';
+          if (isBlackout || isFlashbang) {
+            bridge.sendBlind(
+              isFlashbang ? 'flashbang' : 'blackout',
+              payload.durationMs || 5000,
+              payload.caption || '🙈 MÀN HÌNH MÁY TÍNH BỊ CHE 5s!',
+            );
+          }
+        }
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Không chạy thử được, thử lại nhé');
     } finally {
