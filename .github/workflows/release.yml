@@ -120,14 +120,19 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      # Not consumed by the desktop installer — the WebView is served from
-      # apps/desktop-app/frontend/dist. Kept as a release-time build check.
-      - name: Build Next.js web
-        run: pnpm --filter @livenova/web build
-        env:
-          NEXT_TELEMETRY_DISABLED: 1
-          NEXT_PUBLIC_API_URL: https://api.yourdomain.com
-          NEXT_PUBLIC_WS_URL: wss://api.yourdomain.com
+      # Bước dựng Next.js đã bị bỏ khỏi đây.
+      #
+      # Nó không đi vào bản cài: WebView lấy giao diện từ
+      # apps/desktop-app/frontend/dist. Nó ở đây như một phép kiểm lúc phát
+      # hành, nhưng nó chưa từng chạy được — thiếu bước dựng @livenova/shared
+      # trước, nên webpack không phân giải nổi gói đó và cả bản phát hành dừng
+      # lại. Không ai phát hiện ra vì bộ lọc tag khiến workflow này chưa bao giờ
+      # chạy.
+      #
+      # Sửa cho nó chạy được cũng không đáng: job `test` phía trên đã kiểm kiểu
+      # cho web, ci.yml đã dựng web ở mọi PR, và bước này dựng bằng địa chỉ giả
+      # `api.yourdomain.com` nên kết quả không nói lên điều gì. Cái nó thực sự
+      # làm là để một lỗi phía web chặn mất bản cài của ứng dụng máy tính.
 
       # Resolve version from git tag (exact same pattern as Agent Center)
       - name: Resolve version from tag
