@@ -1,0 +1,8 @@
+
+# Mô hình VRM dùng để đo hiệu năng tại chỗ.
+#
+# Không commit. Mô hình đang thử có siêu dữ liệu giấy phép ghi rõ
+# personal_commercial_use=disallow và corporate_commercial_use=disallow, mà
+# LiveNova là sản phẩm thương mại. Nó chỉ dùng làm vật đo trên máy lập trình,
+# và bản dựng phát hành phải thay bằng mô hình có giấy phép phù hợp.
+public/lab/*.vrm
