@@ -80,7 +80,8 @@ export function Navbar() {
                 <Link href="/login" style={{ fontWeight: 500 }}>
                   Đăng nhập
                 </Link>
-                <Link href="/register" className="btn btn-primary" style={{ minHeight: '40px', padding: '0.5rem 1rem' }}>
+                {/* 44px, not 40 — WCAG 2.5.8 target size, flagged by Lighthouse. */}
+              <Link href="/register" className="btn btn-primary" style={{ minHeight: '44px', padding: '0.5rem 1rem' }}>
                   Dùng thử miễn phí
                 </Link>
               </>
@@ -99,6 +100,14 @@ export function Navbar() {
             border: 'none',
             cursor: 'pointer',
             fontSize: '1.5rem',
+            // The 22px icon left the hit area ~22px wide; min-height alone (from
+            // globals.css) only fixed one axis.
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            minWidth: '44px',
+            minHeight: '44px',
+            padding: 0,
           }}
         >
           <Icon name={mobileMenuOpen ? 'close' : 'menu'} size={22} />

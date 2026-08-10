@@ -80,6 +80,9 @@ async function performRefresh(signal: AbortSignal): Promise<RefreshOutcome> {
     return { kind: 'unavailable' };
   }
 
+  // 204 = the BFF found no refresh cookie: no session to restore.
+  if (res.status === 204) return { kind: 'expired' };
+
   if (res.ok) {
     const data = (await res.json().catch(() => null)) as { accessToken?: string } | null;
     if (data?.accessToken) return { kind: 'ok', token: data.accessToken };
