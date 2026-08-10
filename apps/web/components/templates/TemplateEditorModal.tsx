@@ -19,7 +19,7 @@ export interface TemplateData {
   config: unknown;
   editableFields?: string[];
   published?: boolean;
-  assets?: { id: string; key: string; url: string; mediaType: string; createdAt: string }[];
+  assets?: { id: string; key: string; url: string; mediaType: string; createdAt?: string }[];
 }
 
 interface TemplateEditorModalProps {

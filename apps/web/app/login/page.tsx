@@ -53,6 +53,8 @@ function LoginForm() {
   const destination = requested && ALLOWED_REDIRECTS.has(requested) ? requested : defaultTarget;
 
   useEffect(() => {
+    // Safe to read `user` here: AuthContext only reports 'authenticated' once
+    // the profile fetch has settled, so the role is known by this point.
     if (status === 'authenticated') {
       const target = user?.role === 'ADMIN' && (!requested || !requested.startsWith('/admin')) ? '/admin' : destination;
       router.replace(target);

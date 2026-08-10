@@ -3,6 +3,7 @@
 import React from 'react';
 import { useApi } from '../../../../lib/use-api';
 import { LoadingState, ErrorState, EmptyState } from '../../../../components/common/States';
+import { AdminPageHeader } from '../../../../components/admin/AdminShell';
 
 interface AuditEntry {
   id: string;
@@ -25,13 +26,10 @@ export default function AdminAuditPage() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-      <div>
-        <h1 style={{ fontSize: '1.5rem', fontWeight: 700 }}>Nhật ký quản trị</h1>
-        <p style={{ color: 'hsl(var(--muted-foreground))', marginTop: '0.25rem', maxWidth: '62ch' }}>
-          Mọi hành động của quản trị viên đều ghi lại ở đây. Không có bảng này thì
-          “tự dưng mất credit” là câu hỏi không ai trả lời được.
-        </p>
-      </div>
+      <AdminPageHeader
+        title="Nhật ký quản trị"
+        description="Mọi hành động của quản trị viên đều ghi lại ở đây. Không có bảng này thì “tự dưng mất credit” là câu hỏi không ai trả lời được."
+      />
 
       {loading && <LoadingState />}
       {error && <ErrorState message={error} onRetry={reload} />}

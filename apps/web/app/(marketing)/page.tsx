@@ -356,7 +356,7 @@ export default function LandingPage() {
           >
             Buổi live tới, thử để máy lo phần còn lại
           </h2>
-          <Link href="/register" className="btn btn-primary">
+          <Link href="/register" className="btn btn-primary" data-track="Cuối trang — Đăng ký">
             Dùng thử miễn phí
             <Icon name="forward" size={18} />
           </Link>

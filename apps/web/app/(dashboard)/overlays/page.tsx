@@ -22,6 +22,7 @@ const LIVE_RENDERERS: Record<string, string> = {
   GOAL: '/overlays/goal',
   PK_BAR: '/overlays/pk',
   GAME_BATTLE: '/overlays/battle',
+  STAGE: '/overlays/stage',
 };
 
 /** Type codes are database values. Nobody streaming has to see PK_BAR. */
@@ -40,6 +41,11 @@ const DISPLAY: Record<string, { name: string; blurb: string; icon: IconName }> =
     name: 'Khung bình luận',
     blurb: 'Bình luận của khán giả chạy trên màn hình live.',
     icon: 'comment',
+  },
+  STAGE: {
+    name: 'Hiệu ứng sân khấu',
+    blurb: 'Khói, pháo hoa, kim tuyến, rung màn hình — chạy khi khán giả gõ lệnh hoặc tặng quà.',
+    icon: 'spark',
   },
   GOAL: {
     name: 'Thanh mục tiêu quà',
@@ -61,6 +67,7 @@ const AWAITING_PRODUCER: Record<string, string> = {
   GOAL: 'Hiện lên khi có món quà đầu tiên.',
   PK_BAR: 'Hiện lên khi bạn vào trận PK.',
   GAME_BATTLE: 'Có thể mở Trình mô phỏng hoặc vào trận live để kích hoạt.',
+  STAGE: 'Cần một kịch bản có hành động "Hiệu ứng sân khấu" thì mới chạy.',
 };
 
 function ObsGuide() {

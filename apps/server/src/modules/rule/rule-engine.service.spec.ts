@@ -350,4 +350,104 @@ describe('RuleEngineService', () => {
       expect(a.command.id).not.toBe(b.command.id);
     });
   });
+
+  describe('effect actions', () => {
+    function effectRule(payload: Record<string, unknown>) {
+      return ruleRow({ actions: [{ type: RuleActionType.EFFECT, payload }] });
+    }
+
+    /** Route STAGE lookups to `stageId` and everything else to `mediaId`. */
+    function overlays(stageId: string | null, mediaId: string | null = 'overlay-1') {
+      prisma.overlay.findFirst.mockImplementation(({ where }: { where: { type: string } }) =>
+        Promise.resolve(
+          where.type === 'STAGE'
+            ? stageId && { id: stageId }
+            : mediaId && { id: mediaId },
+        ),
+      );
+    }
+
+    it('sends the effect to the stage overlay when the user has one', async () => {
+      prisma.rule.findMany.mockResolvedValue([effectRule({ kind: 'fireworks' })]);
+      overlays('stage-1');
+
+      await service.handleLiveEvent(giftEvent());
+
+      const [dispatch] = dispatched();
+      expect(dispatch.overlayId).toBe('stage-1');
+      expect(dispatch.action.type).toBe(RuleActionType.EFFECT);
+      expect(dispatch.action.payload).toMatchObject({ kind: 'fireworks' });
+    });
+
+    it('falls back to the alerts overlay rather than dropping the effect', async () => {
+      prisma.rule.findMany.mockResolvedValue([effectRule({ kind: 'smoke' })]);
+      overlays(null, 'overlay-1');
+
+      await service.handleLiveEvent(giftEvent());
+
+      expect(dispatched()[0]?.overlayId).toBe('overlay-1');
+    });
+
+    it('dispatches nothing when the user has no overlay at all', async () => {
+      prisma.rule.findMany.mockResolvedValue([effectRule({ kind: 'smoke' })]);
+      overlays(null, null);
+      // resolveAlertOverlay tries to self-heal by creating the defaults.
+      (prisma.overlay as Record<string, unknown>).createMany = jest.fn().mockResolvedValue({});
+
+      await service.handleLiveEvent(giftEvent());
+
+      expect(dispatched()).toHaveLength(0);
+    });
+
+    it('drops an effect whose kind is not a real effect', async () => {
+      prisma.rule.findMany.mockResolvedValue([effectRule({ kind: 'lasers', durationMs: 2000 })]);
+      overlays('stage-1');
+
+      await service.handleLiveEvent(giftEvent());
+
+      expect(dispatched()).toHaveLength(0);
+    });
+
+    it('clamps a runaway duration before it reaches the browser source', async () => {
+      prisma.rule.findMany.mockResolvedValue([
+        effectRule({ kind: 'strobe', durationMs: 999_999_999, intensity: 12 }),
+      ]);
+      overlays('stage-1');
+
+      await service.handleLiveEvent(giftEvent());
+
+      expect(dispatched()[0]?.action.payload).toMatchObject({
+        durationMs: 15_000,
+        intensity: 1,
+      });
+    });
+
+    it('interpolates the caption before truncating it', async () => {
+      prisma.rule.findMany.mockResolvedValue([
+        effectRule({ kind: 'confetti', caption: 'Cảm ơn {sender} đã tặng {gift}' }),
+      ]);
+      overlays('stage-1');
+
+      await service.handleLiveEvent(giftEvent());
+
+      expect((dispatched()[0]?.action.payload as { caption: string }).caption).toBe(
+        'Cảm ơn Ngọc Hân đã tặng Sư tử',
+      );
+    });
+
+    it('re-reads the stage overlay after the user adds one', async () => {
+      prisma.rule.findMany.mockResolvedValue([effectRule({ kind: 'hype' })]);
+      overlays(null, 'overlay-1');
+      await service.handleLiveEvent(giftEvent());
+      expect(dispatched()[0]?.overlayId).toBe('overlay-1');
+
+      // Without the OVERLAY_CHANGED_EVENT hook the negative cache would keep
+      // sending effects to the alerts box for the life of the process.
+      overlays('stage-1');
+      service.onOverlaysChanged({ userId: 'user-1' });
+      await service.handleLiveEvent(giftEvent({ id: 'evt-2' }));
+
+      expect(dispatched()[1]?.overlayId).toBe('stage-1');
+    });
+  });
 });

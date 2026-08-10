@@ -21,7 +21,9 @@ interface AdminTemplate {
   published: boolean;
   config: unknown;
   editableFields: string[];
-  assets: { id: string; key: string; url: string; mediaType: string; createdAt: string }[];
+  // `createdAt` từng được khai ở đây nhưng `listForAdmin` không select nó —
+  // một trường luôn undefined mà kiểu dữ liệu lại khẳng định là có.
+  assets: { id: string; key: string; url: string; mediaType: string }[];
   _count: { applied: number };
 }
 
@@ -87,9 +89,9 @@ export default function AdminTemplatesPage() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap' }}>
-        <div>
-          <h1 style={{ fontSize: '1.5rem', fontWeight: 700, margin: 0 }}>Kho mẫu hệ thống</h1>
-          <p style={{ color: 'hsl(var(--muted-foreground))', fontSize: '0.85rem', marginTop: '0.25rem' }}>
+        <div className="admin-header__text">
+          <h1>Kho mẫu hệ thống</h1>
+          <p>
             Tạo và cấu hình các bộ game, kịch bản phản ứng hoặc hiệu ứng để streamer áp dụng trực tiếp.
           </p>
         </div>

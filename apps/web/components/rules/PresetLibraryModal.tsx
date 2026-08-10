@@ -40,6 +40,42 @@ const PRESETS_LIST = [
     description: 'Mỗi mốc thả tim sẽ tự động giáng Thiên Thạch xuống sàn đấu.',
     badge: 'Đấu trường',
   },
+  {
+    id: 'stage-fireworks-biggift',
+    title: 'Pháo hoa khi có quà lớn',
+    description: 'Quà từ 500 xu trở lên thì bắn pháo hoa kèm lời cảm ơn.',
+    badge: 'Sân khấu',
+  },
+  {
+    id: 'stage-confetti-gift',
+    title: 'Kim tuyến chào mỗi món quà',
+    description: 'Rắc kim tuyến mỗi khi có người tặng quà, dù nhỏ.',
+    badge: 'Sân khấu',
+  },
+  {
+    id: 'stage-smoke-comment',
+    title: 'Khói sân khấu theo lệnh chat',
+    description: 'Ai bình luận “khói” thì sân khấu bốc khói.',
+    badge: 'Sân khấu',
+  },
+  {
+    id: 'stage-hype-comment',
+    title: 'Hype theo lệnh chat',
+    description: 'Ai bình luận “hype” hoặc “quẩy” thì sân khấu bùng lên.',
+    badge: 'Sân khấu',
+  },
+  {
+    id: 'stage-shake-comment',
+    title: 'Rung màn hình theo lệnh chat',
+    description: 'Ai bình luận “rung” thì cả khung hình rung lên.',
+    badge: 'Sân khấu',
+  },
+  {
+    id: 'stage-strobe-comment',
+    title: 'Đèn nhấp nháy theo lệnh chat',
+    description: 'Bật đèn sàn nhảy. Tần số đã giới hạn để an toàn cho người xem nhạy sáng.',
+    badge: 'Sân khấu',
+  },
 ];
 
 export function PresetLibraryModal({ onClose, onSuccess }: PresetLibraryModalProps) {

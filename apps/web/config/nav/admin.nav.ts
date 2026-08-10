@@ -25,6 +25,20 @@ export const ADMIN_NAV_ITEMS: AdminNavItem[] = [
     icon: 'home',
     category: 'overview',
   },
+  {
+    id: 'admin-analytics',
+    href: '/admin/analytics',
+    label: 'Lưu Lượng & Hành Vi',
+    icon: 'chart',
+    category: 'overview',
+  },
+  {
+    id: 'admin-seo',
+    href: '/admin/seo',
+    label: 'Sức Khoẻ SEO',
+    icon: 'search',
+    category: 'overview',
+  },
   // II. Vận hành Live & Game
   {
     id: 'admin-games',

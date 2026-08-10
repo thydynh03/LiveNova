@@ -16,6 +16,7 @@ import {
   GAME_INPUT_EVENT,
   GameInputDispatch,
   clampMediaDuration,
+  readEffectPayload,
   readGameInput,
   BATTLE_ACTION_DISPATCH,
   BattleActionDispatchEvent,
@@ -77,6 +78,9 @@ export class RuleEngineService {
   /** userId → the overlay that renders alerts, or null if they have none. */
   private readonly alertOverlays = new Map<string, string | null>();
 
+  /** userId → the overlay that renders stage effects, or null if they have none. */
+  private readonly stageOverlays = new Map<string, string | null>();
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly eventEmitter: EventEmitter2,
@@ -87,6 +91,7 @@ export class RuleEngineService {
   invalidateUser(userId: string): void {
     this.ruleCache.delete(userId);
     this.alertOverlays.delete(userId);
+    this.stageOverlays.delete(userId);
   }
 
   /**
@@ -96,6 +101,7 @@ export class RuleEngineService {
   @OnEvent(OVERLAY_CHANGED_EVENT)
   onOverlaysChanged({ userId }: OverlayChangedEvent): void {
     this.alertOverlays.delete(userId);
+    this.stageOverlays.delete(userId);
   }
 
   @OnEvent('live.any')
@@ -157,6 +163,21 @@ export class RuleEngineService {
 
     let payload = this.normalisePayload(action, event);
 
+    // Runs after normalisePayload so the caption is interpolated before it is
+    // truncated. An EFFECT with no recognisable `kind` has nothing to draw, and
+    // dropping it here keeps a typo in the rule editor from reaching every
+    // browser source on every matching gift.
+    if (action.type === RuleActionType.EFFECT) {
+      const effect = readEffectPayload(payload);
+      if (!effect) {
+        this.logger.warn(
+          `Rule "${rule.name}" has an effect action with no usable kind; skipping`,
+        );
+        return;
+      }
+      payload = effect as unknown as Record<string, unknown>;
+    }
+
     if (action.type === RuleActionType.TTS_READ) {
       const speech = await this.synthesise(userId, rule, payload);
       if (!speech) return;
@@ -176,10 +197,10 @@ export class RuleEngineService {
     // Targeted at one overlay rather than broadcast to the user's room. A
     // streamer with both a chat and an alerts source open would otherwise get
     // the same line spoken twice, once from each browser source.
-    const overlayId = await this.resolveAlertOverlay(userId);
+    const overlayId = await this.resolveOverlayFor(userId, action.type);
     if (!overlayId) {
       this.logger.warn(
-        `Rule "${rule.name}" matched but user ${userId} has no enabled MEDIA overlay to render it`,
+        `Rule "${rule.name}" matched but user ${userId} has no enabled overlay to render it`,
       );
       return;
     }
@@ -264,6 +285,46 @@ export class RuleEngineService {
       );
       return null;
     }
+  }
+
+  /**
+   * Pick the browser source that should render this action.
+   *
+   * EFFECT actions belong on the stage overlay, which is a separate OBS source
+   * sized to the whole canvas — an alert popup is usually a small corner box,
+   * so smoke and confetti rendered there would be clipped to it. Users who have
+   * not added a stage overlay yet still get the effect, on their alerts source,
+   * rather than nothing at all.
+   */
+  private async resolveOverlayFor(
+    userId: string,
+    actionType: RuleActionType,
+  ): Promise<string | null> {
+    if (actionType === RuleActionType.EFFECT) {
+      const stage = await this.resolveStageOverlay(userId);
+      if (stage) return stage;
+    }
+    return this.resolveAlertOverlay(userId);
+  }
+
+  /**
+   * Unlike the alerts lookup this caches a negative result, because it has a
+   * fallback and must not re-query on every single event for the many users who
+   * will never add a stage overlay. `OVERLAY_CHANGED_EVENT` clears the entry the
+   * moment one is created.
+   */
+  private async resolveStageOverlay(userId: string): Promise<string | null> {
+    const cached = this.stageOverlays.get(userId);
+    if (cached !== undefined) return cached;
+
+    const overlay = await this.prisma.overlay.findFirst({
+      where: { userId, type: 'STAGE', enabled: true },
+      select: { id: true },
+    });
+
+    const id = overlay?.id ?? null;
+    this.stageOverlays.set(userId, id);
+    return id;
   }
 
   private async resolveAlertOverlay(userId: string): Promise<string | null> {
