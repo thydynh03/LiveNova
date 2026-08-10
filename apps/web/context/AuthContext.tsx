@@ -91,8 +91,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       .then(async (token) => {
         if (!mounted.current || generation !== authGeneration.current) return;
         if (token) {
-          setStatus('authenticated');
+          // Profile first, status second. See `signIn` for why the other order
+          // is a bug and not just a preference.
           await fetchUserProfile();
+          if (!mounted.current || generation !== authGeneration.current) return;
+          setStatus('authenticated');
         } else {
           setStatus('anonymous');
           setUser(null);
@@ -125,10 +128,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   ) => {
     await apiLogin(email, password, rememberMe, turnstileToken);
     authGeneration.current += 1;
-    if (mounted.current) {
-      setStatus('authenticated');
-      await fetchUserProfile();
-    }
+    if (!mounted.current) return;
+
+    // Load the profile *before* announcing the session.
+    //
+    // The other order publishes a render where `status` is 'authenticated' but
+    // `user` is still null, and everything that routes on role reads that
+    // render: the login page sent admins to /dashboard because `user?.role`
+    // was undefined for one tick, and the admin layout drew its
+    // "not an administrator" screen before the role arrived. Making
+    // 'authenticated' mean "session established *and* profile settled" removes
+    // the window rather than teaching each consumer to wait it out.
+    await fetchUserProfile();
+    if (mounted.current) setStatus('authenticated');
   }, [fetchUserProfile]);
 
   const signUp = useCallback(async (
@@ -144,10 +156,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const { verifyOtp: apiVerifyOtp } = await import('../lib/api-client');
     await apiVerifyOtp(email, code, type);
     authGeneration.current += 1;
-    if (mounted.current) {
-      setStatus('authenticated');
-      await fetchUserProfile();
-    }
+    if (!mounted.current) return;
+    await fetchUserProfile();
+    if (mounted.current) setStatus('authenticated');
   }, [fetchUserProfile]);
 
   const signOut = useCallback(async () => {

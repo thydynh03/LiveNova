@@ -60,6 +60,7 @@ export class OverlayService {
       OverlayType.MEDIA,
       OverlayType.CHAT,
       OverlayType.GAME_BATTLE,
+      OverlayType.STAGE,
     ];
 
     const missingTypes = defaultTypes.filter(

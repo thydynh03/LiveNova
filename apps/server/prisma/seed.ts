@@ -16,7 +16,7 @@ import { PrismaClient, Role, TemplateKind, GameMode } from '@prisma/client';
 // Rule JSON is compared by the shared evaluator, so it must use the shared
 // enums ("gift"), not Prisma's ("GIFT"). They are different vocabularies for
 // different layers and mixing them produces rules that silently never match.
-import { LiveEventType, RuleActionType } from '@livenova/shared';
+import { LiveEventType, RuleActionType, StageEffectKind } from '@livenova/shared';
 import * as argon2 from 'argon2';
 
 const prisma = new PrismaClient();
@@ -238,6 +238,174 @@ function starterTemplates(assets: string): StarterTemplateDef[] {
               {
                 type: RuleActionType.GAME_BATTLE_ACTION,
                 payload: { actionKey: 'meteor', teamKey: '' },
+              },
+            ],
+          },
+        ],
+      },
+    },
+    // Stage effects. Every one carries a cooldown: these fire off chat
+    // keywords, and without one a single viewer repeating "khói" turns the
+    // broadcast into a smoke machine nobody can see through.
+    {
+      slug: 'stage-smoke-comment',
+      kind: TemplateKind.RULE_PACK,
+      name: 'Khói sân khấu theo lệnh chat',
+      description: 'Ai bình luận "khói" thì sân khấu bốc khói.',
+      config: {
+        rules: [
+          {
+            name: 'Khói sân khấu',
+            enabled: true,
+            priority: 4,
+            cooldownMs: 5000,
+            conditions: {
+              eventType: [LiveEventType.COMMENT],
+              keywords: ['khói', 'khoi', 'smoke'],
+            },
+            actions: [
+              {
+                type: RuleActionType.EFFECT,
+                payload: { kind: StageEffectKind.SMOKE, durationMs: 4000, intensity: 0.6 },
+              },
+            ],
+          },
+        ],
+      },
+    },
+    {
+      slug: 'stage-fireworks-biggift',
+      kind: TemplateKind.RULE_PACK,
+      name: 'Pháo hoa khi có quà lớn',
+      description: 'Quà từ 500 xu trở lên thì bắn pháo hoa kèm lời cảm ơn.',
+      config: {
+        rules: [
+          {
+            name: 'Pháo hoa quà lớn',
+            enabled: true,
+            priority: 4,
+            cooldownMs: 5000,
+            conditions: { eventType: [LiveEventType.GIFT], minCoinValue: 500 },
+            actions: [
+              {
+                type: RuleActionType.EFFECT,
+                payload: {
+                  kind: StageEffectKind.FIREWORKS,
+                  durationMs: 6000,
+                  intensity: 0.8,
+                  caption: 'Cảm ơn {sender} đã tặng {gift}!',
+                },
+              },
+            ],
+          },
+        ],
+      },
+    },
+    {
+      slug: 'stage-confetti-gift',
+      kind: TemplateKind.RULE_PACK,
+      name: 'Kim tuyến chào mỗi món quà',
+      description: 'Rắc kim tuyến mỗi khi có người tặng quà, dù nhỏ.',
+      config: {
+        rules: [
+          {
+            name: 'Kim tuyến chào quà',
+            enabled: true,
+            priority: 5,
+            cooldownMs: 5000,
+            conditions: { eventType: [LiveEventType.GIFT] },
+            actions: [
+              {
+                type: RuleActionType.EFFECT,
+                payload: { kind: StageEffectKind.CONFETTI, durationMs: 3000, intensity: 0.6 },
+              },
+            ],
+          },
+        ],
+      },
+    },
+    {
+      slug: 'stage-hype-comment',
+      kind: TemplateKind.RULE_PACK,
+      name: 'Hype theo lệnh chat',
+      description: 'Ai bình luận "hype" hoặc "quẩy" thì sân khấu bùng lên.',
+      config: {
+        rules: [
+          {
+            name: 'Hype sân khấu',
+            enabled: true,
+            priority: 4,
+            cooldownMs: 5000,
+            conditions: {
+              eventType: [LiveEventType.COMMENT],
+              keywords: ['hype', 'quẩy', 'quay'],
+            },
+            actions: [
+              {
+                type: RuleActionType.EFFECT,
+                // Intensity stays moderate: HYPE includes a flash, and the
+                // frequency cap limits the rate but not how bright it gets.
+                payload: { kind: StageEffectKind.HYPE, durationMs: 2500, intensity: 0.5 },
+              },
+            ],
+          },
+        ],
+      },
+    },
+    {
+      slug: 'stage-shake-comment',
+      kind: TemplateKind.RULE_PACK,
+      name: 'Rung màn hình theo lệnh chat',
+      description: 'Ai bình luận "rung" thì cả khung hình rung lên.',
+      config: {
+        rules: [
+          {
+            name: 'Rung màn hình',
+            enabled: true,
+            priority: 4,
+            cooldownMs: 5000,
+            conditions: {
+              eventType: [LiveEventType.COMMENT],
+              keywords: ['rung', 'shake'],
+            },
+            actions: [
+              {
+                type: RuleActionType.EFFECT,
+                payload: { kind: StageEffectKind.SHAKE, durationMs: 1500, intensity: 0.7 },
+              },
+            ],
+          },
+        ],
+      },
+    },
+    {
+      slug: 'stage-strobe-comment',
+      kind: TemplateKind.RULE_PACK,
+      name: 'Đèn nhấp nháy theo lệnh chat',
+      description:
+        'Ai bình luận "nhấp nháy" thì bật đèn sàn nhảy. Đã giới hạn tần số để an toàn cho người xem nhạy sáng.',
+      config: {
+        rules: [
+          {
+            name: 'Đèn nhấp nháy',
+            enabled: true,
+            priority: 4,
+            // Longest cooldown of the set. The renderer caps the flash rate at
+            // STAGE_EFFECT_LIMITS.MAX_FLASH_HZ, but back-to-back triggers would
+            // still add up to a long unbroken stretch of flashing.
+            cooldownMs: 15_000,
+            conditions: {
+              eventType: [LiveEventType.COMMENT],
+              keywords: ['nhấp nháy', 'nhap nhay', 'strobe'],
+            },
+            actions: [
+              {
+                type: RuleActionType.EFFECT,
+                payload: {
+                  kind: StageEffectKind.STROBE,
+                  durationMs: 2000,
+                  intensity: 0.3,
+                },
               },
             ],
           },

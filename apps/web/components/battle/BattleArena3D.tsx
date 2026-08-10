@@ -116,7 +116,10 @@ export function BattleArena3D({ state, isDark = true }: Props) {
       flatShading: true,
     });
     const bridge = new THREE.Mesh(bridgeGeo, bridgeMat);
-    bridge.position.set(-pos.x * 0.45, 0.4, -pos.z * 0.45);
+    // Between this keep and the centre. The sign used to be negated, which put
+    // every kingdom's bridge in the diagonally opposite quadrant — so all four
+    // decks sat on the wrong side of the arena from the troops crossing them.
+    bridge.position.set(pos.x * 0.45, 0.4, pos.z * 0.45);
     bridge.rotation.y = pos.angle;
     scene.add(bridge);
 
@@ -412,8 +415,20 @@ export function BattleArena3D({ state, isDark = true }: Props) {
         }
 
         const start = CORNERS[unit.lane];
-        const currentX = start.x + (0 - start.x) * unit.progress + Math.sin(unit.progress * Math.PI) * unit.offset;
-        const currentZ = start.z + (0 - start.z) * unit.progress + Math.cos(unit.progress * Math.PI) * unit.offset;
+
+        // Scatter sideways across the deck, not around it. The offset used to
+        // be fed through sin() on X and cos() on Z, which swings a unit in a
+        // circle as it advances — it left the bridge on one side, crossed open
+        // water, and came back on the other. A fixed perpendicular offset that
+        // tapers toward the centre keeps the squad on the stone and closes the
+        // ranks up as they arrive.
+        const len = Math.hypot(start.x, start.z) || 1;
+        const perpX = start.z / len;
+        const perpZ = -start.x / len;
+        const spread = unit.offset * (1 - unit.progress);
+
+        const currentX = start.x * (1 - unit.progress) + perpX * spread;
+        const currentZ = start.z * (1 - unit.progress) + perpZ * spread;
 
         unit.mesh.position.set(currentX, 1.1 + Math.abs(Math.sin(time * 8 + unit.offset)) * 0.35, currentZ);
 

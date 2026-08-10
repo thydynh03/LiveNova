@@ -70,7 +70,7 @@ export function buildFillerSquad(seq: number, opts: FillerOptions): Troop[] {
       progress: i * -0.05,
       // Chậm hơn quân thật. Khi người thật tặng quà, đợt quân của họ phải vượt
       // lên trông thấy — nếu không thì món quà vừa mua không có gì để nhìn.
-      speed: 0.32,
+      speed: 0.15,
       offset: (Math.random() - 0.5) * 26,
       spriteUrl: opts.spriteOf(teamKey),
     });

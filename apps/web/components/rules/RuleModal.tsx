@@ -2,7 +2,22 @@
 
 import React, { useState, useRef } from 'react';
 import { Icon } from '../ui/Icon';
+import {
+  FLASHING_EFFECTS,
+  StageEffectKind,
+  STAGE_EFFECT_LIMITS,
+} from '@livenova/shared';
 import { uploadMedia, api } from '../../lib/api-client';
+
+/** Type codes are database values; nobody authoring a rule has to see `strobe`. */
+const EFFECT_LABELS: Record<StageEffectKind, string> = {
+  [StageEffectKind.SMOKE]: 'Khói sân khấu',
+  [StageEffectKind.FIREWORKS]: 'Pháo hoa',
+  [StageEffectKind.CONFETTI]: 'Kim tuyến rơi',
+  [StageEffectKind.STROBE]: 'Đèn nhấp nháy',
+  [StageEffectKind.SHAKE]: 'Rung màn hình',
+  [StageEffectKind.HYPE]: 'Hype (kim tuyến + đèn)',
+};
 
 export interface RuleModalProps {
   rule?: any | null;
@@ -116,6 +131,12 @@ export function RuleModal({ rule, onClose, onSuccess }: RuleModalProps) {
       newActions[index].payload = { text: 'Cảm ơn {sender}!' };
     } else if (type === 'game_battle_action') {
       newActions[index].payload = { actionKey: 'dragon', teamKey: '' };
+    } else if (type === 'effect') {
+      newActions[index].payload = {
+        kind: StageEffectKind.CONFETTI,
+        durationMs: STAGE_EFFECT_LIMITS.DEFAULT_DURATION_MS,
+        intensity: STAGE_EFFECT_LIMITS.DEFAULT_INTENSITY,
+      };
     }
     setActions(newActions);
   }
@@ -461,6 +482,7 @@ export function RuleModal({ rule, onClose, onSuccess }: RuleModalProps) {
                       <option value="media_popup">Video / Ảnh Popup trên OBS Overlay</option>
                       <option value="tts_read">Đọc giọng nói TTS (Text-to-Speech)</option>
                       <option value="game_battle_action">Gửi hiệu ứng vào Đấu trường Game</option>
+                      <option value="effect">Hiệu ứng sân khấu (Khói, Pháo hoa, Kim tuyến…)</option>
                     </select>
                   </div>
 
@@ -595,6 +617,102 @@ export function RuleModal({ rule, onClose, onSuccess }: RuleModalProps) {
                         onChange={(e) => updateActionPayload(idx, 'text', e.target.value)}
                         style={{ ...inputStyle, fontSize: '0.85rem' }}
                       />
+                    </div>
+                  )}
+
+                  {act.type === 'effect' && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                        <div>
+                          <label style={{ display: 'block', marginBottom: '0.3rem', fontSize: '0.85rem' }}>Loại hiệu ứng</label>
+                          <select
+                            value={act.payload.kind || StageEffectKind.CONFETTI}
+                            onChange={(e) => updateActionPayload(idx, 'kind', e.target.value)}
+                            style={{ ...inputStyle, background: '#18181b', padding: '0.5rem', fontSize: '0.85rem' }}
+                          >
+                            {Object.values(StageEffectKind).map((kind) => (
+                              <option key={kind} value={kind}>{EFFECT_LABELS[kind]}</option>
+                            ))}
+                          </select>
+                        </div>
+                        <div>
+                          <label style={{ display: 'block', marginBottom: '0.3rem', fontSize: '0.85rem' }}>Màu chủ đạo (Tùy chọn)</label>
+                          <input
+                            type="color"
+                            value={act.payload.color || '#ff4d6d'}
+                            onChange={(e) => updateActionPayload(idx, 'color', e.target.value)}
+                            style={{ ...inputStyle, padding: '0.25rem', height: '2.6rem' }}
+                          />
+                        </div>
+                      </div>
+
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                        <div>
+                          <label style={{ display: 'block', marginBottom: '0.3rem', fontSize: '0.8rem' }}>
+                            Thời lượng: {((act.payload.durationMs ?? STAGE_EFFECT_LIMITS.DEFAULT_DURATION_MS) / 1000).toFixed(1)}s
+                          </label>
+                          <input
+                            type="range"
+                            min={STAGE_EFFECT_LIMITS.MIN_DURATION_MS}
+                            max={STAGE_EFFECT_LIMITS.MAX_DURATION_MS}
+                            step={250}
+                            value={act.payload.durationMs ?? STAGE_EFFECT_LIMITS.DEFAULT_DURATION_MS}
+                            onChange={(e) => updateActionPayload(idx, 'durationMs', parseInt(e.target.value, 10))}
+                            style={{ width: '100%' }}
+                          />
+                        </div>
+                        <div>
+                          <label style={{ display: 'block', marginBottom: '0.3rem', fontSize: '0.8rem' }}>
+                            Cường độ: {Math.round((act.payload.intensity ?? STAGE_EFFECT_LIMITS.DEFAULT_INTENSITY) * 100)}%
+                          </label>
+                          <input
+                            type="range"
+                            min={0}
+                            max={100}
+                            value={Math.round((act.payload.intensity ?? STAGE_EFFECT_LIMITS.DEFAULT_INTENSITY) * 100)}
+                            onChange={(e) => updateActionPayload(idx, 'intensity', parseInt(e.target.value, 10) / 100)}
+                            style={{ width: '100%' }}
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label style={{ display: 'block', marginBottom: '0.3rem', fontSize: '0.8rem' }}>Chú thích Caption (Hỗ trợ &#123;sender&#125;, &#123;gift&#125;, &#123;coins&#125;)</label>
+                        <input
+                          type="text"
+                          placeholder="VD: {sender} vừa đốt cháy sân khấu!"
+                          value={act.payload.caption || ''}
+                          onChange={(e) => updateActionPayload(idx, 'caption', e.target.value)}
+                          style={{ ...inputStyle, fontSize: '0.85rem' }}
+                        />
+                      </div>
+
+                      {FLASHING_EFFECTS.includes(act.payload.kind) && (
+                        <div
+                          role="note"
+                          style={{
+                            display: 'flex',
+                            gap: '0.5rem',
+                            padding: '0.6rem 0.75rem',
+                            borderRadius: 'var(--radius)',
+                            border: '1px solid hsl(38 92% 50% / 0.4)',
+                            background: 'hsl(38 92% 50% / 0.1)',
+                            fontSize: '0.78rem',
+                            lineHeight: 1.45,
+                          }}
+                        >
+                          <Icon name="warning" size={16} />
+                          <span>
+                            Hiệu ứng nhấp nháy có thể ảnh hưởng người xem nhạy sáng (động kinh quang học).
+                            LiveNova đã giới hạn cứng tần số ở {STAGE_EFFECT_LIMITS.MAX_FLASH_HZ} Hz và giảm
+                            độ tương phản, nhưng bạn vẫn nên dùng tiết chế và báo trước cho khán giả.
+                          </span>
+                        </div>
+                      )}
+
+                      <span style={{ fontSize: '0.7rem', color: 'hsl(var(--muted-foreground))' }}>
+                        Cần bật Overlay “Hiệu ứng sân khấu” trong mục Overlays và thêm vào OBS thì hiệu ứng mới hiện.
+                      </span>
                     </div>
                   )}
 

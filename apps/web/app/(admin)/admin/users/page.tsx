@@ -6,6 +6,7 @@ import { api } from '../../../../lib/api-client';
 import { LoadingState, ErrorState, EmptyState } from '../../../../components/common/States';
 import { Icon } from '../../../../components/ui/Icon';
 import { ConfirmAction } from '../../../../components/common/ConfirmAction';
+import { AdminPageHeader } from '../../../../components/admin/AdminShell';
 
 interface AdminUser {
   id: string;
@@ -43,14 +44,12 @@ export default function AdminUsersPage() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-      <div>
-        <h1 style={{ fontSize: '1.5rem', fontWeight: 700 }}>Người dùng</h1>
-        {data && (
-          <p className="tabular" style={{ color: 'hsl(var(--muted-foreground))' }}>
-            {data.total.toLocaleString('vi-VN')} tài khoản
-          </p>
-        )}
-      </div>
+      <AdminPageHeader
+        title="Người dùng"
+        description={
+          data ? `${data.total.toLocaleString('vi-VN')} tài khoản trong hệ thống.` : undefined
+        }
+      />
 
       <form
         onSubmit={(e) => {

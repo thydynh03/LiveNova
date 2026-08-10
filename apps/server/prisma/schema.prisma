@@ -67,6 +67,7 @@ enum OverlayType {
   ROOM_ENTRY
   MEDIA
   GAME_BATTLE
+  STAGE
 }
 
 enum LiveEventType {
@@ -494,4 +495,50 @@ model BattleDonor {
 
   @@id([battleId, username])
   @@index([battleId, totalScore])
+}
+
+/// ─────────────────────────────────────────────────────────────────────────────
+/// Lưu lượng web.
+///
+/// Đo bằng bảng của chính mình chứ không nhúng Google Analytics: trang này có
+/// người dùng ở EU, và một thẻ script bên thứ ba đọc được toàn bộ hành vi của họ
+/// là chuyện phải xin phép — trong khi tất cả những gì cần trả lời chỉ là "hôm
+/// nay bao nhiêu người vào, xem gì, ở lại bao lâu".
+///
+/// Không lưu IP, không lưu user-agent thô, không đặt cookie. `visitorId` là một
+/// chuỗi ngẫu nhiên nằm trong sessionStorage của trình duyệt: nó phân biệt được
+/// hai phiên khác nhau trong cùng một ngày, và biến mất khi đóng tab. Đủ để đếm
+/// phiên, không đủ để theo dõi một con người qua thời gian — đó là chủ ý.
+/// ─────────────────────────────────────────────────────────────────────────────
+enum WebEventKind {
+  /// Mở một trang.
+  VIEW
+  /// Bấm vào thứ có gắn `data-track`.
+  CLICK
+  /// Rời một trang, kèm số giây đã ở lại.
+  LEAVE
+}
+
+model WebEvent {
+  id        String       @id @default(uuid())
+  kind      WebEventKind
+  /// Đường dẫn, đã bỏ query string. Query có thể chứa token đặt lại mật khẩu.
+  path      String
+  /// Nhãn của thứ được bấm, chỉ có với CLICK.
+  label     String?
+  /// Số giây ở lại trang, chỉ có với LEAVE.
+  dwellMs   Int?
+  /// Tên miền giới thiệu, không phải URL đầy đủ — đủ để biết khách tới từ
+  /// Google hay từ TikTok, không đủ để dựng lại họ vừa đọc gì ở bên kia.
+  referrer  String?
+  /// Phân loại thô từ user-agent: 'mobile' | 'desktop' | 'bot'.
+  device    String?
+  /// Phiên trình duyệt ẩn danh. Xem chú thích ở trên.
+  visitorId String
+  createdAt DateTime     @default(now())
+
+  @@index([createdAt])
+  @@index([path, createdAt])
+  @@index([visitorId, createdAt])
+  @@index([kind, createdAt])
 }

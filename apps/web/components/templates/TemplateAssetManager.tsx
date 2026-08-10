@@ -11,7 +11,8 @@ export interface TemplateAssetItem {
   key: string;
   url: string;
   mediaType: string;
-  createdAt: string;
+  /** Máy chủ không trả trường này; đừng khai là bắt buộc. */
+  createdAt?: string;
 }
 
 interface TemplateAssetManagerProps {

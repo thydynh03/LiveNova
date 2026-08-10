@@ -25,7 +25,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     );
   }
 
-  if (user && user.role !== 'ADMIN') {
+  // A session with no profile means the `/users/me` call failed. The role is
+  // unknown, so the safe reading is "not an administrator" — the previous
+  // condition required `user` to be truthy and fell through to rendering the
+  // full admin console when it was null.
+  if (!user || user.role !== 'ADMIN') {
     return (
       <main style={{ padding: '4rem 1.5rem', maxWidth: '560px', margin: '0 auto', textAlign: 'center' }}>
         <div
@@ -47,7 +51,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           Khu Vực Quản Trị Hệ Thống
         </h1>
         <p style={{ color: 'hsl(var(--muted-foreground))', lineHeight: 1.6, marginBottom: '2rem' }}>
-          Tài khoản <strong>{user.email}</strong> không thuộc nhóm Quản trị viên (Role: ADMIN). Bạn chỉ có quyền truy cập vào bảng điều khiển Streamer thông thường.
+          {user ? (
+            <>
+              Tài khoản <strong>{user.email}</strong> không thuộc nhóm Quản trị viên (Role: ADMIN). Bạn chỉ có quyền truy cập vào bảng điều khiển Streamer thông thường.
+            </>
+          ) : (
+            <>Không đọc được hồ sơ tài khoản nên chưa xác minh được quyền Quản trị viên. Thử tải lại trang.</>
+          )}
         </p>
         <Link href="/dashboard" className="btn btn-primary" style={{ display: 'inline-flex', gap: '0.5rem', alignItems: 'center' }}>
           <Icon name="back" size={18} />

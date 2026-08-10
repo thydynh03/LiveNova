@@ -1,5 +1,7 @@
 import type { Metadata, Viewport } from 'next';
+import { Suspense } from 'react';
 import { Be_Vietnam_Pro, JetBrains_Mono } from 'next/font/google';
+import { Tracker } from '../components/analytics/Tracker';
 import { ThemeProvider } from '../context/ThemeContext';
 import { AuthProvider } from '../context/AuthContext';
 import { themeInitScript } from '../lib/theme-script';
@@ -96,6 +98,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <ThemeProvider>
           <AuthProvider>{children}</AuthProvider>
         </ThemeProvider>
+        {/* Đo lưu lượng bằng bảng của chính mình. Không cookie, không IP,
+            không script bên thứ ba — xem chú thích trong Tracker. */}
+        <Suspense fallback={null}>
+          <Tracker />
+        </Suspense>
       </body>
     </html>
   );

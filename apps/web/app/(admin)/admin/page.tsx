@@ -17,26 +17,27 @@ interface MetricsResponse {
     totalRevenueVnd: number;
     totalCreditsBurned: number;
     totalEventsCount: number;
-    systemHealth: {
-      socketCluster: string;
-      proxyPoolHealth: string;
-      avgLatencyMs: number;
-      ttsCacheHitRate: string;
-    };
   };
+  /**
+   * Figures the product does not observe yet, named by the server.
+   *
+   * This is the contract that was missed: the API reports what it *cannot*
+   * measure rather than inventing a value, and the dashboard is supposed to
+   * print "chưa đo được" for each name in here. Declaring `systemHealth` on
+   * `summary` instead described a response the server has never sent.
+   */
+  unmeasured?: string[];
   charts: {
     revenueTrend: { date: string; revenue: number; creditsUsed: number }[];
-    giftDistribution: { name: string; count: number; percent: number; color: string }[];
-    gameModePopularity: { name: string; activeStreams: number; percent: number; color: string }[];
+    giftDistribution: { name: string; count: number; percent: number; coins?: number }[];
   };
   topStreamers: {
     id: string;
     displayName: string;
     email: string;
-    handle: string;
+    handle: string | null;
     isLive: boolean;
     balance: number;
-    coinsEstimated: number;
   }[];
   recentLiveSessions: {
     id: string;
@@ -49,6 +50,17 @@ interface MetricsResponse {
     endedAt: string | null;
   }[];
 }
+
+/** Rank colours for the gift mix bars. */
+const GIFT_COLOURS = ['#ec4899', '#8b5cf6', '#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#06b6d4', '#84cc16'];
+
+/** The infrastructure figures, and what each is called when it has no value. */
+const UNMEASURED_LABELS = [
+  { key: 'avgLatencyMs', label: 'Độ Trễ Socket (Ingest)', hint: 'Chưa có số đo từ ingest server' },
+  { key: 'proxyPoolHealth', label: 'Proxy Pool Health', hint: 'Chống chặn IP TikTok' },
+  { key: 'ttsCacheHitRate', label: 'TTS Cache Hit Rate', hint: 'Tiết kiệm chi phí API Voice' },
+  { key: 'socketCluster', label: 'WebSocket Cluster', hint: 'Trạng thái cụm socket' },
+] as const;
 
 export default function AdminDashboardPage() {
   const { data, loading, error, reload } = useApi<MetricsResponse>('/admin/metrics');
@@ -91,6 +103,7 @@ export default function AdminDashboardPage() {
 
   const topStreamers = data?.topStreamers || [];
   const recentLiveSessions = data?.recentLiveSessions || [];
+  const unmeasured = data?.unmeasured ?? UNMEASURED_LABELS.map((u) => u.key);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
@@ -493,7 +506,10 @@ export default function AdminDashboardPage() {
                     style={{
                       height: '100%',
                       width: `${gift.percent}%`,
-                      background: gift.color,
+                      // Màu do giao diện chọn theo thứ hạng. API trả tên quà và
+                      // số lượt, không trả `color` — thanh này trước đó nhận
+                      // `undefined` nên vẽ ra trong suốt.
+                      background: GIFT_COLOURS[idx % GIFT_COLOURS.length],
                       borderRadius: '999px',
                       transition: 'width 0.4s ease',
                     }}
@@ -560,66 +576,39 @@ export default function AdminDashboardPage() {
             </p>
           </div>
 
+          {/* Hạ tầng: máy chủ liệt kê những chỉ số nó CHƯA đo được, và ở đây
+              in đúng như vậy. Bản trước đọc `summary.systemHealth.avgLatencyMs`
+              — một trường API chưa bao giờ gửi — nên toàn trang ném TypeError và
+              đổ thành "Application error". Ô "Socket Uptime 100%" cũng bỏ: đó là
+              con số ghi cứng cho thứ không ai quan sát. */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-            <div
-              style={{
-                padding: '1rem',
-                borderRadius: 'var(--radius)',
-                background: 'hsl(var(--secondary) / 0.4)',
-                border: '1px solid hsl(var(--border))',
-              }}
-            >
-              <div style={{ fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))' }}>Độ Trễ Socket (Ingest)</div>
-              <div style={{ fontSize: '1.4rem', fontWeight: 800, color: '#10b981', margin: '0.25rem 0' }}>
-                {summary.systemHealth.avgLatencyMs} ms
-              </div>
-              <div style={{ fontSize: '0.7rem', color: '#10b981' }}>Cực thấp (Real-time)</div>
-            </div>
-
-            <div
-              style={{
-                padding: '1rem',
-                borderRadius: 'var(--radius)',
-                background: 'hsl(var(--secondary) / 0.4)',
-                border: '1px solid hsl(var(--border))',
-              }}
-            >
-              <div style={{ fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))' }}>Proxy Pool Health</div>
-              <div style={{ fontSize: '1.4rem', fontWeight: 800, color: '#3b82f6', margin: '0.25rem 0' }}>
-                {summary.systemHealth.proxyPoolHealth}
-              </div>
-              <div style={{ fontSize: '0.7rem', color: 'hsl(var(--muted-foreground))' }}>Chống chặn IP TikTok</div>
-            </div>
-
-            <div
-              style={{
-                padding: '1rem',
-                borderRadius: 'var(--radius)',
-                background: 'hsl(var(--secondary) / 0.4)',
-                border: '1px solid hsl(var(--border))',
-              }}
-            >
-              <div style={{ fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))' }}>TTS Cache Hit Rate</div>
-              <div style={{ fontSize: '1.4rem', fontWeight: 800, color: '#8b5cf6', margin: '0.25rem 0' }}>
-                {summary.systemHealth.ttsCacheHitRate}
-              </div>
-              <div style={{ fontSize: '0.7rem', color: 'hsl(var(--muted-foreground))' }}>Tiết kiệm chi phí API Voice</div>
-            </div>
-
-            <div
-              style={{
-                padding: '1rem',
-                borderRadius: 'var(--radius)',
-                background: 'hsl(var(--secondary) / 0.4)',
-                border: '1px solid hsl(var(--border))',
-              }}
-            >
-              <div style={{ fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))' }}>Socket Uptime</div>
-              <div style={{ fontSize: '1.4rem', fontWeight: 800, color: '#10b981', margin: '0.25rem 0' }}>
-                100%
-              </div>
-              <div style={{ fontSize: '0.7rem', color: '#10b981' }}>Không gián đoạn phiên</div>
-            </div>
+            {UNMEASURED_LABELS.map(({ key, label, hint }) => {
+              const measured = !unmeasured.includes(key);
+              return (
+                <div
+                  key={key}
+                  style={{
+                    padding: '1rem',
+                    borderRadius: 'var(--radius)',
+                    background: 'hsl(var(--secondary) / 0.4)',
+                    border: '1px solid hsl(var(--border))',
+                  }}
+                >
+                  <div style={{ fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))' }}>{label}</div>
+                  <div
+                    style={{
+                      fontSize: '1.4rem',
+                      fontWeight: 800,
+                      margin: '0.25rem 0',
+                      color: 'hsl(var(--muted-foreground))',
+                    }}
+                  >
+                    {measured ? '—' : 'Chưa đo được'}
+                  </div>
+                  <div style={{ fontSize: '0.7rem', color: 'hsl(var(--muted-foreground))' }}>{hint}</div>
+                </div>
+              );
+            })}
           </div>
         </div>
       </div>
@@ -690,7 +679,9 @@ export default function AdminDashboardPage() {
                         </span>
                         <div>
                           <div style={{ fontWeight: 700 }}>{s.displayName}</div>
-                          <div style={{ fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))' }}>{s.handle}</div>
+                          <div style={{ fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))' }}>
+                            {s.handle ?? 'Chưa liên kết kênh'}
+                          </div>
                         </div>
                       </div>
                     </td>
@@ -716,8 +707,10 @@ export default function AdminDashboardPage() {
                         <span style={{ fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))' }}>Offline</span>
                       )}
                     </td>
-                    <td style={{ padding: '0.75rem 0', fontWeight: 600 }}>
-                      {s.coinsEstimated.toLocaleString('vi-VN')}
+                    {/* Cột này từng đọc `s.coinsEstimated` — API không trả, và
+                        `undefined.toLocaleString()` là lỗi thứ hai cùng loại. */}
+                    <td style={{ padding: '0.75rem 0', fontWeight: 600, color: 'hsl(var(--muted-foreground))' }}>
+                      —
                     </td>
                     <td style={{ padding: '0.75rem 0', textAlign: 'right', fontWeight: 700, color: 'hsl(var(--primary))' }}>
                       {s.balance.toLocaleString('vi-VN')} xu

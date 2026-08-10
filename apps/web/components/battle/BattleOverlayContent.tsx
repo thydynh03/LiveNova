@@ -313,7 +313,11 @@ export function BattleOverlayContent({
           colour,
           // Negative start staggers the squad so it reads as a column, not a dot.
           progress: i * -0.08,
-          speed: isBig ? 0.85 : 0.55,
+          // Roughly four seconds to cross, against the ~1.8s it used to take.
+          // The march is no longer the whole show — units now stop at the
+          // centre and fight — so it can afford to read as an advance rather
+          // than a dash, and a viewer has time to see whose soldiers they are.
+          speed: isBig ? 0.34 : 0.24,
           offset: (Math.random() - 0.5) * 22,
           spriteUrl: troopSpriteUrl(newEvt.teamKey, assets),
         }));

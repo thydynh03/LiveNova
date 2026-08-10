@@ -101,11 +101,11 @@ export function Hero() {
             transition={{ duration: 0.6, delay: 0.16, ease: EASE }}
             style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}
           >
-            <Link href="/register" className="btn btn-primary">
+            <Link href="/register" className="btn btn-primary" data-track="Hero — Dùng thử miễn phí">
               Dùng thử miễn phí
               <Icon name="forward" size={18} />
             </Link>
-            <Link href="#tinh-nang" className="btn btn-secondary">
+            <Link href="#tinh-nang" className="btn btn-secondary" data-track="Hero — Xem cách hoạt động">
               Xem cách hoạt động
             </Link>
           </motion.div>

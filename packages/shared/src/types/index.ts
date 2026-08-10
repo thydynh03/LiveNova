@@ -224,6 +224,125 @@ export const MEDIA_POPUP_LIMITS = {
   MAX_QUEUE_LENGTH: 20,
 } as const;
 
+/** The visual effects a RuleActionType.EFFECT action can trigger on the stage overlay. */
+export enum StageEffectKind {
+  /** Smoke rising from the bottom edge. */
+  SMOKE = 'smoke',
+  /** Shells bursting at random points. */
+  FIREWORKS = 'fireworks',
+  /** Paper falling from the top edge. */
+  CONFETTI = 'confetti',
+  /** Rhythmic light pulse. Frequency-capped — see STAGE_EFFECT_LIMITS. */
+  STROBE = 'strobe',
+  /** Whole-frame shake. */
+  SHAKE = 'shake',
+  /** Composite burst: confetti plus a short strobe. */
+  HYPE = 'hype',
+}
+
+/** Payload of a RuleActionType.EFFECT action. */
+export interface EffectPayload {
+  kind: StageEffectKind;
+  /** How long the effect runs. Clamped server-side. */
+  durationMs: number;
+  /** 0..1. Drives particle count, opacity and amplitude. */
+  intensity: number;
+  /** `#RRGGBB`. Absent means the effect picks its own palette. */
+  color?: string;
+  /** Short line rendered alongside the effect. Already interpolated. */
+  caption?: string;
+}
+
+export const STAGE_EFFECT_LIMITS = {
+  MIN_DURATION_MS: 500,
+  MAX_DURATION_MS: 15_000,
+  DEFAULT_DURATION_MS: 3_000,
+  DEFAULT_INTENSITY: 0.6,
+  /**
+   * Beyond this, the overlay drops the oldest running effect rather than
+   * queueing. An effect that started ten seconds ago no longer relates to
+   * anything happening on stream, and stacking them unbounded is how a
+   * browser source stops rendering entirely.
+   */
+  MAX_CONCURRENT: 4,
+  MAX_CAPTION_LENGTH: 80,
+  /**
+   * Photosensitive-epilepsy guard. Flashing above ~3 Hz at high contrast is
+   * the documented trigger range, so this is a hard ceiling that `intensity`
+   * cannot raise — it may only lower the contrast, never raise the rate.
+   */
+  MAX_FLASH_HZ: 3,
+} as const;
+
+/** The effects that flash and therefore need the reduced-motion fallback. */
+export const FLASHING_EFFECTS: readonly StageEffectKind[] = [
+  StageEffectKind.STROBE,
+  StageEffectKind.HYPE,
+];
+
+const HEX_COLOR = /^#[0-9a-fA-F]{6}$/;
+
+function isStageEffectKind(value: unknown): value is StageEffectKind {
+  return (
+    typeof value === 'string' &&
+    (Object.values(StageEffectKind) as string[]).includes(value)
+  );
+}
+
+/**
+ * Read an EFFECT action payload written by a rule author.
+ *
+ * Returns null when `kind` is missing or unknown, which is the only
+ * unrecoverable case: every other field has a sane default, but there is no
+ * such thing as a default effect to render.
+ *
+ * Everything here is enforced server-side rather than trusted from the rule
+ * JSON. `RuleActionDto.payload` is an unvalidated `Record<string, unknown>`,
+ * so without this a `durationMs` of 999999999 would pin an effect over the
+ * broadcast with no way to dismiss it from the overlay.
+ */
+export function readEffectPayload(payload: unknown): EffectPayload | null {
+  const raw = (payload ?? {}) as Record<string, unknown>;
+
+  if (!isStageEffectKind(raw.kind)) return null;
+
+  const rawDuration = raw.durationMs;
+  const duration =
+    typeof rawDuration === 'number' && Number.isFinite(rawDuration)
+      ? rawDuration
+      : STAGE_EFFECT_LIMITS.DEFAULT_DURATION_MS;
+
+  const rawIntensity = raw.intensity;
+  const intensity =
+    typeof rawIntensity === 'number' && Number.isFinite(rawIntensity)
+      ? rawIntensity
+      : STAGE_EFFECT_LIMITS.DEFAULT_INTENSITY;
+
+  const result: EffectPayload = {
+    kind: raw.kind,
+    durationMs: Math.round(
+      Math.min(
+        Math.max(duration, STAGE_EFFECT_LIMITS.MIN_DURATION_MS),
+        STAGE_EFFECT_LIMITS.MAX_DURATION_MS,
+      ),
+    ),
+    intensity: Math.min(Math.max(intensity, 0), 1),
+  };
+
+  // A malformed colour drops the field instead of failing the action: the
+  // effect has its own palette, and losing the whole alert over a typo in a
+  // colour picker is a worse outcome than the wrong shade of pink.
+  if (typeof raw.color === 'string' && HEX_COLOR.test(raw.color)) {
+    result.color = raw.color;
+  }
+
+  if (typeof raw.caption === 'string' && raw.caption !== '') {
+    result.caption = raw.caption.slice(0, STAGE_EFFECT_LIMITS.MAX_CAPTION_LENGTH);
+  }
+
+  return result;
+}
+
 /** The subset of a LiveEvent an overlay is allowed to see and render. */
 export interface OverlayEventContext {
   type: LiveEventType;
