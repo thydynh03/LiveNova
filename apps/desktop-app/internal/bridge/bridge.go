@@ -56,6 +56,22 @@ type State struct {
 	sessionToken string
 
 	activity *activityLog
+	onBlind  func(effectType string, durationMS uint64, caption string)
+}
+
+func (s *State) SetBlindHandler(handler func(effectType string, durationMS uint64, caption string)) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.onBlind = handler
+}
+
+func (s *State) triggerBlind(effectType string, durationMS uint64, caption string) {
+	s.mu.RLock()
+	handler := s.onBlind
+	s.mu.RUnlock()
+	if handler != nil {
+		handler(effectType, durationMS, caption)
+	}
 }
 
 // New builds a State with a freshly generated session token.
@@ -212,7 +228,7 @@ func (s *State) handler(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 
-		reply := handleCommand(msg)
+		reply := handleCommand(s, msg)
 		s.recordCommand(reply)
 		if !reply.OK {
 			slog.Warn("Local Bridge command refused", "type", reply.Type, "err", reply.Error)

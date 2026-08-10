@@ -27,6 +27,9 @@ type Command struct {
 
 	HoldMS     uint64 `json:"holdMs,omitempty"`
 	CooldownMS uint64 `json:"cooldownMs,omitempty"`
+	DurationMS uint64 `json:"durationMs,omitempty"`
+	Caption    string `json:"caption,omitempty"`
+	EffectType string `json:"effectType,omitempty"`
 }
 
 // Reply is the response to a Command.
@@ -38,9 +41,11 @@ type Reply struct {
 }
 
 const (
-	CommandKeyPress = "key_press"
-	CommandHalt     = "halt"
-	CommandPing     = "ping"
+	CommandKeyPress  = "key_press"
+	CommandHalt      = "halt"
+	CommandPing      = "ping"
+	CommandBlackout  = "blackout"
+	CommandFlashbang = "flashbang"
 )
 
 // ErrResumeNotRemote is returned when a client asks to lift the emergency stop.
@@ -62,7 +67,7 @@ var ErrUnknownCommand = errors.New("lệnh không hợp lệ")
 // It never returns an error: a malformed or refused command produces a reply
 // with OK=false. Dropping the connection instead would take down every other
 // binding because one message was wrong.
-func handleCommand(raw []byte) Reply {
+func handleCommand(s *State, raw []byte) Reply {
 	var cmd Command
 	if err := json.Unmarshal(raw, &cmd); err != nil {
 		return Reply{Type: "error", OK: false, Error: "không đọc được JSON"}
@@ -81,6 +86,16 @@ func handleCommand(raw []byte) Reply {
 		if err := keysim.PressKey(cmd.VKCode, cmd.HoldMS, cmd.CooldownMS); err != nil {
 			reply.Error = err.Error()
 			return reply
+		}
+		reply.OK = true
+
+	case CommandBlackout, CommandFlashbang:
+		duration := cmd.DurationMS
+		if duration == 0 {
+			duration = 5000
+		}
+		if s != nil {
+			s.triggerBlind(cmd.Type, duration, cmd.Caption)
 		}
 		reply.OK = true
 

@@ -21,27 +21,7 @@ export class UploadController {
   @HttpCode(HttpStatus.OK)
   @UseInterceptors(FileInterceptor('file'))
   async uploadImage(@UploadedFile() file: Express.Multer.File) {
-    if (!file) {
-      throw new BadRequestException('Vui lòng chọn tệp hình ảnh');
-    }
-
-    // Only allow images
-    if (!file.mimetype.startsWith('image/')) {
-      throw new BadRequestException('Chỉ chấp nhận các tệp định dạng hình ảnh (PNG, JPG, WEBP, GIF, SVG)');
-    }
-
-    // 10MB cap
-    if (file.size > 10 * 1024 * 1024) {
-      throw new BadRequestException('Kích thước tệp vượt quá 10MB');
-    }
-
-    const result = await this.cloudinaryService.uploadFile(file, 'livenova/avatars');
-    return {
-      url: result.secure_url,
-      publicId: result.public_id,
-      format: result.format,
-      bytes: result.bytes,
-    };
+    return this.uploadMedia(file);
   }
 
   @Post('media')
@@ -49,18 +29,17 @@ export class UploadController {
   @UseInterceptors(FileInterceptor('file'))
   async uploadMedia(@UploadedFile() file: Express.Multer.File) {
     if (!file) {
-      throw new BadRequestException('Vui lòng chọn tệp media');
+      throw new BadRequestException('Vui lòng chọn tệp hình ảnh hoặc video');
     }
 
     // Allow images and videos
     if (!file.mimetype.startsWith('image/') && !file.mimetype.startsWith('video/')) {
-      throw new BadRequestException('Chỉ chấp nhận các tệp hình ảnh hoặc video');
+      throw new BadRequestException('Chỉ chấp nhận các tệp hình ảnh (PNG, JPG, WEBP, GIF, SVG) hoặc Video (MP4, WEBM)');
     }
 
-    // 50MB cap for videos, 10MB for images
-    const maxSize = file.mimetype.startsWith('video/') ? 50 * 1024 * 1024 : 10 * 1024 * 1024;
-    if (file.size > maxSize) {
-      throw new BadRequestException(`Kích thước tệp vượt quá giới hạn (${maxSize / (1024 * 1024)}MB)`);
+    // 100MB cap for media files
+    if (file.size > 100 * 1024 * 1024) {
+      throw new BadRequestException('Kích thước tệp vượt quá 100MB');
     }
 
     const result = await this.cloudinaryService.uploadFile(file, 'livenova/media');

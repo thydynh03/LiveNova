@@ -213,26 +213,93 @@ export class RuleService {
     };
   }
 
+  private static readonly FALLBACK_PRESETS: Record<string, CreateRuleDto[]> = {
+    'blackout-troll': [
+      {
+        name: 'Troll Che Màn Hình 5s',
+        enabled: true,
+        priority: 0,
+        conditions: { eventType: [LiveEventType.GIFT], minCoinValue: 1 },
+        actions: [
+          {
+            type: RuleActionType.MEDIA_POPUP,
+            payload: {
+              mediaType: 'blackout' as any,
+              url: 'blackout',
+              durationMs: 5000,
+              position: 'center',
+              caption: '🙈 MÀN HÌNH BỊ CHE 5s! Cảm ơn {sender} đã tặng {gift}!',
+            },
+          },
+        ],
+      },
+    ],
+    'rose-popup': [
+      {
+        name: 'Cảm ơn Hoa Hồng',
+        enabled: true,
+        priority: 1,
+        conditions: { eventType: [LiveEventType.GIFT], giftName: 'Rose' },
+        actions: [
+          {
+            type: RuleActionType.MEDIA_POPUP,
+            payload: {
+              mediaType: 'image',
+              url: '/uploads/thanks-rose.gif',
+              durationMs: 5000,
+              position: 'center',
+              caption: 'Cảm ơn {sender} đã tặng Hoa Hồng!',
+            },
+          },
+        ],
+      },
+    ],
+    'dragon-gift': [
+      {
+        name: 'Siêu quà',
+        enabled: true,
+        priority: 0,
+        conditions: { eventType: [LiveEventType.GIFT], minCoinValue: 1000 },
+        actions: [
+          {
+            type: RuleActionType.MEDIA_POPUP,
+            payload: {
+              mediaType: 'video',
+              url: '/DogDonate.mp4',
+              durationMs: 8000,
+              position: 'center',
+              caption: 'SIÊU VIP {sender} đã tặng {gift} ({coins} xu)!',
+            },
+          },
+        ],
+      },
+    ],
+  };
+
   /**
    * Áp một mẫu luật theo slug.
-   *
-   * Trước đây ba preset nằm cứng trong file này. Giờ chúng là `Template` loại
-   * RULE_PACK trong DB do seed tạo, nên admin sửa được mà không cần deploy.
-   * Endpoint cũ giữ nguyên để không phá client nào đang gọi.
    */
   async applyPreset(userId: string, presetSlug: string) {
+    let rules: CreateRuleDto[] = [];
+
     const template = await this.prisma.template.findFirst({
       where: { slug: presetSlug, published: true },
       select: { config: true },
     });
 
-    if (!template) {
-      throw new NotFoundException(`Preset '${presetSlug}' not found`);
+    if (template?.config) {
+      const cfg = template.config as unknown as { rules?: CreateRuleDto[] };
+      if (Array.isArray(cfg.rules)) {
+        rules = cfg.rules;
+      }
     }
 
-    const { rules } = template.config as unknown as { rules: CreateRuleDto[] };
-    if (!Array.isArray(rules) || rules.length === 0) {
-      throw new NotFoundException(`Preset '${presetSlug}' không có luật nào`);
+    if (rules.length === 0 && RuleService.FALLBACK_PRESETS[presetSlug]) {
+      rules = RuleService.FALLBACK_PRESETS[presetSlug];
+    }
+
+    if (rules.length === 0) {
+      throw new NotFoundException(`Preset '${presetSlug}' not found`);
     }
 
     const created = [];
