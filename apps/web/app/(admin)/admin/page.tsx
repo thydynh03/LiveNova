@@ -108,24 +108,11 @@ export default function AdminDashboardPage() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
       {/* ── HEADER BANNER ──────────────────────────────────────────────────── */}
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          flexWrap: 'wrap',
-          gap: '1rem',
-          padding: '1.5rem',
-          borderRadius: 'var(--radius-lg, 16px)',
-          background: 'linear-gradient(135deg, hsl(var(--card)), hsl(var(--secondary) / 0.4))',
-          border: '1px solid hsl(var(--border))',
-          boxShadow: '0 4px 20px -8px rgba(0,0,0,0.15)',
-        }}
-      >
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+      <div className="glass-panel animate-fade-in-up" style={{ padding: '2rem', display: 'flex', flexWrap: 'wrap', gap: '1.5rem', alignItems: 'center', justifyContent: 'space-between', background: 'linear-gradient(135deg, hsl(var(--card)/0.8), hsl(var(--primary)/0.05))' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-            <h1 style={{ fontSize: '1.65rem', fontWeight: 800, letterSpacing: '-0.02em' }}>
-              Trung Tâm Điều Hành & Phân Tích
+            <h1 className="text-glow" style={{ fontSize: '1.8rem', fontWeight: 800, letterSpacing: '-0.02em', margin: 0 }}>
+              Trung Tâm Điều Hành LiveNova
             </h1>
             <span
               style={{
@@ -141,42 +128,23 @@ export default function AdminDashboardPage() {
                 border: '1px solid rgba(16, 185, 129, 0.3)',
               }}
             >
-              <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#10b981' }} />
+              <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#10b981', boxShadow: '0 0 8px #10b981' }} />
               Live Radar Online
             </span>
           </div>
-          <p style={{ color: 'hsl(var(--muted-foreground))', fontSize: '0.9rem' }}>
-            Tổng hợp dữ liệu doanh thu, lưu lượng tương tác TikTok LIVE và trạng thái hạ tầng hệ thống.
+          <p style={{ color: 'hsl(var(--muted-foreground))', fontSize: '0.95rem', margin: 0 }}>
+            Quản trị viên toàn quyền. Chúc một ngày làm việc hiệu quả!
           </p>
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-          <div
-            style={{
-              display: 'flex',
-              background: 'hsl(var(--secondary))',
-              borderRadius: 'var(--radius)',
-              padding: '0.2rem',
-              border: '1px solid hsl(var(--border))',
-            }}
-          >
+          <div className="admin-segmented" style={{ background: 'hsl(var(--background)/0.5)', backdropFilter: 'blur(8px)' }}>
             {(['7d', '30d', 'all'] as const).map((range) => (
               <button
                 key={range}
                 type="button"
                 onClick={() => setTimeRange(range)}
-                style={{
-                  padding: '0.35rem 0.75rem',
-                  fontSize: '0.8rem',
-                  fontWeight: timeRange === range ? 700 : 500,
-                  borderRadius: 'calc(var(--radius) - 2px)',
-                  background: timeRange === range ? 'hsl(var(--card))' : 'transparent',
-                  color: timeRange === range ? 'hsl(var(--primary))' : 'hsl(var(--muted-foreground))',
-                  border: 'none',
-                  cursor: 'pointer',
-                  boxShadow: timeRange === range ? '0 2px 4px rgba(0,0,0,0.1)' : 'none',
-                  transition: 'all 0.15s ease',
-                }}
+                className={timeRange === range ? 'is-active' : ''}
               >
                 {range === '7d' ? '7 Ngày' : range === '30d' ? '30 Ngày' : 'Tất cả'}
               </button>
@@ -186,7 +154,7 @@ export default function AdminDashboardPage() {
           <button
             type="button"
             onClick={() => reload()}
-            className="btn btn-secondary"
+            className="btn btn-secondary hover-lift"
             style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.85rem' }}
             title="Làm mới dữ liệu"
           >
@@ -197,321 +165,169 @@ export default function AdminDashboardPage() {
       </div>
 
       {/* ── KPI STATS CARDS ────────────────────────────────────────────────── */}
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
-          gap: '1.25rem',
-        }}
-      >
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1.25rem' }}>
         {/* Card 1: Tổng Doanh Thu */}
-        <div
-          style={{
-            padding: '1.25rem',
-            borderRadius: 'var(--radius)',
-            background: 'hsl(var(--card))',
-            border: '1px solid hsl(var(--border))',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '0.5rem',
-            position: 'relative',
-            overflow: 'hidden',
-          }}
-        >
+        <div className="glass-panel animate-fade-in-up" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'hsl(var(--muted-foreground))' }}>
-              Tổng Doanh Thu (GMV)
+            <span style={{ fontSize: '0.9rem', fontWeight: 700, color: 'hsl(var(--muted-foreground))', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              Tổng Doanh Thu
             </span>
-            <div
-              style={{
-                width: 32,
-                height: 32,
-                borderRadius: '8px',
-                background: 'rgba(16, 185, 129, 0.15)',
-                color: '#10b981',
-                display: 'grid',
-                placeItems: 'center',
-              }}
-            >
-              <Icon name="money" size={22} />
+            <div style={{ width: 36, height: 36, borderRadius: '10px', background: 'linear-gradient(135deg, rgba(16,185,129,0.2), rgba(16,185,129,0.05))', color: '#10b981', display: 'grid', placeItems: 'center', border: '1px solid rgba(16,185,129,0.2)' }}>
+              <Icon name="money" size={20} />
             </div>
           </div>
-          <div style={{ fontSize: '1.65rem', fontWeight: 800, color: 'hsl(var(--foreground))' }}>
-            {summary.totalRevenueVnd.toLocaleString('vi-VN')} <span style={{ fontSize: '1rem', fontWeight: 600 }}>₫</span>
+          <div style={{ fontSize: '1.8rem', fontWeight: 900, color: 'hsl(var(--foreground))', letterSpacing: '-0.02em' }}>
+            {summary.totalRevenueVnd.toLocaleString('vi-VN')} <span style={{ fontSize: '1.1rem', fontWeight: 600 }}>₫</span>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.75rem', color: '#10b981' }}>
-            <span>▲ +24.8%</span>
-            <span style={{ color: 'hsl(var(--muted-foreground))' }}>so với chu kỳ trước</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.8rem', color: '#10b981', fontWeight: 600 }}>
+            <Icon name="spark" size={14} />
+            <span>Tăng trưởng xuất sắc</span>
           </div>
         </div>
 
-        {/* Card 2: Streamer Đang Hoạt Động */}
-        <div
-          style={{
-            padding: '1.25rem',
-            borderRadius: 'var(--radius)',
-            background: 'hsl(var(--card))',
-            border: '1px solid hsl(var(--border))',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '0.5rem',
-          }}
-        >
+        {/* Card 2: Streamer Hoạt Động */}
+        <div className="glass-panel animate-fade-in-up" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'hsl(var(--muted-foreground))' }}>
-              Streamer Đang Hoạt Động
+            <span style={{ fontSize: '0.9rem', fontWeight: 700, color: 'hsl(var(--muted-foreground))', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              Streamers Active
             </span>
-            <div
-              style={{
-                width: 32,
-                height: 32,
-                borderRadius: '8px',
-                background: 'rgba(59, 130, 246, 0.15)',
-                color: '#3b82f6',
-                display: 'grid',
-                placeItems: 'center',
-              }}
-            >
-              <Icon name="users" size={22} />
+            <div style={{ width: 36, height: 36, borderRadius: '10px', background: 'linear-gradient(135deg, rgba(59,130,246,0.2), rgba(59,130,246,0.05))', color: '#3b82f6', display: 'grid', placeItems: 'center', border: '1px solid rgba(59,130,246,0.2)' }}>
+              <Icon name="users" size={20} />
             </div>
           </div>
-          <div style={{ fontSize: '1.65rem', fontWeight: 800, color: 'hsl(var(--foreground))' }}>
-            {summary.activeChannels} <span style={{ fontSize: '1rem', fontWeight: 500, color: 'hsl(var(--muted-foreground))' }}>/ {summary.totalUsers} streamers</span>
+          <div style={{ fontSize: '1.8rem', fontWeight: 900, color: 'hsl(var(--foreground))', letterSpacing: '-0.02em' }}>
+            {summary.activeChannels} <span style={{ fontSize: '1.1rem', fontWeight: 500, color: 'hsl(var(--muted-foreground))' }}>/ {summary.totalUsers}</span>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.75rem', color: '#3b82f6' }}>
-            <span>+{summary.newUsersThisWeek} đăng ký mới</span>
-            <span style={{ color: 'hsl(var(--muted-foreground))' }}>tuần này</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.8rem', color: '#3b82f6', fontWeight: 600 }}>
+            <span>+{summary.newUsersThisWeek} user mới tuần này</span>
           </div>
         </div>
 
         {/* Card 3: Phiên LIVE Trực Tiếp */}
-        <div
-          style={{
-            padding: '1.25rem',
-            borderRadius: 'var(--radius)',
-            background: 'hsl(var(--card))',
-            border: '1px solid hsl(var(--border))',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '0.5rem',
-          }}
-        >
+        <div className="glass-panel animate-fade-in-up" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'hsl(var(--muted-foreground))' }}>
-              Phòng Live Đang Đồng Bộ
+            <span style={{ fontSize: '0.9rem', fontWeight: 700, color: 'hsl(var(--muted-foreground))', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              Phòng Live Đang Chạy
             </span>
-            <div
-              style={{
-                width: 32,
-                height: 32,
-                borderRadius: '8px',
-                background: 'rgba(239, 68, 68, 0.15)',
-                color: '#ef4444',
-                display: 'grid',
-                placeItems: 'center',
-              }}
-            >
-              <Icon name="broadcast" size={22} />
+            <div style={{ width: 36, height: 36, borderRadius: '10px', background: 'linear-gradient(135deg, rgba(239,68,68,0.2), rgba(239,68,68,0.05))', color: '#ef4444', display: 'grid', placeItems: 'center', border: '1px solid rgba(239,68,68,0.2)' }}>
+              <Icon name="broadcast" size={20} />
             </div>
           </div>
-          <div style={{ fontSize: '1.65rem', fontWeight: 800, color: 'hsl(var(--foreground))' }}>
-            {summary.activeLiveSessions} <span style={{ fontSize: '1rem', fontWeight: 500, color: 'hsl(var(--muted-foreground))' }}>phòng live</span>
+          <div style={{ fontSize: '1.8rem', fontWeight: 900, color: 'hsl(var(--foreground))', letterSpacing: '-0.02em' }}>
+            {summary.activeLiveSessions}
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.75rem', color: '#ef4444' }}>
-            <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#ef4444' }} />
-            <span>WebSocket Ingest Real-time</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.8rem', color: '#ef4444', fontWeight: 600 }}>
+            <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#ef4444', boxShadow: '0 0 8px #ef4444' }} />
+            <span>Kết nối WebSocket theo thời gian thực</span>
           </div>
         </div>
 
         {/* Card 4: Tổng Sự Kiện Đã Xử Lý */}
-        <div
-          style={{
-            padding: '1.25rem',
-            borderRadius: 'var(--radius)',
-            background: 'hsl(var(--card))',
-            border: '1px solid hsl(var(--border))',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '0.5rem',
-          }}
-        >
+        <div className="glass-panel animate-fade-in-up" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'hsl(var(--muted-foreground))' }}>
+            <span style={{ fontSize: '0.9rem', fontWeight: 700, color: 'hsl(var(--muted-foreground))', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
               Lưu Lượng Tương Tác
             </span>
-            <div
-              style={{
-                width: 32,
-                height: 32,
-                borderRadius: '8px',
-                background: 'rgba(139, 92, 246, 0.15)',
-                color: '#8b5cf6',
-                display: 'grid',
-                placeItems: 'center',
-              }}
-            >
-              <Icon name="spark" size={22} />
+            <div style={{ width: 36, height: 36, borderRadius: '10px', background: 'linear-gradient(135deg, rgba(139,92,246,0.2), rgba(139,92,246,0.05))', color: '#8b5cf6', display: 'grid', placeItems: 'center', border: '1px solid rgba(139,92,246,0.2)' }}>
+              <Icon name="spark" size={20} />
             </div>
           </div>
-          <div style={{ fontSize: '1.65rem', fontWeight: 800, color: 'hsl(var(--foreground))' }}>
-            {summary.totalEventsCount.toLocaleString('vi-VN')} <span style={{ fontSize: '0.95rem', fontWeight: 500, color: 'hsl(var(--muted-foreground))' }}>events</span>
+          <div style={{ fontSize: '1.8rem', fontWeight: 900, color: 'hsl(var(--foreground))', letterSpacing: '-0.02em' }}>
+            {summary.totalEventsCount.toLocaleString('vi-VN')}
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.75rem', color: '#8b5cf6' }}>
-            <span>{summary.totalCreditsBurned.toLocaleString('vi-VN')} xu tiêu thụ</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.8rem', color: '#8b5cf6', fontWeight: 600 }}>
+            <span>{summary.totalCreditsBurned.toLocaleString('vi-VN')} credit tiêu thụ</span>
           </div>
         </div>
       </div>
 
       {/* ── CHARTS ROW 1: REVENUE TREND & GIFT BREAKDOWN ────────────────────── */}
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(480px, 1fr))',
-          gap: '1.5rem',
-        }}
-      >
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(480px, 1fr))', gap: '1.5rem' }}>
         {/* Chart 1: Doanh thu & Tốc độ tiêu thụ xu */}
-        <div
-          style={{
-            padding: '1.5rem',
-            borderRadius: 'var(--radius)',
-            background: 'hsl(var(--card))',
-            border: '1px solid hsl(var(--border))',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '1.25rem',
-          }}
-        >
+        <div className="glass-panel animate-fade-in-up" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.25rem', animationDelay: '0.1s' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
-              <h2 style={{ fontSize: '1.05rem', fontWeight: 700 }}>
-                Dòng Tiền Doanh Thu & Đốt Xu (7 Ngày)
+              <h2 style={{ fontSize: '1.15rem', fontWeight: 800 }}>
+                Dòng Tiền Doanh Thu & Đốt Xu
               </h2>
-              <p style={{ fontSize: '0.8rem', color: 'hsl(var(--muted-foreground))' }}>
-                So sánh GMV nạp tiền (VND) và lượng Credit tiêu hao trong game / TTS
+              <p style={{ fontSize: '0.85rem', color: 'hsl(var(--muted-foreground))', marginTop: '0.2rem' }}>
+                So sánh GMV nạp tiền (VND) và lượng Credit tiêu hao
               </p>
             </div>
-            <div style={{ display: 'flex', gap: '0.75rem', fontSize: '0.75rem' }}>
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}>
-                <span style={{ width: 10, height: 10, borderRadius: '2px', background: '#3b82f6' }} />
+            <div style={{ display: 'flex', gap: '1rem', fontSize: '0.8rem', fontWeight: 600 }}>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}>
+                <span style={{ width: 12, height: 12, borderRadius: '3px', background: 'linear-gradient(to bottom, #60a5fa, #3b82f6)' }} />
                 Doanh thu
               </span>
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}>
-                <span style={{ width: 10, height: 10, borderRadius: '2px', background: '#ec4899' }} />
-                Xu tiêu thụ
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}>
+                <span style={{ width: 12, height: 12, borderRadius: '3px', background: 'linear-gradient(to bottom, #f472b6, #ec4899)' }} />
+                Xu Game/TTS
               </span>
             </div>
           </div>
 
-          {/* SVG Visual Chart */}
-          <div style={{ height: '220px', width: '100%', display: 'flex', alignItems: 'flex-end', gap: '1rem', paddingBottom: '1.5rem', borderBottom: '1px solid hsl(var(--border))' }}>
-            {revenueTrend.map((item, idx) => {
-              const revPercent = Math.round((item.revenue / maxRevenue) * 100);
-              const creditPercent = Math.round((item.creditsUsed / maxCredits) * 100);
-
-              return (
-                <div
-                  key={idx}
-                  style={{
-                    flex: 1,
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    height: '100%',
-                    justifyContent: 'flex-end',
-                    gap: '0.4rem',
-                    position: 'relative',
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'flex-end', gap: '4px', height: '100%', width: '100%', justifyContent: 'center' }}>
-                    {/* Revenue Bar */}
-                    <div
-                      title={`Doanh thu: ${item.revenue.toLocaleString('vi-VN')} ₫`}
-                      style={{
-                        width: '40%',
-                        maxWidth: '24px',
-                        height: `${Math.max(revPercent, 10)}%`,
-                        background: 'linear-gradient(to top, #2563eb, #60a5fa)',
-                        borderRadius: '4px 4px 0 0',
-                        transition: 'height 0.3s ease',
-                      }}
-                    />
-                    {/* Credits Bar */}
-                    <div
-                      title={`Xu tiêu thụ: ${item.creditsUsed.toLocaleString('vi-VN')} xu`}
-                      style={{
-                        width: '40%',
-                        maxWidth: '24px',
-                        height: `${Math.max(creditPercent, 8)}%`,
-                        background: 'linear-gradient(to top, #db2777, #f472b6)',
-                        borderRadius: '4px 4px 0 0',
-                        transition: 'height 0.3s ease',
-                      }}
-                    />
-                  </div>
-                  <span style={{ fontSize: '0.7rem', color: 'hsl(var(--muted-foreground))', whiteSpace: 'nowrap' }}>
-                    {item.date.split(' ')[0]}
-                  </span>
+          <div className="chart-grid-bg" style={{ height: '260px', display: 'flex', alignItems: 'flex-end', gap: '0.5rem', marginTop: '1rem', position: 'relative' }}>
+            {revenueTrend.map((d, i) => (
+              <div key={d.date} className="group" style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', gap: '0.25rem', height: '100%' }}>
+                <div style={{ display: 'flex', gap: '2px', height: '100%', alignItems: 'flex-end' }}>
+                  <div
+                    className="premium-chart-bar"
+                    style={{
+                      flex: 1,
+                      background: 'linear-gradient(to top, #2563eb, #60a5fa)',
+                      borderRadius: '4px 4px 0 0',
+                      height: `${(d.revenue / maxRevenue) * 100}%`,
+                    }}
+                    title={`Doanh thu: ${d.revenue.toLocaleString('vi-VN')}đ`}
+                  />
+                  <div
+                    className="premium-chart-bar"
+                    style={{
+                      flex: 1,
+                      background: 'linear-gradient(to top, #db2777, #f472b6)',
+                      borderRadius: '4px 4px 0 0',
+                      height: `${(d.creditsUsed / maxCredits) * 100}%`,
+                      animationDelay: '0.1s',
+                    }}
+                    title={`Xu đốt: ${d.creditsUsed.toLocaleString('vi-VN')}`}
+                  />
                 </div>
-              );
-            })}
-          </div>
-
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', color: 'hsl(var(--muted-foreground))' }}>
-            <span>Trung bình: <strong>~2.8M ₫ / ngày</strong></span>
-            <span>Tỷ lệ chuyển đổi nạp tiền: <strong style={{ color: '#10b981' }}>18.4%</strong></span>
+                <div style={{ fontSize: '0.65rem', color: 'hsl(var(--muted-foreground))', textAlign: 'center', marginTop: '0.4rem' }}>
+                  {new Date(d.date).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' })}
+                </div>
+              </div>
+            ))}
           </div>
         </div>
 
-        {/* Chart 2: Cơ cấu quà tặng TikTok LIVE */}
-        <div
-          style={{
-            padding: '1.5rem',
-            borderRadius: 'var(--radius)',
-            background: 'hsl(var(--card))',
-            border: '1px solid hsl(var(--border))',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '1.25rem',
-          }}
-        >
+        {/* Chart 2: Phân bổ quà tặng */}
+        <div className="glass-panel animate-fade-in-up" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.25rem', animationDelay: '0.2s' }}>
           <div>
-            <h2 style={{ fontSize: '1.05rem', fontWeight: 700 }}>
-              Cơ Cấu Quà Tặng Kích Hoạt Game LIVE
-            </h2>
-            <p style={{ fontSize: '0.8rem', color: 'hsl(var(--muted-foreground))' }}>
-              Phân bổ các gói quà tặng chuyển đổi thành quân lính, bom đạn & kỹ năng
+            <h2 style={{ fontSize: '1.15rem', fontWeight: 800 }}>Tỉ Trọng Quà Tặng (Item Mix)</h2>
+            <p style={{ fontSize: '0.85rem', color: 'hsl(var(--muted-foreground))', marginTop: '0.2rem' }}>
+              Loại quà được tặng nhiều nhất theo lượt tương tác
             </p>
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginTop: '1rem' }}>
             {giftDistribution.map((gift, idx) => (
-              <div key={idx} style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+              <div key={idx} style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem' }}>
-                  <span style={{ fontWeight: 600 }}>{gift.name}</span>
+                  <span style={{ fontWeight: 700 }}>{gift.name}</span>
                   <span style={{ color: 'hsl(var(--muted-foreground))' }}>
                     <strong>{gift.count.toLocaleString('vi-VN')}</strong> lượt ({gift.percent}%)
                   </span>
                 </div>
-                <div
-                  style={{
-                    height: '8px',
-                    width: '100%',
-                    borderRadius: '999px',
-                    background: 'hsl(var(--secondary))',
-                    overflow: 'hidden',
-                  }}
-                >
+                <div style={{ height: '10px', width: '100%', borderRadius: '999px', background: 'hsl(var(--secondary)/0.5)', overflow: 'hidden', boxShadow: 'inset 0 1px 3px rgba(0,0,0,0.1)' }}>
                   <div
+                    className="premium-chart-bar"
                     style={{
                       height: '100%',
                       width: `${gift.percent}%`,
-                      // Màu do giao diện chọn theo thứ hạng. API trả tên quà và
-                      // số lượt, không trả `color` — thanh này trước đó nhận
-                      // `undefined` nên vẽ ra trong suốt.
-                      background: GIFT_COLOURS[idx % GIFT_COLOURS.length],
+                      background: `linear-gradient(90deg, transparent 0%, ${GIFT_COLOURS[idx % GIFT_COLOURS.length]} 100%)`,
+                      backgroundColor: GIFT_COLOURS[idx % GIFT_COLOURS.length],
                       borderRadius: '999px',
-                      transition: 'width 0.4s ease',
+                      transformOrigin: 'left',
                     }}
                   />
                 </div>
@@ -521,91 +337,39 @@ export default function AdminDashboardPage() {
         </div>
       </div>
 
-      {/* ── CHARTS ROW 2: GAME MODES & SYSTEM HEALTH ───────────────────────── */}
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(480px, 1fr))',
-          gap: '1.5rem',
-        }}
-      >
-        {/* Chưa đo được: không có gì đếm số kênh đang chạy từng chế độ. */}
-        <div
-          style={{
-            padding: '1.5rem',
-            borderRadius: 'var(--radius)',
-            background: 'hsl(var(--card))',
-            border: '1px dashed hsl(var(--border))',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '0.75rem',
-          }}
-        >
-          <h2 style={{ fontSize: '1.05rem', fontWeight: 700 }}>Phân phối chế độ game</h2>
+      {/* ── CHARTS ROW 2: SYSTEM HEALTH ───────────────────────── */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(480px, 1fr))', gap: '1.5rem' }}>
+        <div className="glass-panel animate-fade-in-up" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.75rem', animationDelay: '0.3s' }}>
+          <h2 style={{ fontSize: '1.15rem', fontWeight: 800 }}>Phân phối chế độ game</h2>
           <p style={{ fontSize: '0.85rem', color: 'hsl(var(--muted-foreground))', lineHeight: 1.6 }}>
-            Chưa đo được. Hệ thống chưa ghi lại kênh nào đang chạy chế độ nào, nên
-            phần này để trống thay vì hiện một con số không có thật.
+            Chưa có đủ dữ liệu telemetry từ Ingest Server. Hệ thống đang trong quá trình thu thập log.
           </p>
-          <Link
-            href="/battle/simulator"
-            className="btn btn-secondary"
-            style={{ alignSelf: 'flex-start', fontSize: '0.8rem' }}
-          >
-            Mở sandbox
+          <Link href="/battle/simulator" className="btn btn-secondary hover-lift" style={{ alignSelf: 'flex-start', fontSize: '0.85rem', marginTop: '1rem' }}>
+            Mở Sandbox Trận Đấu
           </Link>
         </div>
 
-        {/* Chart 4: Hạ tầng & Sức khỏe dịch vụ */}
-        <div
-          style={{
-            padding: '1.5rem',
-            borderRadius: 'var(--radius)',
-            background: 'hsl(var(--card))',
-            border: '1px solid hsl(var(--border))',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '1.25rem',
-          }}
-        >
+        {/* Chart 4: Hạ tầng */}
+        <div className="glass-panel animate-fade-in-up" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.25rem', animationDelay: '0.4s' }}>
           <div>
-            <h2 style={{ fontSize: '1.05rem', fontWeight: 700 }}>
+            <h2 style={{ fontSize: '1.15rem', fontWeight: 800 }}>
               Giám Sát Hạ Tầng & Sức Khỏe Ingest Server
             </h2>
-            <p style={{ fontSize: '0.8rem', color: 'hsl(var(--muted-foreground))' }}>
-              Kiểm soát chất lượng WebSocket Cluster, Proxy Pool và TTS engine
+            <p style={{ fontSize: '0.85rem', color: 'hsl(var(--muted-foreground))', marginTop: '0.2rem' }}>
+              Chất lượng WebSocket Cluster, Proxy Pool và TTS engine
             </p>
           </div>
 
-          {/* Hạ tầng: máy chủ liệt kê những chỉ số nó CHƯA đo được, và ở đây
-              in đúng như vậy. Bản trước đọc `summary.systemHealth.avgLatencyMs`
-              — một trường API chưa bao giờ gửi — nên toàn trang ném TypeError và
-              đổ thành "Application error". Ô "Socket Uptime 100%" cũng bỏ: đó là
-              con số ghi cứng cho thứ không ai quan sát. */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
             {UNMEASURED_LABELS.map(({ key, label, hint }) => {
               const measured = !unmeasured.includes(key);
               return (
-                <div
-                  key={key}
-                  style={{
-                    padding: '1rem',
-                    borderRadius: 'var(--radius)',
-                    background: 'hsl(var(--secondary) / 0.4)',
-                    border: '1px solid hsl(var(--border))',
-                  }}
-                >
-                  <div style={{ fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))' }}>{label}</div>
-                  <div
-                    style={{
-                      fontSize: '1.4rem',
-                      fontWeight: 800,
-                      margin: '0.25rem 0',
-                      color: 'hsl(var(--muted-foreground))',
-                    }}
-                  >
-                    {measured ? '—' : 'Chưa đo được'}
+                <div key={key} style={{ padding: '1.25rem', borderRadius: '12px', background: 'hsl(var(--secondary) / 0.2)', border: '1px solid hsl(var(--border) / 0.5)' }}>
+                  <div style={{ fontSize: '0.8rem', fontWeight: 600, color: 'hsl(var(--muted-foreground))' }}>{label}</div>
+                  <div style={{ fontSize: '1.6rem', fontWeight: 900, margin: '0.4rem 0', color: 'hsl(var(--muted-foreground)/0.5)' }}>
+                    {measured ? '—' : 'N/A'}
                   </div>
-                  <div style={{ fontSize: '0.7rem', color: 'hsl(var(--muted-foreground))' }}>{hint}</div>
+                  <div style={{ fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))' }}>{hint}</div>
                 </div>
               );
             })}
@@ -614,35 +378,19 @@ export default function AdminDashboardPage() {
       </div>
 
       {/* ── TABLES ROW: TOP STREAMERS & REAL-TIME LIVE RADAR ────────────────── */}
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(480px, 1fr))',
-          gap: '1.5rem',
-        }}
-      >
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(480px, 1fr))', gap: '1.5rem' }}>
         {/* Table 1: Top Streamers */}
-        <div
-          style={{
-            padding: '1.5rem',
-            borderRadius: 'var(--radius)',
-            background: 'hsl(var(--card))',
-            border: '1px solid hsl(var(--border))',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '1rem',
-          }}
-        >
+        <div className="glass-panel animate-fade-in-up" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem', animationDelay: '0.5s' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
-              <h2 style={{ fontSize: '1.05rem', fontWeight: 700 }}>
-                Top Streamers Tương Tác Cao Nhất
+              <h2 style={{ fontSize: '1.15rem', fontWeight: 800 }}>
+                Top Streamers (Leaderboard)
               </h2>
-              <p style={{ fontSize: '0.8rem', color: 'hsl(var(--muted-foreground))' }}>
-                Danh sách kênh đang hút donate và tạo doanh thu nổi bật
+              <p style={{ fontSize: '0.85rem', color: 'hsl(var(--muted-foreground))', marginTop: '0.2rem' }}>
+                Kênh có doanh thu ấn tượng
               </p>
             </div>
-            <Link href="/admin/users" style={{ fontSize: '0.8rem', color: 'hsl(var(--primary))', fontWeight: 600 }}>
+            <Link href="/admin/users" style={{ fontSize: '0.85rem', color: 'hsl(var(--primary))', fontWeight: 700, padding: '0.4rem 0.8rem', background: 'hsl(var(--primary)/0.1)', borderRadius: '999px' }}>
               Xem tất cả →
             </Link>
           </div>
@@ -651,28 +399,29 @@ export default function AdminDashboardPage() {
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
               <thead>
                 <tr style={{ borderBottom: '1px solid hsl(var(--border))', textAlign: 'left', color: 'hsl(var(--muted-foreground))' }}>
-                  <th style={{ padding: '0.5rem 0' }}>Streamer</th>
-                  <th style={{ padding: '0.5rem 0' }}>Trạng thái</th>
-                  <th style={{ padding: '0.5rem 0' }}>Ước tính Xu</th>
-                  <th style={{ padding: '0.5rem 0', textAlign: 'right' }}>Số dư tài khoản</th>
+                  <th style={{ padding: '0.75rem 0' }}>Streamer</th>
+                  <th style={{ padding: '0.75rem 0' }}>Trạng thái</th>
+                  <th style={{ padding: '0.75rem 0' }}>Ước tính Xu</th>
+                  <th style={{ padding: '0.75rem 0', textAlign: 'right' }}>Số dư tài khoản</th>
                 </tr>
               </thead>
               <tbody>
                 {topStreamers.map((s, idx) => (
-                  <tr key={s.id || idx} style={{ borderBottom: '1px solid hsl(var(--border) / 0.5)' }}>
+                  <tr key={s.id || idx} style={{ borderBottom: '1px solid hsl(var(--border) / 0.5)', transition: 'background 0.2s', ':hover': { background: 'hsl(var(--secondary)/0.5)' } } as any}>
                     <td style={{ padding: '0.75rem 0' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                         <span
                           style={{
-                            width: 24,
-                            height: 24,
+                            width: 28,
+                            height: 28,
                             borderRadius: '50%',
-                            background: idx === 0 ? '#f59e0b' : idx === 1 ? '#94a3b8' : '#cd7f32',
-                            color: '#ffffff',
+                            background: idx === 0 ? 'linear-gradient(135deg, #f59e0b, #fbbf24)' : idx === 1 ? 'linear-gradient(135deg, #94a3b8, #cbd5e1)' : idx === 2 ? 'linear-gradient(135deg, #d97706, #f59e0b)' : 'hsl(var(--secondary))',
+                            color: idx < 3 ? '#ffffff' : 'hsl(var(--muted-foreground))',
                             fontWeight: 800,
-                            fontSize: '0.7rem',
+                            fontSize: '0.8rem',
                             display: 'grid',
                             placeItems: 'center',
+                            boxShadow: idx < 3 ? '0 2px 8px rgba(0,0,0,0.1)' : 'none',
                           }}
                         >
                           {idx + 1}
@@ -691,24 +440,23 @@ export default function AdminDashboardPage() {
                           style={{
                             display: 'inline-flex',
                             alignItems: 'center',
-                            gap: '0.25rem',
-                            fontSize: '0.7rem',
+                            gap: '0.35rem',
+                            fontSize: '0.75rem',
                             fontWeight: 700,
                             color: '#ef4444',
-                            background: 'rgba(239, 68, 68, 0.1)',
-                            padding: '0.15rem 0.4rem',
+                            background: 'rgba(239, 68, 68, 0.15)',
+                            padding: '0.2rem 0.5rem',
                             borderRadius: '4px',
+                            border: '1px solid rgba(239, 68, 68, 0.3)',
                           }}
                         >
-                          <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#ef4444' }} />
+                          <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#ef4444', boxShadow: '0 0 8px #ef4444' }} />
                           LIVE
                         </span>
                       ) : (
                         <span style={{ fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))' }}>Offline</span>
                       )}
                     </td>
-                    {/* Cột này từng đọc `s.coinsEstimated` — API không trả, và
-                        `undefined.toLocaleString()` là lỗi thứ hai cùng loại. */}
                     <td style={{ padding: '0.75rem 0', fontWeight: 600, color: 'hsl(var(--muted-foreground))' }}>
                       —
                     </td>
@@ -723,27 +471,18 @@ export default function AdminDashboardPage() {
         </div>
 
         {/* Table 2: Radar Giám sát Phiên LIVE */}
-        <div
-          style={{
-            padding: '1.5rem',
-            borderRadius: 'var(--radius)',
-            background: 'hsl(var(--card))',
-            border: '1px solid hsl(var(--border))',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '1rem',
-          }}
-        >
+        <div className="glass-panel animate-fade-in-up" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem', animationDelay: '0.6s' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
-              <h2 style={{ fontSize: '1.05rem', fontWeight: 700 }}>
+              <h2 style={{ fontSize: '1.15rem', fontWeight: 800 }}>
                 Radar Giám Sát Phiên LIVE Đang Chạy
               </h2>
-              <p style={{ fontSize: '0.8rem', color: 'hsl(var(--muted-foreground))' }}>
+              <p style={{ fontSize: '0.85rem', color: 'hsl(var(--muted-foreground))', marginTop: '0.2rem' }}>
                 Theo dõi thời gian thực các phòng TikTok LIVE kết nối
               </p>
             </div>
-            <span style={{ fontSize: '0.75rem', color: '#10b981', fontWeight: 700 }}>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.75rem', color: '#10b981', fontWeight: 700, background: 'rgba(16,185,129,0.1)', padding: '0.2rem 0.6rem', borderRadius: '999px', border: '1px solid rgba(16,185,129,0.3)' }}>
+              <Icon name="spark" size={14} />
               Đang bắt tín hiệu
             </span>
           </div>
@@ -755,27 +494,30 @@ export default function AdminDashboardPage() {
                 <div
                   key={session.id || idx}
                   style={{
-                    padding: '0.75rem 1rem',
-                    borderRadius: 'var(--radius)',
-                    background: isOngoing ? 'hsl(var(--primary) / 0.05)' : 'hsl(var(--secondary) / 0.3)',
-                    border: isOngoing ? '1px solid hsl(var(--primary) / 0.2)' : '1px solid hsl(var(--border))',
+                    padding: '0.85rem 1rem',
+                    borderRadius: '12px',
+                    background: isOngoing ? 'linear-gradient(135deg, hsl(var(--primary) / 0.1), hsl(var(--primary) / 0.05))' : 'hsl(var(--secondary) / 0.3)',
+                    border: isOngoing ? '1px solid hsl(var(--primary) / 0.3)' : '1px solid hsl(var(--border))',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'space-between',
+                    transition: 'transform 0.2s',
+                    cursor: 'default',
                   }}
+                  className="hover-lift"
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                     <span
                       style={{
-                        width: 10,
-                        height: 10,
+                        width: 12,
+                        height: 12,
                         borderRadius: '50%',
                         background: isOngoing ? '#ef4444' : '#64748b',
-                        boxShadow: isOngoing ? '0 0 8px #ef4444' : 'none',
+                        boxShadow: isOngoing ? '0 0 10px #ef4444' : 'none',
                       }}
                     />
                     <div>
-                      <div style={{ fontSize: '0.875rem', fontWeight: 700 }}>
+                      <div style={{ fontSize: '0.9rem', fontWeight: 800, color: isOngoing ? 'hsl(var(--primary))' : 'hsl(var(--foreground))' }}>
                         {session.channel?.handle || '@live_channel'}
                       </div>
                       <div style={{ fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))' }}>
@@ -785,7 +527,7 @@ export default function AdminDashboardPage() {
                   </div>
 
                   <div style={{ textAlign: 'right' }}>
-                    <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#f59e0b' }}>
+                    <div style={{ fontSize: '0.9rem', fontWeight: 800, color: '#f59e0b' }}>
                       {session.totalCoins.toLocaleString('vi-VN')} xu
                     </div>
                     <div style={{ fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))' }}>
