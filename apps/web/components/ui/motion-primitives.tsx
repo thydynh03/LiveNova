@@ -30,6 +30,25 @@ export const staggerParent: Variants = {
 };
 
 /**
+ * Reduced-motion counterparts.
+ *
+ * Quan trọng: không được thay bằng `variants={undefined}`. `useReducedMotion`
+ * chỉ biết kết quả sau khi hydrate, nên lần render đầu đã kịp áp `hidden`
+ * (opacity 0); nếu lúc đó variants biến mất thì motion không còn target nào để
+ * chạy tới và cả khối nội dung nằm vô hình vĩnh viễn. Giữ nguyên tên biến thể,
+ * chỉ bỏ phần chuyển động.
+ */
+const fadeUpStatic: Variants = {
+  hidden: { opacity: 1, y: 0 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0 } },
+};
+
+const staggerParentStatic: Variants = {
+  hidden: {},
+  visible: {},
+};
+
+/**
  * Reveals a section as it enters the viewport.
  *
  * `once: true` on purpose: re-animating on every scroll-past turns the page
@@ -55,10 +74,10 @@ export function Reveal({
     <Component
       className={className}
       style={style}
-      initial={reduce ? false : { opacity: 0, y: 24 }}
+      initial={{ opacity: 0, y: 24 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, amount: 0.25 }}
-      transition={{ duration: 0.6, delay, ease: EASE }}
+      transition={reduce ? { duration: 0 } : { duration: 0.6, delay, ease: EASE }}
     >
       {children}
     </Component>
@@ -81,8 +100,8 @@ export function RevealGroup({
     <motion.div
       className={className}
       style={style}
-      variants={reduce ? undefined : staggerParent}
-      initial={reduce ? false : 'hidden'}
+      variants={reduce ? staggerParentStatic : staggerParent}
+      initial="hidden"
       whileInView="visible"
       viewport={{ once: true, amount: 0.2 }}
     >
@@ -105,7 +124,7 @@ export function RevealItem({
     <motion.div
       className={className}
       style={style}
-      variants={reduce ? undefined : fadeUp}
+      variants={reduce ? fadeUpStatic : fadeUp}
     >
       {children}
     </motion.div>
