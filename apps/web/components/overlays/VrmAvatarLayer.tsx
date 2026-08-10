@@ -3,6 +3,7 @@
 import React, { useEffect, useRef } from 'react';
 import type { AvatarMotionPayload } from '@livenova/shared';
 import { DEFAULT_LIGHTING, type LightingSettings } from '../../lib/vrm/lighting';
+import { resolveVrmModelUrl } from '../../lib/vrm/model';
 import { VrmStage } from '../../lib/vrm/vrm-stage';
 
 /**
@@ -20,7 +21,8 @@ interface Props {
   modelUrl?: string;
 }
 
-export function VrmAvatarLayer({ motion, lighting = DEFAULT_LIGHTING, modelUrl = '/lab/model.vrm' }: Props) {
+export function VrmAvatarLayer({ motion, lighting = DEFAULT_LIGHTING, modelUrl }: Props) {
+  const url = modelUrl ?? resolveVrmModelUrl();
   const hostRef = useRef<HTMLDivElement | null>(null);
   const stageRef = useRef<VrmStage | null>(null);
   const lightingRef = useRef(lighting);
@@ -39,7 +41,7 @@ export function VrmAvatarLayer({ motion, lighting = DEFAULT_LIGHTING, modelUrl =
     if (!host) return;
 
     const stage = new VrmStage(host, {
-      modelUrl,
+      modelUrl: url,
       transparent: true,
       lighting: lightingRef.current,
     });
@@ -54,7 +56,7 @@ export function VrmAvatarLayer({ motion, lighting = DEFAULT_LIGHTING, modelUrl =
       stage.dispose();
       stageRef.current = null;
     };
-  }, [modelUrl]);
+  }, [url]);
 
   useEffect(() => {
     stageRef.current?.setLighting(lighting);

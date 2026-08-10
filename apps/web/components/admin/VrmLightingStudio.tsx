@@ -4,6 +4,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import type { AvatarMotionPayload } from '@livenova/shared';
 import type { LightingSettings } from '../../lib/vrm/lighting';
+import { isUsingLocalDevModel, resolveVrmModelUrl } from '../../lib/vrm/model';
 import { VrmStage, type CameraPreset, type StageStats } from '../../lib/vrm/vrm-stage';
 
 export type { CameraPreset, StageStats };
@@ -55,9 +56,19 @@ export function VrmLightingStudio({
     if (!host) return;
 
     const stage = new VrmStage(host, {
-      modelUrl: '/lab/model.vrm',
+      modelUrl: resolveVrmModelUrl(),
       lighting: settingsRef.current,
-      onStatus: (text) => setStatus(text),
+      // Thông báo mặc định chỉ nói "404". Trên bản dựng phát hành thì nguyên
+      // nhân gần như luôn là chưa cấu hình mô hình — mô hình đo tại chỗ bị loại
+      // khỏi git vì giấy phép cấm dùng thương mại — nên nói thẳng cách sửa.
+      onStatus: (text, ok) =>
+        setStatus(
+          ok
+            ? text
+            : isUsingLocalDevModel()
+            ? 'Chưa có mô hình VRM. Đặt NEXT_PUBLIC_VRM_MODEL_URL trỏ tới một mô hình có giấy phép thương mại.'
+            : text,
+        ),
       onStats: (s) => onStatsRef.current?.(s),
     });
     stageRef.current = stage;
