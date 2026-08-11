@@ -364,6 +364,37 @@ export async function uploadMedia(file: File): Promise<{ url: string; publicId: 
 }
 
 /**
+ * Câu thay thế khi phản hồi lỗi không mang theo lời giải thích nào.
+ *
+ * Tình huống có thật đã xảy ra: máy chủ trả 503, giao diện hiện "Tải mô hình
+ * VRM lên thất bại", và không ai — kể cả người viết ra nó — phân biệt được đây
+ * là máy chủ đang khởi động lại sau một lần deploy, hay là máy chủ đã từ chối
+ * vì thiếu cấu hình kho lưu trữ. Hai nguyên nhân đó cần hai hành động trái
+ * ngược nhau: một cái là chờ, cái kia là đi sửa biến môi trường.
+ *
+ * Nên khi thân phản hồi im lặng, mã trạng thái phải tự nói.
+ */
+function describeUploadFailure(status: number): string {
+  if (status === 503) {
+    return (
+      'Máy chủ hiện không nhận được tệp (503). Nếu vừa deploy lại thì đợi một phút rồi thử lại; ' +
+      'nếu lỗi lặp lại, máy chủ API chưa cấu hình kho lưu trữ đám mây (CLOUDINARY_CLOUD_NAME, ' +
+      'CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET).'
+    );
+  }
+  if (status === 413) {
+    return 'Tệp quá lớn so với giới hạn máy chủ chấp nhận.';
+  }
+  if (status === 401 || status === 403) {
+    return 'Phiên đăng nhập đã hết hạn. Hãy đăng nhập lại rồi tải lên lần nữa.';
+  }
+  if (status >= 500) {
+    return `Máy chủ gặp lỗi khi xử lý tệp (${status}). Hãy thử lại sau ít phút.`;
+  }
+  return `Tải mô hình VRM lên thất bại (${status}).`;
+}
+
+/**
  * Tải mô hình VRM cho nhân vật trên sân khấu.
  *
  * Máy chủ đọc giấy phép nhúng trong tệp và từ chối mô hình không cho phép
@@ -390,10 +421,8 @@ export async function uploadVrmModel(file: File): Promise<{
 
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    const message = Array.isArray(err?.message)
-      ? err.message.join(', ')
-      : err?.message || 'Tải mô hình VRM lên thất bại';
-    throw new ApiError(message, res.status);
+    const fromServer = Array.isArray(err?.message) ? err.message.join(', ') : err?.message;
+    throw new ApiError(fromServer || describeUploadFailure(res.status), res.status);
   }
 
   return res.json();
