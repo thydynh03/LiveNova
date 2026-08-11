@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { VRMLoaderPlugin, VRMUtils, type VRM } from '@pixiv/three-vrm';
-import { createVRMAnimationMixer, VRMAnimationLoaderPlugin } from '@pixiv/three-vrm-animation';
+import { createVRMAnimationClip, VRMAnimationLoaderPlugin } from '@pixiv/three-vrm-animation';
 import { AvatarExpression, type AvatarMotionPayload } from '@livenova/shared';
 import { DEFAULT_LIGHTING, type LightingSettings } from './lighting';
 import {
@@ -187,8 +187,9 @@ export class VrmStage {
         if (this.disposed || this.currentAnimationUrl !== vrmaUrl) return;
         const vrmAnimation = gltf.userData.vrmAnimations?.[0];
         if (vrmAnimation && this.vrm) {
-          this.animationMixer = createVRMAnimationMixer(this.vrm);
-          const action = this.animationMixer.clipAction(vrmAnimation.clip);
+          const clip = createVRMAnimationClip(vrmAnimation, this.vrm);
+          this.animationMixer = new THREE.AnimationMixer(this.vrm.scene);
+          const action = this.animationMixer.clipAction(clip);
           action.play();
         }
       },
