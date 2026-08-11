@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { VRMLoaderPlugin, VRMUtils, type VRM } from '@pixiv/three-vrm';
+import { createVRMAnimationClip, VRMAnimationLoaderPlugin } from '@pixiv/three-vrm-animation';
 import { AvatarExpression, type AvatarMotionPayload } from '@livenova/shared';
 import { DEFAULT_LIGHTING, type LightingSettings } from './lighting';
 import {
@@ -87,6 +88,10 @@ export class VrmStage {
   private cameraPreset: CameraPreset = 'full';
   private lighting: LightingSettings;
 
+  private animationMixer: THREE.AnimationMixer | null = null;
+  private currentAnimationUrl: string | null = null;
+  private isDancePlaying = false;
+
   private modelHeight = 1.6;
   private modelCentre = new THREE.Vector3(0, 0.8, 0);
   private modelBaseY = 0;
@@ -163,6 +168,46 @@ export class VrmStage {
     this.motions.clear();
   }
 
+  // ── Điệu nhảy ──────────────────────────────────────────────────────────
+  loadDance(vrmaUrl: string | null): void {
+    if (this.currentAnimationUrl === vrmaUrl) return;
+    this.currentAnimationUrl = vrmaUrl;
+    
+    if (!vrmaUrl) {
+      if (this.animationMixer) this.animationMixer.stopAllAction();
+      this.animationMixer = null;
+      return;
+    }
+
+    const loader = new GLTFLoader();
+    loader.register((parser) => new VRMAnimationLoaderPlugin(parser));
+    loader.load(
+      vrmaUrl,
+      (gltf) => {
+        if (this.disposed || this.currentAnimationUrl !== vrmaUrl) return;
+        const vrmAnimation = gltf.userData.vrmAnimations?.[0];
+        if (vrmAnimation && this.vrm) {
+          const clip = createVRMAnimationClip(vrmAnimation, this.vrm);
+          this.animationMixer = new THREE.AnimationMixer(this.vrm.scene);
+          const action = this.animationMixer.clipAction(clip);
+          action.play();
+        }
+      },
+      undefined,
+      (err) => console.error('Không tải được tệp VRMA:', err)
+    );
+  }
+
+  syncDanceTime(timeInSeconds: number): void {
+    if (this.animationMixer) {
+      this.animationMixer.setTime(timeInSeconds);
+    }
+  }
+
+  setDancePlaying(isPlaying: boolean): void {
+    this.isDancePlaying = isPlaying;
+  }
+
   // ── Khung hình ──────────────────────────────────────────────────────────
   setModelVisible(visible: boolean): void {
     if (this.vrm) this.vrm.scene.visible = visible;
@@ -176,7 +221,16 @@ export class VrmStage {
   frameCamera(): void {
     const { dist, aimY } = CAMERA_PRESETS[this.cameraPreset];
     const fovRad = (this.camera.fov * Math.PI) / 180;
-    const d = (this.modelHeight / 2 / Math.tan(fovRad / 2)) * dist;
+    let d = (this.modelHeight / 2 / Math.tan(fovRad / 2)) * dist;
+    
+    // Khi xoay dọc (portrait), FOV ngang bị hẹp lại. Ta cần lùi camera ra xa thêm 
+    // để không bị cắt mất hai bên tay của nhân vật.
+    if (this.camera.aspect < 1) {
+      // Hệ số 0.65 là ước lượng tỉ lệ chiều rộng / chiều cao của nhân vật lúc vung tay.
+      const dWidth = (this.modelHeight * 0.65 / 2 / Math.tan(fovRad / 2) / this.camera.aspect) * dist;
+      d = Math.max(d, dWidth);
+    }
+    
     const target = new THREE.Vector3(
       this.modelCentre.x,
       this.modelBaseY + this.modelHeight * aimY,
@@ -242,13 +296,42 @@ export class VrmStage {
         this.vrm = loaded;
         this.scene.add(loaded.scene);
 
-        const box = new THREE.Box3().setFromObject(loaded.scene);
-        this.modelCentre = box.getCenter(new THREE.Vector3());
-        this.modelHeight = box.getSize(new THREE.Vector3()).y;
-        this.modelBaseY = box.min.y;
+        // Sử dụng xương thay vì Bounding Box để tính chiều cao và tâm ngắm, 
+        // tránh lỗi bounding box bị phình to do tóc hoặc xương vật lý.
+        loaded.scene.updateMatrixWorld(true);
+        const head = loaded.humanoid?.getNormalizedBoneNode('head');
+        const hips = loaded.humanoid?.getNormalizedBoneNode('hips');
+        const leftFoot = loaded.humanoid?.getNormalizedBoneNode('leftFoot');
+
+        if (head && leftFoot && hips) {
+          const headPos = new THREE.Vector3();
+          head.getWorldPosition(headPos);
+          const footPos = new THREE.Vector3();
+          leftFoot.getWorldPosition(footPos);
+          const hipsPos = new THREE.Vector3();
+          hips.getWorldPosition(hipsPos);
+          
+          this.modelBaseY = footPos.y;
+          // Thêm 0.15m từ khớp cổ/đầu lên đỉnh đầu
+          this.modelHeight = headPos.y - footPos.y + 0.15; 
+          this.modelCentre.set(hipsPos.x, this.modelBaseY + this.modelHeight / 2, hipsPos.z);
+        } else {
+          const box = new THREE.Box3().setFromObject(loaded.scene);
+          this.modelCentre = box.getCenter(new THREE.Vector3());
+          this.modelHeight = box.getSize(new THREE.Vector3()).y;
+          this.modelBaseY = box.min.y;
+        }
+
         this.frameCamera();
 
         this.opts.onStatus?.(`Đã tải mô hình VRM · ${Math.round(performance.now() - t0)}ms`, true);
+        
+        // Cập nhật lại mixer nếu đang có hoạt ảnh
+        if (this.currentAnimationUrl) {
+          const url = this.currentAnimationUrl;
+          this.currentAnimationUrl = null;
+          this.loadDance(url);
+        }
       },
       undefined,
       (err) => this.opts.onStatus?.(`Không tải được mô hình: ${String(err)}`, false),
@@ -268,6 +351,11 @@ export class VrmStage {
 
     if (this.vrm) {
       this.applyPose(now / 1000, now);
+      
+      if (this.animationMixer && this.isDancePlaying) {
+        this.animationMixer.update(delta);
+      }
+      
       this.vrm.update(delta);
     }
 
