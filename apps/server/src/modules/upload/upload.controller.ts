@@ -125,6 +125,12 @@ export class UploadController {
       allowedExtensions: ['.vrm'],
       defaultExtension: '.vrm',
       localFolder: 'vrm',
+      // Trên bản phát hành, web và API là hai máy khác nhau: nhánh lưu trên đĩa
+      // ghi tệp vào ổ của API rồi trả về đường dẫn tương đối, trình duyệt ghép
+      // nó vào tên miền của web và nhận 404 — trong khi giao diện vẫn báo tải
+      // lên thành công. Ở môi trường phát triển thì hai bên dùng chung thư mục
+      // `public/` nên nhánh đó chạy đúng và vẫn được giữ.
+      requireRemote: process.env.NODE_ENV === 'production',
     });
 
     return {

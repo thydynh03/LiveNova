@@ -1,4 +1,9 @@
-import { Injectable, Logger, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  BadRequestException,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import { v2 as cloudinary, UploadApiResponse } from 'cloudinary';
 import { Readable } from 'stream';
 import * as fs from 'fs';
@@ -18,6 +23,17 @@ export interface UploadOptions {
   defaultExtension?: string;
   /** Thư mục con dưới `public/` khi lưu trên đĩa. */
   localFolder?: string;
+  /**
+   * Cấm rơi về lưu trên đĩa.
+   *
+   * Nhánh dự phòng ghi tệp vào `../web/public/` và trả về một đường dẫn **tương
+   * đối**. Điều đó chỉ đúng khi máy chủ và web dùng chung ổ đĩa — tức là trên
+   * máy lập trình. Khi web chạy ở Vercel còn API chạy nơi khác, đường dẫn ấy
+   * được trình duyệt ghép vào tên miền của web và trả về 404, trong khi lệnh
+   * tải lên vẫn báo thành công. Một liên kết chết kèm dấu tích xanh tệ hơn hẳn
+   * một lỗi nói thẳng.
+   */
+  requireRemote?: boolean;
 }
 
 @Injectable()
@@ -75,8 +91,23 @@ export class CloudinaryService {
           stream.pipe(uploadStream);
         });
       } catch (err: any) {
+        if (options.requireRemote) {
+          // Rơi về đĩa ở đây sẽ tạo ra một URL 404 kèm thông báo thành công.
+          throw new ServiceUnavailableException(
+            `Không lưu được tệp lên kho lưu trữ đám mây (${err?.message ?? 'lỗi không rõ'}). ` +
+              'Tệp chưa được lưu — hãy thử lại.',
+          );
+        }
         this.logger.warn(`Cloudinary upload failed (${err?.message}), falling back to local disk storage`);
       }
+    }
+
+    if (options.requireRemote) {
+      throw new ServiceUnavailableException(
+        'Máy chủ chưa cấu hình kho lưu trữ đám mây nên không nhận được tệp. ' +
+          'Cần đặt CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY và CLOUDINARY_API_SECRET ' +
+          'trong môi trường của máy chủ API.',
+      );
     }
 
     // Local Disk Storage Fallback
