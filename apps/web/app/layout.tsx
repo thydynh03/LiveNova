@@ -43,11 +43,29 @@ export const metadata: Metadata = {
   },
   description: SITE_DESCRIPTION,
   applicationName: SITE_NAME,
+  /**
+   * Thẻ này gần như không có tác dụng, và ghi ra đây để sau không ai nhầm.
+   *
+   * Google đã công khai bỏ dùng meta keywords từ 2009 vì nó bị nhồi từ khoá tới
+   * mức vô giá trị. Thêm chữ vào đây không làm trang xếp hạng cho những chữ đó.
+   * Thứ thật sự xếp hạng cho một truy vấn là một trang trả lời đúng truy vấn
+   * đó — nên chín bài trong `lib/guides.ts` mới là chỗ làm việc này, mỗi bài
+   * ghi rõ `targetQuery` của nó.
+   *
+   * Giữ lại vì một vài bộ máy nhỏ và công cụ nội bộ còn đọc, và vì nó là bản
+   * tóm tắt ngắn gọn về việc sản phẩm này làm gì.
+   */
   keywords: [
     'livestream TikTok',
+    'tool hỗ trợ livestream TikTok',
+    'phần mềm hỗ trợ livestream',
+    'game livestream TikTok',
+    'game tương tác livestream',
     'đọc bình luận livestream',
     'hiệu ứng quà tặng TikTok',
     'overlay OBS',
+    'overlay livestream TikTok',
+    'live TikTok không cần stream key',
     'tự động hoá livestream',
   ],
   openGraph: {

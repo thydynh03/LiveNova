@@ -331,6 +331,224 @@ export const GUIDES: Guide[] = [
     readingMinutes: 5,
     updated: '2026-08-09',
   },
+
+  {
+    slug: 'tool-ho-tro-livestream-tiktok',
+    title: 'Tool hỗ trợ livestream TikTok gồm những gì',
+    targetQuery: 'tool hỗ trợ livestream tiktok',
+    description:
+      'Các loại công cụ hỗ trợ livestream TikTok, cái nào giải quyết việc gì, và cách chọn theo kiểu kênh bạn đang làm.',
+    intro:
+      '"Tool hỗ trợ livestream" là một cái tên chung cho bốn nhóm công cụ giải quyết bốn vấn đề khác hẳn nhau. Chọn nhầm nhóm thì bạn trả tiền cho thứ không giải quyết vấn đề mình đang có, nên bài này tách chúng ra trước khi nói tới sản phẩm nào.',
+    sections: [
+      {
+        heading: 'Bốn nhóm, bốn vấn đề khác nhau',
+        paragraphs: [
+          'Phần mềm phát sóng — OBS, Streamlabs, TikTok LIVE Studio. Chúng lo việc đưa hình và tiếng lên nền tảng. Miễn phí, và bạn cần đúng một cái.',
+          'Công cụ tương tác — đọc bình luận thành giọng nói, hiệu ứng khi có quà, trò chơi cho người xem tham gia. Chúng không đụng tới luồng phát; chúng thêm một lớp hiển thị vào buổi live và phản ứng theo bình luận cùng quà tặng.',
+          'Công cụ quản lý — lịch phát, thống kê, trả lời tin nhắn. Dùng ngoài giờ live nhiều hơn trong lúc live.',
+          'Công cụ dựng nội dung — cắt video, làm ảnh nền, hình động. Dùng trước buổi live.',
+        ],
+        note: 'LiveNova nằm ở nhóm thứ hai. Nó không thay OBS và không cần bạn bỏ OBS.',
+      },
+      {
+        heading: 'Chọn theo vấn đề đang có, không theo danh sách tính năng',
+        paragraphs: [
+          'Nếu buổi live của bạn im lặng vì bạn vừa nói vừa đọc bình luận không xuể, thứ cần là công cụ đọc bình luận tự động.',
+          'Nếu người xem tặng quà mà trên màn hình không có gì xảy ra, thứ cần là hiệu ứng gắn với quà — và đó cũng là thứ khiến người khác muốn tặng tiếp, vì họ thấy quà của mình có tác dụng nhìn được.',
+          'Nếu người xem vào rồi ra sau vài giây, vấn đề không phải công cụ mà là chưa có lý do để ở lại. Một trò chơi mà người xem tham gia bằng bình luận và quà là cách trực tiếp nhất để tạo lý do đó.',
+        ],
+      },
+      {
+        heading: 'Ba câu nên hỏi trước khi cài bất cứ thứ gì',
+        paragraphs: [
+          'Nó có đòi mật khẩu TikTok của bạn không? Không công cụ tương tác nào cần điều đó. Nó chỉ cần tên kênh để đọc bình luận công khai.',
+          'Nó có đòi stream key không? Cũng không. Bạn vẫn LIVE như bình thường; công cụ chỉ thêm một lớp hiển thị vào OBS.',
+          'Nó cài thêm gì vào máy? Một số bộ cài kéo theo cả runtime và trình chạy nền mà không hỏi. Đọc kỹ trước khi bấm đồng ý.',
+        ],
+      },
+    ],
+    faq: [
+      {
+        q: 'Tool hỗ trợ livestream TikTok có bị khoá kênh không?',
+        a: 'Công cụ chỉ đọc bình luận công khai và hiển thị hiệu ứng trên máy bạn thì không can thiệp gì vào nền tảng. Thứ có rủi ro là công cụ hứa tăng mắt xem ảo hoặc tự động tương tác thay bạn — đó là vi phạm điều khoản, và khác hẳn nhóm công cụ nói trong bài này.',
+      },
+      {
+        q: 'Có cần máy cấu hình cao không?',
+        a: 'Máy chạy được OBS ở khổ dọc là đủ. Lớp overlay chạy trong trình duyệt nhúng của OBS và tốn ít hơn nhiều so với bản thân việc mã hoá video.',
+      },
+      {
+        q: 'Dùng đồng thời nhiều công cụ được không?',
+        a: 'Được, miễn mỗi cái là một Browser Source riêng trong OBS. Cái tốn tài nguyên nhất vẫn là bộ mã hoá, nên thêm lớp hiển thị thứ hai thường không phải chỗ gây giật.',
+      },
+    ],
+    readingMinutes: 5,
+    updated: '2026-08-11',
+  },
+
+  {
+    slug: 'game-livestream-tiktok',
+    title: 'Game livestream TikTok cho người xem cùng chơi',
+    targetQuery: 'game livestream tiktok',
+    description:
+      'Các kiểu game livestream TikTok, người xem tham gia bằng bình luận và quà tặng, và cách dựng một trò chơi giữ chân người xem.',
+    intro:
+      'Game livestream TikTok không phải bạn chơi game cho người ta xem. Nó là trò chơi mà chính người xem tham gia bằng bình luận và quà tặng, ngay trong khung live — nên người vừa vào có việc để làm trong mười giây đầu, thay vì chỉ ngồi nhìn.',
+    sections: [
+      {
+        heading: 'Ba kiểu phổ biến',
+        paragraphs: [
+          'Chia phe. Người xem chọn một bên bằng bình luận, quà tặng cộng sức mạnh cho phe đó, và có một kết quả rõ ràng lúc kết trận. Kiểu này giữ người lâu nhất vì nó tạo ra phe phái, và người ta ở lại để xem phe mình có thắng không.',
+          'Vào sân. Bình luận một từ khoá là nhân vật của bạn xuất hiện trên màn hình mang tên bạn. Đơn giản, dễ hiểu, hiệu quả tức thì — nhưng hết nhanh, vì sau khi vào rồi thì không còn gì để làm.',
+          'Quà kích hoạt hiệu ứng. Mỗi món quà gọi một hiệu ứng riêng. Đây không hẳn là trò chơi, nhưng nó là nền của mọi kiểu trên: cảm giác quà của mình có tác dụng nhìn thấy được.',
+        ],
+      },
+      {
+        heading: 'Vì sao kiểu chia phe giữ người lâu hơn',
+        paragraphs: [
+          'Vào sân cho người xem một khoảnh khắc; chia phe cho họ một lý do quay lại xem tiếp. Khi đã chọn phe thì mỗi món quà của người khác cũng thành chuyện của mình, và người ta ở lại tới lúc biết kết quả.',
+          'Nó cũng cho streamer thứ để nói. Một buổi live có tỉ số đang thay đổi thì luôn có chuyện để bình luận, còn một màn hình chỉ có hiệu ứng nổ thì sau mười phút là hết chuyện.',
+        ],
+        note: 'LiveNova làm kiểu chia phe với bốn vương quốc — xem bài riêng về game 4 phe.',
+      },
+      {
+        heading: 'Luật phải nói được trong một câu',
+        paragraphs: [
+          'Người xem TikTok quyết định ở lại hay lướt tiếp trong vài giây, và họ không đọc bảng hướng dẫn. Nếu luật chơi cần hai câu để giải thích thì phần lớn người vào sẽ không bao giờ tham gia.',
+          '"Gõ tên phe để tham gia, tặng quà để phe mạnh lên" là một câu. Nó đủ để một người vừa lướt vào hiểu và bình luận ngay, và đó là toàn bộ mục tiêu của mười giây đầu.',
+        ],
+      },
+      {
+        heading: 'Sân trống là vấn đề lớn nhất lúc mới bắt đầu',
+        paragraphs: [
+          'Một trò chơi chưa có ai tham gia trông không giống một trò chơi đang chờ người — nó trông như phần mềm hỏng. Và không ai muốn là người đầu tiên bước vào một chỗ trống, nên sân trống tự nó giữ cho sân tiếp tục trống.',
+          'Cách xử lý là để bản đồ luôn có chuyển động ngay cả khi chưa có ai: vài đơn vị đi lại làm nền, và chúng lui đi ngay khi có người thật tham gia. Đây là dàn cảnh cho khung hình, không phải tên người bịa trong bảng xếp hạng — hai chuyện đó khác nhau, và chỉ chuyện thứ hai mới là lừa người xem.',
+        ],
+      },
+    ],
+    faq: [
+      {
+        q: 'Người xem cần cài gì để chơi không?',
+        a: 'Không. Họ chỉ bình luận và tặng quà như bình thường trong khung live TikTok. Mọi thứ khác chạy trên máy của streamer.',
+      },
+      {
+        q: 'Game hiện trong khung live bằng cách nào?',
+        a: 'Qua OBS: trò chơi là một trang web thêm vào dưới dạng Browser Source, đặt đè lên hình của bạn. Nhớ bỏ tick "Shutdown source when not visible", nếu không trận đấu sẽ về 0 mỗi lần bạn đổi cảnh.',
+      },
+      {
+        q: 'Không có quà thì chơi được không?',
+        a: 'Được. Bình luận đủ để tham gia và chọn phe; quà chỉ làm cho tác động mạnh hơn. Một trò chơi chỉ chơi được khi bỏ tiền sẽ mất phần lớn người xem ngay từ đầu.',
+      },
+    ],
+    readingMinutes: 6,
+    updated: '2026-08-11',
+  },
+
+  {
+    slug: 'live-tiktok-khong-can-stream-key',
+    title: 'Live TikTok không cần stream key có được không',
+    targetQuery: 'live tiktok không cần stream key',
+    description:
+      'Vì sao TikTok không cho bạn stream key, và cách vẫn dùng được overlay cùng hiệu ứng khi live bằng điện thoại hoặc TikTok LIVE Studio.',
+    intro:
+      'Rất nhiều người dừng lại ở đúng chỗ này: muốn dùng overlay nhưng TikTok không đưa stream key, và OBS thì đòi có nó mới phát được. Câu trả lời ngắn là bạn không cần stream key để dùng overlay — hai chuyện đó tách rời nhau.',
+    sections: [
+      {
+        heading: 'Vì sao bạn không thấy stream key',
+        paragraphs: [
+          'TikTok chỉ mở phát sóng từ phần mềm ngoài cho một số tài khoản, và điều kiện thay đổi theo thời điểm cùng khu vực. Nếu tài khoản của bạn chưa được mở, mục lấy stream key sẽ không xuất hiện — không phải bạn tìm sai chỗ.',
+          'Điều quan trọng: stream key chỉ liên quan tới việc *đưa hình lên TikTok*. Nó không liên quan gì tới việc *có overlay trong hình* hay không.',
+        ],
+      },
+      {
+        heading: 'Hai đường tách rời nhau',
+        paragraphs: [
+          'Đường thứ nhất là luồng phát: điện thoại hoặc TikTok LIVE Studio đưa hình lên TikTok. Đường này cần stream key chỉ khi bạn phát từ OBS.',
+          'Đường thứ hai là dữ liệu sự kiện: công cụ tương tác đọc bình luận và quà tặng theo tên kênh công khai của bạn. Một chiều, chỉ đọc, và không cần bất cứ khoá nào.',
+          'Overlay nằm ở đường thứ hai. Nó là một trang web hiển thị trong OBS trên máy bạn, phản ứng theo dữ liệu sự kiện — hoàn toàn không đụng tới đường thứ nhất.',
+        ],
+      },
+      {
+        heading: 'Cách làm khi không có stream key',
+        paragraphs: [
+          'Bạn dựng cảnh trong OBS như bình thường, rồi dùng chính TikTok LIVE Studio để phát, chọn OBS làm nguồn hình qua tính năng camera ảo. Hoặc phát bằng điện thoại và dùng máy tính làm màn hình phụ có overlay.',
+        ],
+        steps: [
+          { name: 'Dựng cảnh trong OBS', text: 'Thêm camera, hình nền và lớp overlay ở khổ dọc 1080×1920.' },
+          { name: 'Bật camera ảo', text: 'Trong OBS bấm "Start Virtual Camera".' },
+          { name: 'Chọn nguồn trong TikTok LIVE Studio', text: 'Chọn camera ảo của OBS làm nguồn hình, thay vì webcam.' },
+          { name: 'Bắt đầu LIVE', text: 'Phát từ TikTok LIVE Studio như bình thường — không cần stream key ở bước nào.' },
+        ],
+        note: 'Cách này không phải mẹo lách. Nó chỉ dùng đúng những gì cả hai phần mềm đều cung cấp sẵn.',
+      },
+    ],
+    faq: [
+      {
+        q: 'Vậy overlay có cần stream key không?',
+        a: 'Không, ở bất kỳ trường hợp nào. Overlay chỉ hiển thị trong OBS trên máy bạn, và phần kết nối TikTok chỉ đọc bình luận theo tên kênh.',
+      },
+      {
+        q: 'Camera ảo có làm giảm chất lượng hình không?',
+        a: 'Có thêm một bước xử lý nên máy yếu sẽ tốn hơn, nhưng chất lượng hình do cấu hình trong OBS quyết định. Đặt khổ dọc và độ phân giải đúng thì khác biệt gần như không thấy được.',
+      },
+      {
+        q: 'Khi nào thì nên xin quyền phát từ phần mềm ngoài?',
+        a: 'Khi bạn cần cảnh phức tạp, nhiều nguồn hình hoặc chuyển cảnh mượt. Còn nếu chỉ cần overlay và hiệu ứng quà thì cách camera ảo đã đủ và không phải chờ duyệt.',
+      },
+    ],
+    readingMinutes: 5,
+    updated: '2026-08-11',
+  },
+
+  {
+    slug: 'overlay-obs-bi-reset-khi-doi-canh',
+    title: 'Overlay OBS bị reset khi đổi cảnh — cách sửa',
+    targetQuery: 'overlay obs bị reset khi đổi cảnh',
+    description:
+      'Overlay hoặc game trong OBS về lại trạng thái đầu mỗi lần chuyển cảnh. Nguyên nhân là một ô tick bật sẵn trong Browser Source.',
+    intro:
+      'Bạn đang live, chuyển sang cảnh khác vài giây rồi quay lại, và overlay về lại như lúc mới mở: tỉ số về 0, trận đấu bắt đầu lại, quà người xem vừa tặng biến mất. Đây gần như luôn là cùng một nguyên nhân, và nó không nằm trong overlay.',
+    sections: [
+      {
+        heading: 'Nguyên nhân',
+        paragraphs: [
+          'OBS bật sẵn ô "Shutdown source when not visible" cho Browser Source. Khi cảnh chứa overlay không còn hiển thị, OBS đóng hẳn trang web đó. Lúc bạn quay lại, nó mở một trang mới tinh — và trang mới không biết gì về những gì vừa xảy ra.',
+          'Tuỳ chọn này có lý do tồn tại: nó giải phóng tài nguyên cho những nguồn nặng bạn ít dùng. Nhưng với một overlay giữ trạng thái theo thời gian thực thì nó chính là thứ xoá sạch trạng thái đó.',
+        ],
+      },
+      {
+        heading: 'Cách sửa',
+        paragraphs: [
+          'Bỏ tick ô đó, và bỏ ở mọi cảnh có chứa overlay — trong OBS, cùng một overlay đặt ở hai cảnh có thể là hai nguồn riêng với hai cấu hình riêng.',
+        ],
+        steps: [
+          { name: 'Mở thuộc tính', text: 'Nhấp chuột phải vào Browser Source của overlay, chọn Properties (Thuộc tính).' },
+          { name: 'Bỏ tick', text: 'Bỏ dấu tick ở "Shutdown source when not visible" (bản tiếng Việt: "Tắt nguồn khi không hiển thị").' },
+          { name: 'Kiểm tra ô còn lại', text: 'Ô "Refresh browser when scene becomes active" cũng phải bỏ tick — nó gây đúng triệu chứng đó theo một đường khác.' },
+          { name: 'Làm cho từng cảnh', text: 'Lặp lại cho mọi cảnh có overlay, hoặc dùng lại cùng một nguồn qua "Add Existing" thay vì tạo nguồn mới.' },
+        ],
+      },
+      {
+        heading: 'Nếu vẫn bị reset sau khi đã bỏ tick',
+        paragraphs: [
+          'Kiểm xem bạn có vô tình tạo hai Browser Source cùng một link ở hai cảnh khác nhau không. Mỗi nguồn là một trang riêng, nên chúng có hai trạng thái riêng và bạn sẽ thấy tỉ số nhảy qua lại khi đổi cảnh.',
+          'Nếu overlay reset ngay cả khi không đổi cảnh, nguyên nhân nằm ở chỗ khác: mạng chập chờn làm mất kết nối thời gian thực, hoặc link đã bị cắt mất phần mã ở cuối lúc dán.',
+        ],
+      },
+    ],
+    faq: [
+      {
+        q: 'Bỏ tick thì có tốn tài nguyên hơn không?',
+        a: 'Có, nhưng rất ít: trang overlay vẫn chạy khi cảnh không hiển thị. So với việc mã hoá video thì phần này nhỏ, và đổi lại bạn không mất trạng thái giữa buổi live.',
+      },
+      {
+        q: 'Game trong overlay có lưu lại nếu tôi đóng OBS không?',
+        a: 'Trạng thái trận đấu do máy chủ giữ, nên đóng rồi mở lại OBS thì overlay nối lại vào trận đang chạy. Cái mà ô tick kia phá là kết nối thời gian thực trong lúc live, không phải dữ liệu.',
+      },
+    ],
+    readingMinutes: 4,
+    updated: '2026-08-11',
+  },
 ];
 
 export function guideBySlug(slug: string): Guide | undefined {
