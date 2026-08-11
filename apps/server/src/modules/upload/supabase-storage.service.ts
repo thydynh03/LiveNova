@@ -50,14 +50,21 @@ export class SupabaseStorageService {
   }
 
   /**
-   * Chỉ dùng service role key, và chỉ ở phía máy chủ.
+   * Khoá bí mật, và chỉ ở phía máy chủ.
    *
-   * Khoá này bỏ qua toàn bộ Row Level Security. Đặt nó sau tiền tố
-   * `NEXT_PUBLIC_` sẽ nhúng thẳng một chiếc chìa vạn năng của cả cơ sở dữ liệu
-   * vào gói JavaScript mà trình duyệt tải về.
+   * Nhận hai tên vì Supabase đang chuyển hệ khoá: bảng điều khiển giờ phát
+   * "secret key" (`sb_secret_…`) ở Settings → API Keys, còn `service_role` dạng
+   * JWT lui về tab legacy. Cả hai đều hợp lệ với Storage REST API, và người
+   * đang cấu hình máy chủ không nên phải đoán kho mã này viết theo thế hệ nào.
+   *
+   * `SUPABASE_SECRET_KEY` được ưu tiên vì đó là hệ Supabase còn phát triển tiếp.
+   *
+   * Thuộc thế hệ nào thì khoá này cũng bỏ qua toàn bộ Row Level Security. Đặt
+   * nó sau tiền tố `NEXT_PUBLIC_` là nhúng thẳng một chiếc chìa vạn năng của cả
+   * cơ sở dữ liệu vào gói JavaScript mà trình duyệt tải về.
    */
   private get key(): string | undefined {
-    return process.env.SUPABASE_SERVICE_ROLE_KEY;
+    return process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
   }
 
   isConfigured(): boolean {
@@ -73,7 +80,8 @@ export class SupabaseStorageService {
     if (!url || !key) {
       throw new ServiceUnavailableException(
         'Máy chủ chưa cấu hình Supabase Storage. Cần đặt SUPABASE_URL và ' +
-          'SUPABASE_SERVICE_ROLE_KEY trong môi trường của máy chủ API.',
+          'SUPABASE_SECRET_KEY (hoặc SUPABASE_SERVICE_ROLE_KEY nếu dùng khoá legacy) ' +
+          'trong môi trường của máy chủ API.',
       );
     }
 

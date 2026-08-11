@@ -30,6 +30,7 @@ describe('SupabaseStorageService', () => {
   beforeEach(() => {
     process.env.SUPABASE_URL = 'https://proj.supabase.co';
     process.env.SUPABASE_SERVICE_ROLE_KEY = 'service-role-key';
+    delete process.env.SUPABASE_SECRET_KEY;
     delete process.env.SUPABASE_VRM_BUCKET;
     service = new SupabaseStorageService();
   });
@@ -49,6 +50,26 @@ describe('SupabaseStorageService', () => {
       process.env.SUPABASE_SERVICE_ROLE_KEY = 'k';
       delete process.env.SUPABASE_URL;
       expect(new SupabaseStorageService().isConfigured()).toBe(false);
+    });
+
+    it('accepts either generation of secret key', () => {
+      // Supabase is migrating: the dashboard now issues sb_secret_… keys while
+      // service_role JWTs sit under a legacy tab. Whoever is configuring the
+      // server should not have to work out which generation this code was
+      // written against.
+      delete process.env.SUPABASE_SERVICE_ROLE_KEY;
+      process.env.SUPABASE_SECRET_KEY = 'sb_secret_abc';
+      expect(new SupabaseStorageService().isConfigured()).toBe(true);
+    });
+
+    it('prefers the newer secret key when both are present', async () => {
+      process.env.SUPABASE_SECRET_KEY = 'sb_secret_new';
+      const calls = mockFetch([() => ok()]);
+
+      await new SupabaseStorageService().upload(Buffer.from('a'), { extension: '.vrm' });
+
+      const headers = calls[calls.length - 1].init?.headers as Record<string, string>;
+      expect(headers.authorization).toBe('Bearer sb_secret_new');
     });
 
     it('does not accept the publishable key as a substitute', () => {
@@ -120,7 +141,7 @@ describe('SupabaseStorageService', () => {
 
       await expect(
         new SupabaseStorageService().upload(Buffer.from('a'), { extension: '.vrm' }),
-      ).rejects.toThrow(/SUPABASE_SERVICE_ROLE_KEY/);
+      ).rejects.toThrow(/SUPABASE_SECRET_KEY/);
     });
 
     it('reports the upload failure instead of returning a URL to nothing', async () => {
