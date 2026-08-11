@@ -217,8 +217,11 @@ export const GUIDES: Guide[] = [
         a: 'Browser Source thì nền tảng nào cũng hiện được, nhưng dữ liệu sự kiện hiện lấy từ TikTok Live.',
       },
     ],
-    readingMinutes: 5,
-    updated: '2026-08-09',
+    readingMinutes: 6,
+    // Thêm mục về ô "Shutdown source when not visible" và hai câu hỏi thường
+    // gặp. Bài dài thêm một mục thật mà ngày vẫn đứng yên thì `lastmod` trong
+    // sitemap nói dối đúng vào lần nó có tin để báo.
+    updated: '2026-08-11',
   },
 
   {
