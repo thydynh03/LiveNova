@@ -1,6 +1,7 @@
 import { BadRequestException, ServiceUnavailableException } from '@nestjs/common';
 import { UploadController } from './upload.controller';
 import { CloudinaryService } from './cloudinary.service';
+import { SupabaseStorageService } from './supabase-storage.service';
 
 /** Dựng một tệp GLB tối thiểu mang siêu dữ liệu VRM như thật. */
 function vrmFile(meta: Record<string, unknown>, size?: number): Express.Multer.File {
@@ -29,6 +30,8 @@ const LICENSED = { name: 'livenova_model', authors: ['Thydynh'], commercialUsage
 describe('UploadController — VRM', () => {
   let controller: UploadController;
   let uploadFile: jest.Mock;
+  let supabaseUpload: jest.Mock;
+  let isConfigured: jest.Mock;
 
   beforeEach(() => {
     uploadFile = jest.fn().mockResolvedValue({
@@ -36,7 +39,19 @@ describe('UploadController — VRM', () => {
       public_id: 'model',
       bytes: 1234,
     });
-    controller = new UploadController({ uploadFile } as unknown as CloudinaryService);
+    supabaseUpload = jest.fn().mockResolvedValue({
+      url: 'https://proj.supabase.co/storage/v1/object/public/vrm-models/vrm/abc.vrm',
+      path: 'vrm/abc.vrm',
+      bytes: 22_240_600,
+    });
+    // Mặc định coi như chưa cấu hình Supabase, để các phép thử sẵn có vẫn đi
+    // qua đúng nhánh Cloudinary mà chúng được viết ra để kiểm.
+    isConfigured = jest.fn().mockReturnValue(false);
+
+    controller = new UploadController(
+      { uploadFile } as unknown as CloudinaryService,
+      { isConfigured, upload: supabaseUpload } as unknown as SupabaseStorageService,
+    );
   });
 
   describe('licensing', () => {
@@ -158,6 +173,64 @@ describe('UploadController — VRM', () => {
       await expect(controller.uploadVrm(vrmFile(LICENSED))).rejects.toBeInstanceOf(
         ServiceUnavailableException,
       );
+    });
+  });
+
+
+  describe('Supabase Storage', () => {
+    beforeEach(() => isConfigured.mockReturnValue(true));
+
+    it('prefers Supabase over Cloudinary for VRM', async () => {
+      // Cloudinary's free plan caps raw files at 10MB while a real character
+      // model runs 15–25MB, so this is not a preference — it is the difference
+      // between the feature working and not.
+      const result = await controller.uploadVrm(vrmFile(LICENSED));
+
+      expect(supabaseUpload).toHaveBeenCalled();
+      expect(uploadFile).not.toHaveBeenCalled();
+      expect(result.url).toBe(
+        'https://proj.supabase.co/storage/v1/object/public/vrm-models/vrm/abc.vrm',
+      );
+      expect(result.bytes).toBe(22_240_600);
+    });
+
+    it('stores the file under a vrm folder with a .vrm extension', async () => {
+      await controller.uploadVrm(vrmFile(LICENSED));
+
+      expect(supabaseUpload).toHaveBeenCalledWith(
+        expect.any(Buffer),
+        expect.objectContaining({ folder: 'vrm', extension: '.vrm' }),
+      );
+    });
+
+    it('still refuses a badly licensed model before touching storage', async () => {
+      await expect(
+        controller.uploadVrm(vrmFile({ ...LICENSED, commercialUsage: 'personalNonProfit' })),
+      ).rejects.toBeInstanceOf(BadRequestException);
+
+      expect(supabaseUpload).not.toHaveBeenCalled();
+    });
+
+    it('surfaces a Supabase outage rather than silently using Cloudinary', async () => {
+      // Falling through would hit the 10MB raw cap and fail anyway, but with an
+      // error naming the wrong service — sending the reader to the wrong logs.
+      supabaseUpload.mockRejectedValueOnce(
+        new ServiceUnavailableException('Không lưu được tệp lên Supabase Storage'),
+      );
+
+      await expect(controller.uploadVrm(vrmFile(LICENSED))).rejects.toBeInstanceOf(
+        ServiceUnavailableException,
+      );
+      expect(uploadFile).not.toHaveBeenCalled();
+    });
+
+    it('falls back to Cloudinary only when Supabase is unconfigured', async () => {
+      isConfigured.mockReturnValue(false);
+
+      await controller.uploadVrm(vrmFile(LICENSED));
+
+      expect(uploadFile).toHaveBeenCalled();
+      expect(supabaseUpload).not.toHaveBeenCalled();
     });
   });
 });
