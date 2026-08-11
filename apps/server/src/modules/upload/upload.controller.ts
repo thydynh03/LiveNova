@@ -17,6 +17,7 @@ import {
 } from '@livenova/shared';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { CloudinaryService } from './cloudinary.service';
+import { SupabaseStorageService } from './supabase-storage.service';
 
 /**
  * Trần dung lượng cho mô hình VRM.
@@ -38,7 +39,10 @@ const VRM_PARSE_ERRORS: Record<VrmParseFailure, string> = {
 @UseGuards(JwtAuthGuard)
 @Controller('upload')
 export class UploadController {
-  constructor(private readonly cloudinaryService: CloudinaryService) {}
+  constructor(
+    private readonly cloudinaryService: CloudinaryService,
+    private readonly supabaseStorage: SupabaseStorageService,
+  ) {}
 
   @Post('image')
   @HttpCode(HttpStatus.OK)
@@ -118,6 +122,26 @@ export class UploadController {
           parsed.meta.commercialUse,
         )}.`,
       );
+    }
+
+    // Supabase Storage được ưu tiên cho VRM vì lý do rất cụ thể: gói Cloudinary
+    // miễn phí chặn tệp `raw` ở 10MB, mà mô hình nhân vật thực tế nặng 15–25MB.
+    // Cloudinary vẫn giữ nguyên cho ảnh và video, nơi giới hạn đó không vướng.
+    if (this.supabaseStorage.isConfigured()) {
+      const stored = await this.supabaseStorage.upload(file.buffer, {
+        folder: 'vrm',
+        extension: '.vrm',
+        // Không có kiểu MIME chính thức cho VRM. `model/gltf-binary` mô tả đúng
+        // thứ nằm bên trong và không khiến trình duyệt cố diễn giải nó.
+        contentType: 'model/gltf-binary',
+      });
+
+      return {
+        url: stored.url,
+        publicId: stored.path,
+        bytes: stored.bytes,
+        meta: parsed.meta,
+      };
     }
 
     const result = await this.cloudinaryService.uploadFile(file, 'livenova/vrm', {
