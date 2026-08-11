@@ -268,6 +268,14 @@ export default function VrmStudioPage() {
   const [modelUrl, setModelUrl] = useState(resolveVrmModelUrl);
   const fileRef = useRef<HTMLInputElement | null>(null);
 
+  // ── Nhảy theo nhạc ──────────────────────────────────────────────────────
+  const [danceUrl, setDanceUrl] = useState<string | null>(null);
+  const [audioUrl, setAudioUrl] = useState<string | null>(null);
+  const [isDancePlaying, setIsDancePlaying] = useState(false);
+  const [danceTime, setDanceTime] = useState(0);
+  const danceFileRef = useRef<HTMLInputElement | null>(null);
+  const audioFileRef = useRef<HTMLInputElement | null>(null);
+
   // ── Bảng thử động tác ──────────────────────────────────────────────────
   const [motion, setMotion] = useState<AvatarMotionPayload>({
     clip: AvatarMotionKind.WAVE,
@@ -420,6 +428,68 @@ export default function VrmStudioPage() {
           }}
         >
           <VrmModelPanel modelUrl={modelUrl} onModelUrlChange={setModelUrl} onNote={setNote} />
+
+          <Panel title="Dance & Music Studio" subtitle="Tải file .vrma và .mp3 để nhân vật nhảy theo nhạc.">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => danceFileRef.current?.click()}
+                  style={{ flex: 1, fontSize: '0.82rem' }}
+                  title={danceUrl ? "Đã tải điệu nhảy" : "Chưa tải điệu nhảy"}
+                >
+                  {danceUrl ? 'Đổi điệu nhảy' : 'Tải điệu nhảy (.vrma)'}
+                </button>
+                <input
+                  ref={danceFileRef}
+                  type="file"
+                  accept=".vrma"
+                  style={{ display: 'none' }}
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) setDanceUrl(URL.createObjectURL(f));
+                    e.target.value = '';
+                  }}
+                />
+                
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => audioFileRef.current?.click()}
+                  style={{ flex: 1, fontSize: '0.82rem' }}
+                >
+                  {audioUrl ? 'Đổi bài nhạc' : 'Tải nhạc (.mp3)'}
+                </button>
+                <input
+                  ref={audioFileRef}
+                  type="file"
+                  accept="audio/*"
+                  style={{ display: 'none' }}
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) setAudioUrl(URL.createObjectURL(f));
+                    e.target.value = '';
+                  }}
+                />
+              </div>
+
+              {audioUrl && (
+                <div style={{ marginTop: '0.5rem' }}>
+                  <audio
+                    src={audioUrl}
+                    controls
+                    style={{ width: '100%', height: '36px' }}
+                    onPlay={() => setIsDancePlaying(true)}
+                    onPause={() => setIsDancePlaying(false)}
+                    onEnded={() => setIsDancePlaying(false)}
+                    onSeeked={(e) => setDanceTime(e.currentTarget.currentTime)}
+                  />
+                  {!danceUrl && <p style={{...VALUE, color: 'hsl(var(--destructive))', marginTop: '0.5rem'}}>Vui lòng tải thêm file điệu nhảy (.vrma) để nhân vật có thể nhảy.</p>}
+                </div>
+              )}
+            </div>
+          </Panel>
 
           <Panel title="Giả lập quà tặng" subtitle="Bấm để xem nhân vật phản ứng đúng như trên sóng.">
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
@@ -727,6 +797,9 @@ export default function VrmStudioPage() {
               stageResolution={stageResolution}
               motionRequest={request}
               onStats={onStats}
+              danceUrl={danceUrl}
+              danceTime={danceTime}
+              isDancePlaying={isDancePlaying}
             />
           </div>
         </div>

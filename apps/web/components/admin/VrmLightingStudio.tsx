@@ -30,6 +30,10 @@ interface Props {
   /** Động tác cần diễn thử. Mỗi lần đổi định danh là một lần diễn. */
   motionRequest: { id: string; payload: AvatarMotionPayload } | null;
   onStats?: (stats: StageStats) => void;
+  /** Hoạt ảnh nhảy (VRMA) */
+  danceUrl?: string | null;
+  danceTime?: number;
+  isDancePlaying?: boolean;
 }
 
 export function VrmLightingStudio({
@@ -41,6 +45,9 @@ export function VrmLightingStudio({
   stageResolution,
   motionRequest,
   onStats,
+  danceUrl,
+  danceTime,
+  isDancePlaying,
 }: Props) {
   const hostRef = useRef<HTMLDivElement | null>(null);
   const stageRef = useRef<VrmStage | null>(null);
@@ -128,6 +135,20 @@ export function VrmLightingStudio({
   useEffect(() => {
     if (motionRequest) stageRef.current?.play(motionRequest.id, motionRequest.payload);
   }, [motionRequest]);
+
+  useEffect(() => {
+    stageRef.current?.loadDance(danceUrl ?? null);
+  }, [danceUrl]);
+
+  useEffect(() => {
+    stageRef.current?.setDancePlaying(isDancePlaying ?? false);
+  }, [isDancePlaying]);
+
+  useEffect(() => {
+    if (danceTime !== undefined) {
+      stageRef.current?.syncDanceTime(danceTime);
+    }
+  }, [danceTime]);
 
   return (
     <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
