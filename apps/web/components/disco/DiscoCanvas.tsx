@@ -91,7 +91,8 @@ export default function DiscoCanvas({ engine }: DiscoCanvasProps) {
       ctx.translate(-camPx, -camPy);
 
       // Draw Dancers
-      for (const dancer of engine.dancers.values()) {
+      const dancersArray = Array.from(engine.dancers.values());
+      for (const dancer of dancersArray) {
         const x = dancer.x * W;
         let y = dancer.y * floorY;
         

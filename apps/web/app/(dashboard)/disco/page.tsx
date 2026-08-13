@@ -1,33 +1,35 @@
 'use client';
 
-import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { useAuth } from '../../../../context/AuthContext';
-import { useEventsSocket } from '../../../../lib/use-events-socket';
-import { LiveEvent } from '@livenova/shared';
-import DiscoCanvas from '../../../../components/disco/DiscoCanvas';
-import { DiscoEngine } from '../../../../components/disco/disco-engine';
+import React, { useState, useMemo, useCallback, useRef } from 'react';
+import { useAuth } from '../../../context/AuthContext';
+import { useEventsSocket } from '../../../lib/use-events-socket';
+import { LiveEvent, LiveEventType } from '@livenova/shared';
+import DiscoCanvas from '../../../components/disco/DiscoCanvas';
+import { DiscoEngine } from '../../../components/disco/disco-engine';
 import Image from 'next/image';
+import { useApi } from '../../../lib/use-api';
+import type { Channel } from '../../../lib/types';
 
 export default function DiscoOverlayPage() {
-  const { user, linkedChannels } = useAuth();
+  const { user } = useAuth();
   
   // The engine holds all the physics and state for dancers
   const engine = useMemo(() => new DiscoEngine(), []);
 
   // Music Player State
   const [musicUrl, setMusicUrl] = useState<string>('');
-  const [isPlaying, setIsPlaying] = useState(false);
   const audioRef = useRef<HTMLAudioElement>(null);
 
-  // Use the events socket to listen to RAW chat events across all connected channels
-  const channelIds = useMemo(() => linkedChannels.map(c => c.id), [linkedChannels]);
+  // Fetch channels to listen to
+  const channels = useApi<Channel[]>('/channels');
+  const channelIds = useMemo(() => (channels.data ?? []).map((c) => c.id), [channels.data]);
 
   const handleEvent = useCallback((event: LiveEvent) => {
-    if (event.type === 'chat') {
-      const comment = event.payload.comment.toLowerCase().trim();
-      const senderId = event.payload.uniqueId || 'unknown';
-      const senderName = event.payload.nickname || senderId;
-      const avatarUrl = event.payload.profilePictureUrl;
+    if (event.type === LiveEventType.COMMENT) {
+      const comment = (event.content || '').toLowerCase().trim();
+      const senderId = event.senderUsername || 'unknown';
+      const senderName = event.senderDisplayName || senderId;
+      const avatarUrl = event.senderAvatar;
 
       // Command: "1", "join", "vào" -> Join the dance floor
       if (['1', 'join', 'vào'].includes(comment)) {
@@ -45,12 +47,12 @@ export default function DiscoOverlayPage() {
       else if (['4', 'đi', 'đi vòng', 'walk'].includes(comment)) {
         engine.walk(senderId);
       }
-    } else if (event.type === 'gift') {
+    } else if (event.type === LiveEventType.GIFT) {
       // Whenever a gift is sent
-      const senderId = event.payload.uniqueId || 'unknown';
-      const senderName = event.payload.nickname || senderId;
-      const avatarUrl = event.payload.profilePictureUrl;
-      const diamondCount = event.payload.diamondCount || 1;
+      const senderId = event.senderUsername || 'unknown';
+      const senderName = event.senderDisplayName || senderId;
+      const avatarUrl = event.senderAvatar;
+      const diamondCount = event.giftCoinValue || 1;
       
       engine.join(senderId, senderName, avatarUrl);
       
@@ -70,10 +72,15 @@ export default function DiscoOverlayPage() {
           engine.triggerFirework();
         }, i * 300);
       }
-    } else if (event.type === 'member') {
+    } else if (
+      event.type === LiveEventType.JOIN || 
+      event.type === LiveEventType.FOLLOW || 
+      event.type === LiveEventType.LIKE || 
+      event.type === LiveEventType.SHARE
+    ) {
        // VIP joins or top fans join trigger a firework
-       const senderId = event.payload.uniqueId || 'unknown';
-       const senderName = event.payload.nickname || senderId;
+       const senderId = event.senderUsername || 'unknown';
+       const senderName = event.senderDisplayName || senderId;
        engine.join(senderId, senderName);
        engine.triggerFirework();
     }
@@ -82,25 +89,14 @@ export default function DiscoOverlayPage() {
   const { status } = useEventsSocket({
     channelIds,
     onEvent: handleEvent,
-    enabled: true,
+    enabled: channelIds.length > 0,
   });
-
-  const toggleMusic = () => {
-    if (!audioRef.current) return;
-    if (isPlaying) {
-      audioRef.current.pause();
-    } else {
-      audioRef.current.play();
-    }
-    setIsPlaying(!isPlaying);
-  };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       const url = URL.createObjectURL(file);
       setMusicUrl(url);
-      setIsPlaying(true);
       setTimeout(() => {
         if (audioRef.current) audioRef.current.play();
       }, 100);
@@ -182,8 +178,6 @@ export default function DiscoOverlayPage() {
               ref={audioRef} 
               src={musicUrl} 
               loop 
-              onPlay={() => setIsPlaying(true)}
-              onPause={() => setIsPlaying(false)}
               style={{ width: '100%', height: '30px', marginTop: '4px' }} 
               controls 
             />

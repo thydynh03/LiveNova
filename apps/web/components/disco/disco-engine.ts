@@ -122,7 +122,8 @@ export class DiscoEngine {
 
   setDj(id: string) {
     // Revoke old DJ
-    for (const dancer of this.dancers.values()) {
+    const dancersArray = Array.from(this.dancers.values());
+    for (const dancer of dancersArray) {
       if (dancer.id !== id) {
         if (dancer.isDj) {
           dancer.isDj = false;
@@ -165,7 +166,8 @@ export class DiscoEngine {
     const FLOOR = 1.0;
     const BOUNCE = -0.4;
 
-    for (const [id, dancer] of this.dancers.entries()) {
+    const dancersArray = Array.from(this.dancers.values());
+    for (const dancer of dancersArray) {
       // DJ Physics override
       if (dancer.isDj) {
         // DJs float at the top center
