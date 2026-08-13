@@ -23,6 +23,8 @@ export enum RuleActionType {
   EFFECT = 'effect',
   /** Makes the VRM character on the stage overlay perform a motion. */
   AVATAR_MOTION = 'avatar_motion',
+  /** Makes the VRM character play a pre-baked dance clip (.vrma) with optional audio. */
+  AVATAR_DANCE = 'avatar_dance',
   SOUND = 'sound',
   OBS_COMMAND = 'obs_command',
   GAME_INPUT = 'game_input',
@@ -503,6 +505,117 @@ export function readAvatarMotionPayload(payload: unknown): AvatarMotionPayload |
 
   // Two blends cannot be longer than the motion they wrap, or the clip never
   // reaches full weight and every gift produces the same faint twitch.
+  const maxBlend = Math.floor(result.durationMs / 2);
+  if (result.blendMs > maxBlend) result.blendMs = maxBlend;
+
+  return result;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Avatar dance: pre-baked .vrma clips triggered by gifts
+//
+// Unlike AVATAR_MOTION which runs procedural bone rotations, AVATAR_DANCE plays
+// a pre-baked AnimationClip through THREE.AnimationMixer. The clip URL points
+// at a .vrma file already retargeted for the user's VRM model.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Payload of a RuleActionType.AVATAR_DANCE action. */
+export interface AvatarDancePayload {
+  /** Absolute https:// URL of the baked .vrma animation clip. */
+  clipUrl: string;
+  /** Optional audio to play alongside the dance. */
+  audioUrl?: string;
+  /** Total playback duration. Clamped server-side. */
+  durationMs: number;
+  /**
+   * Higher wins. Dance clips share the priority space with procedural motions:
+   * a dance at priority 8 will interrupt a wave at priority 3.
+   */
+  priority: number;
+  /** 0..1. Audio volume. */
+  volume: number;
+  /** Crossfade time into and out of the dance. Clamped server-side. */
+  blendMs: number;
+}
+
+export const AVATAR_DANCE_LIMITS = {
+  MIN_DURATION_MS: 1_000,
+  MAX_DURATION_MS: 30_000,
+  DEFAULT_DURATION_MS: 7_000,
+  MIN_BLEND_MS: 100,
+  MAX_BLEND_MS: 1_500,
+  DEFAULT_BLEND_MS: 300,
+  MIN_PRIORITY: 0,
+  MAX_PRIORITY: 10,
+  DEFAULT_PRIORITY: 5,
+  DEFAULT_VOLUME: 0.6,
+} as const;
+
+/**
+ * Read an AVATAR_DANCE payload written by a rule author.
+ *
+ * Returns null when `clipUrl` is missing — there is no default dance to play.
+ * Every other field falls back to a sane default. Run on the server before
+ * dispatch *and* in the overlay on receipt.
+ */
+export function readAvatarDancePayload(payload: unknown): AvatarDancePayload | null {
+  const raw = (payload ?? {}) as Record<string, unknown>;
+
+  // A dance without a clip URL is fatal — nothing to play.
+  if (typeof raw.clipUrl !== 'string' || raw.clipUrl.trim() === '') return null;
+
+  const rawDuration = raw.durationMs;
+  const duration =
+    typeof rawDuration === 'number' && Number.isFinite(rawDuration)
+      ? rawDuration
+      : AVATAR_DANCE_LIMITS.DEFAULT_DURATION_MS;
+
+  const rawBlend = raw.blendMs;
+  const blend =
+    typeof rawBlend === 'number' && Number.isFinite(rawBlend)
+      ? rawBlend
+      : AVATAR_DANCE_LIMITS.DEFAULT_BLEND_MS;
+
+  const rawPriority = raw.priority;
+  const priority =
+    typeof rawPriority === 'number' && Number.isFinite(rawPriority)
+      ? rawPriority
+      : AVATAR_DANCE_LIMITS.DEFAULT_PRIORITY;
+
+  const rawVolume = raw.volume;
+  const volume =
+    typeof rawVolume === 'number' && Number.isFinite(rawVolume)
+      ? rawVolume
+      : AVATAR_DANCE_LIMITS.DEFAULT_VOLUME;
+
+  const result: AvatarDancePayload = {
+    clipUrl: raw.clipUrl.trim(),
+    durationMs: Math.round(
+      Math.min(
+        Math.max(duration, AVATAR_DANCE_LIMITS.MIN_DURATION_MS),
+        AVATAR_DANCE_LIMITS.MAX_DURATION_MS,
+      ),
+    ),
+    priority: Math.round(
+      Math.min(
+        Math.max(priority, AVATAR_DANCE_LIMITS.MIN_PRIORITY),
+        AVATAR_DANCE_LIMITS.MAX_PRIORITY,
+      ),
+    ),
+    volume: Math.min(Math.max(volume, 0), 1),
+    blendMs: Math.round(
+      Math.min(
+        Math.max(blend, AVATAR_DANCE_LIMITS.MIN_BLEND_MS),
+        AVATAR_DANCE_LIMITS.MAX_BLEND_MS,
+      ),
+    ),
+  };
+
+  if (typeof raw.audioUrl === 'string' && raw.audioUrl.trim() !== '') {
+    result.audioUrl = raw.audioUrl.trim();
+  }
+
+  // Two blends cannot exceed total duration.
   const maxBlend = Math.floor(result.durationMs / 2);
   if (result.blendMs > maxBlend) result.blendMs = maxBlend;
 

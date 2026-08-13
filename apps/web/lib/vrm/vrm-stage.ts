@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { VRMLoaderPlugin, VRMUtils, type VRM } from '@pixiv/three-vrm';
-import { createVRMAnimationClip, VRMAnimationLoaderPlugin } from '@pixiv/three-vrm-animation';
+import { createVRMAnimationClip, VRMAnimationLoaderPlugin, VRMAnimation } from '@pixiv/three-vrm-animation';
 import { AvatarExpression, type AvatarMotionPayload } from '@livenova/shared';
 import { DEFAULT_LIGHTING, type LightingSettings } from './lighting';
 import {
@@ -92,6 +92,19 @@ export class VrmStage {
   private currentAnimationUrl: string | null = null;
   private isDancePlaying = false;
 
+  // ── Dance clip — đoạn nhảy ngắn kích hoạt bằng quà ─────────────────────
+  private danceAnimCache = new Map<string, VRMAnimation | THREE.AnimationClip>();
+  private activeDance: {
+    mixer: THREE.AnimationMixer;
+    action: THREE.AnimationAction;
+    audio: HTMLAudioElement | null;
+    blendMs: number;
+    durationMs: number;
+    startedAt: number;
+    fadingOut: boolean;
+    onEnd: (() => void) | null;
+  } | null = null;
+
   private modelHeight = 1.6;
   private modelCentre = new THREE.Vector3(0, 0.8, 0);
   private modelBaseY = 0;
@@ -169,13 +182,30 @@ export class VrmStage {
   }
 
   // ── Điệu nhảy ──────────────────────────────────────────────────────────
-  loadDance(vrmaUrl: string | null): void {
+  async loadDance(vrmaUrl: string | null): Promise<void> {
     if (this.currentAnimationUrl === vrmaUrl) return;
     this.currentAnimationUrl = vrmaUrl;
     
     if (!vrmaUrl) {
       if (this.animationMixer) this.animationMixer.stopAllAction();
       this.animationMixer = null;
+      return;
+    }
+
+    if (!this.vrm) return;
+
+    if (vrmaUrl.toLowerCase().endsWith('.vmd')) {
+      try {
+        const { loadVmdAsVrmAnimationClip } = await import('./vmd-retarget');
+        const clip = await loadVmdAsVrmAnimationClip(vrmaUrl, this.vrm);
+        if (this.disposed || this.currentAnimationUrl !== vrmaUrl) return;
+        
+        this.animationMixer = new THREE.AnimationMixer(this.vrm.scene);
+        const action = this.animationMixer.clipAction(clip);
+        action.play();
+      } catch (err) {
+        console.error('Không tải được tệp VMD:', err);
+      }
       return;
     }
 
@@ -206,6 +236,152 @@ export class VrmStage {
 
   setDancePlaying(isPlaying: boolean): void {
     this.isDancePlaying = isPlaying;
+  }
+
+  // ── Dance clip — đoạn nhảy ngắn kích hoạt bằng quà ─────────────────────
+
+  /**
+   * Tải trước một clip nhảy (.vrma) vào bộ nhớ.
+   *
+   * Gọi khi overlay khởi động để quà đến là phát ngay — không phải đợi tải
+   * qua mạng, vốn thêm 200–800ms đủ để người xem thấy nhân vật đứng yên.
+   */
+  async preloadDanceClip(vrmaUrl: string): Promise<void> {
+    if (this.danceAnimCache.has(vrmaUrl)) return;
+    if (!this.vrm) return;
+
+    if (vrmaUrl.toLowerCase().endsWith('.vmd')) {
+      try {
+        const { loadVmdAsVrmAnimationClip } = await import('./vmd-retarget');
+        const clip = await loadVmdAsVrmAnimationClip(vrmaUrl, this.vrm);
+        this.danceAnimCache.set(vrmaUrl, clip);
+      } catch (err) {
+        console.error('Không tải trước được VMD:', err);
+      }
+      return;
+    }
+
+    const loader = new GLTFLoader();
+    loader.register((parser) => new VRMAnimationLoaderPlugin(parser));
+    loader.load(
+      vrmaUrl,
+      (gltf) => {
+        const anim = gltf.userData.vrmAnimations?.[0] as VRMAnimation | undefined;
+        if (anim) this.danceAnimCache.set(vrmaUrl, anim);
+      },
+      undefined,
+      (err) => console.error('Không tải trước được clip nhảy:', err),
+    );
+  }
+
+  /**
+   * Phát một đoạn nhảy ngắn kèm nhạc. Gọi khi có quà.
+   *
+   * Tự dừng sau `durationMs`, hoà trộn đầu cuối qua `blendMs`. Nếu đang có
+   * đoạn nhảy khác, dừng nó trước — nhân vật không nhảy hai bài cùng lúc.
+   *
+   * `applyPose()` bị tắt trong suốt đoạn nhảy: mixer độc quyền điều khiển
+   * xương, tránh hai nguồn ghi xung đột làm nhân vật giật.
+   */
+  playDanceClip(opts: {
+    clipUrl: string;
+    audioUrl?: string;
+    durationMs: number;
+    blendMs: number;
+    volume: number;
+    onEnd?: () => void;
+  }): void {
+    this.stopDanceClip();
+    if (!this.vrm) return;
+
+    const startClip = (anim: VRMAnimation | THREE.AnimationClip) => {
+      if (this.disposed || !this.vrm) return;
+
+      const clip = anim instanceof THREE.AnimationClip ? anim : createVRMAnimationClip(anim, this.vrm);
+      const mixer = new THREE.AnimationMixer(this.vrm.scene);
+      const action = mixer.clipAction(clip);
+
+      action.setLoop(THREE.LoopOnce, 1);
+      action.clampWhenFinished = true;
+      action.fadeIn(opts.blendMs / 1000);
+      action.play();
+
+      let audio: HTMLAudioElement | null = null;
+      if (opts.audioUrl) {
+        audio = new Audio(opts.audioUrl);
+        audio.volume = Math.min(Math.max(opts.volume, 0), 1);
+        // Trình duyệt chặn autoplay có tiếng cho tới khi có tương tác.
+        // OBS browser source thường đã có quyền, nhưng không đảm bảo.
+        audio.play().catch(() => { /* autoplay blocked — chấp nhận im lặng */ });
+      }
+
+      this.activeDance = {
+        mixer,
+        action,
+        audio,
+        blendMs: opts.blendMs,
+        durationMs: opts.durationMs,
+        startedAt: performance.now(),
+        fadingOut: false,
+        onEnd: opts.onEnd ?? null,
+      };
+    };
+
+    const cached = this.danceAnimCache.get(opts.clipUrl);
+    if (cached) {
+      startClip(cached);
+      return;
+    }
+
+    if (opts.clipUrl.toLowerCase().endsWith('.vmd')) {
+      import('./vmd-retarget').then(({ loadVmdAsVrmAnimationClip }) => {
+        if (!this.vrm) return;
+        loadVmdAsVrmAnimationClip(opts.clipUrl, this.vrm).then((clip) => {
+          this.danceAnimCache.set(opts.clipUrl, clip);
+          startClip(clip);
+        }).catch(err => console.error('Không tải được VMD:', err));
+      });
+      return;
+    }
+
+    const loader = new GLTFLoader();
+    loader.register((parser) => new VRMAnimationLoaderPlugin(parser));
+    loader.load(
+      opts.clipUrl,
+      (gltf) => {
+        const anim = gltf.userData.vrmAnimations?.[0] as VRMAnimation | undefined;
+        if (!anim) return;
+        this.danceAnimCache.set(opts.clipUrl, anim);
+        startClip(anim);
+      },
+      undefined,
+      (err) => console.error('Không tải được clip nhảy:', err),
+    );
+  }
+
+  /**
+   * Dừng đoạn nhảy đang chạy và trả điều khiển xương cho `applyPose()`.
+   */
+  stopDanceClip(): void {
+    const d = this.activeDance;
+    if (!d) return;
+
+    d.action.stop();
+    d.mixer.stopAllAction();
+    if (this.vrm) d.mixer.uncacheRoot(this.vrm.scene);
+
+    if (d.audio) {
+      d.audio.pause();
+      d.audio.src = '';
+    }
+
+    const onEnd = d.onEnd;
+    this.activeDance = null;
+    onEnd?.();
+  }
+
+  get isDanceClipActive(): boolean {
+    return this.activeDance !== null;
   }
 
   // ── Khung hình ──────────────────────────────────────────────────────────
@@ -296,6 +472,11 @@ export class VrmStage {
         this.vrm = loaded;
         this.scene.add(loaded.scene);
 
+        // Tắt frustum culling vì animation có thể làm lệch bounding box
+        loaded.scene.traverse((obj) => {
+          obj.frustumCulled = false;
+        });
+
         // Sử dụng xương thay vì Bounding Box để tính chiều cao và tâm ngắm, 
         // tránh lỗi bounding box bị phình to do tóc hoặc xương vật lý.
         loaded.scene.updateMatrixWorld(true);
@@ -350,12 +531,45 @@ export class VrmStage {
     const started = performance.now();
 
     if (this.vrm) {
-      this.applyPose(now / 1000, now);
-      
-      if (this.animationMixer && this.isDancePlaying) {
+      // Khi đoạn nhảy đang chiếm quyền xương, tắt tư thế procedural — nếu cả
+      // hai cùng ghi lên bone thì nhân vật giật một cái mỗi khung.
+      if (!this.activeDance) {
+        this.applyPose(now / 1000, now);
+      }
+
+      // Đoạn nhảy ngắn (quà tặng)
+      if (this.activeDance) {
+        const d = this.activeDance;
+        const elapsed = now - d.startedAt;
+
+        // Bắt đầu mờ dần trước khi hết — nếu đợi đúng lúc hết thì sẽ có
+        // một khung nhảy từ tư thế nhảy sang tư thế nghỉ.
+        if (!d.fadingOut && elapsed >= d.durationMs - d.blendMs) {
+          d.fadingOut = true;
+          d.action.fadeOut(d.blendMs / 1000);
+          if (d.audio) {
+            // Giảm âm lượng dần cùng tốc độ với hình
+            const fadeAudio = () => {
+              if (!d.audio || d.audio.paused) return;
+              d.audio.volume = Math.max(0, d.audio.volume - 0.05);
+              if (d.audio.volume > 0) requestAnimationFrame(fadeAudio);
+            };
+            fadeAudio();
+          }
+        }
+
+        if (elapsed >= d.durationMs) {
+          this.stopDanceClip();
+        } else {
+          d.mixer.update(delta);
+        }
+      }
+
+      // Điệu nhảy studio (đồng bộ với audio bên ngoài, không phải quà)
+      if (this.animationMixer && this.isDancePlaying && !this.activeDance) {
         this.animationMixer.update(delta);
       }
-      
+
       this.vrm.update(delta);
     }
 
@@ -365,8 +579,8 @@ export class VrmStage {
 
     // Nửa giây một lần: đủ nhanh để thấy tác động của một thay đổi, đủ chậm để
     // bản thân việc báo cáo không thành một khoản chi phí đáng kể.
-    if (now - this.lastReportAt >= 500 && this.opts.onStats) {
-      this.lastReportAt = now;
+    if (now - this._lastStatsTime >= 1000 && this.opts.onStats) {
+      this._lastStatsTime = now;
       const w = [...this.work].sort((a, b) => a - b);
       const f = [...this.frames].sort((a, b) => a - b);
       this.opts.onStats({
@@ -381,6 +595,8 @@ export class VrmStage {
       this.frames.length = 0;
     }
   };
+
+  private _lastStatsTime = 0;
 
   /**
    * Dựng tư thế của khung này: bắt đầu từ tư thế nghỉ rồi trộn dần từng lớp
@@ -432,12 +648,16 @@ export class VrmStage {
     this.disposed = true;
     cancelAnimationFrame(this.raf);
     this.resizeObserver.disconnect();
+    this.stopDanceClip();
+    this.danceAnimCache.clear();
     // `renderer.dispose()` một mình không thu hồi geometry và texture của mô
     // hình. Thiếu dòng này thì mỗi lần hot-reload là một bản VRM nữa nằm lại
     // trong bộ nhớ GPU cho tới khi tab bị đóng.
     if (this.vrm) VRMUtils.deepDispose(this.vrm.scene);
     this.vrm = null;
     this.renderer.dispose();
-    this.renderer.domElement.remove();
+    if (this.renderer.domElement.parentElement) {
+      this.renderer.domElement.parentElement.removeChild(this.renderer.domElement);
+    }
   }
 }

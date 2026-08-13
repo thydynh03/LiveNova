@@ -164,4 +164,59 @@ export class UploadController {
       meta: parsed.meta,
     };
   }
+
+  /**
+   * Nhận tệp hoạt ảnh (.vrma) cho nhân vật trên sân khấu.
+   *
+   * Khác với mô hình VRM, định dạng VRMA chưa có chuẩn bắt buộc về siêu dữ
+   * liệu giấy phép nhúng cứng bên trong (ví dụ như cho phép thương mại không).
+   * Do đó máy chủ không tự động đọc và chặn được — người dùng phải tự bảo
+   * đảm họ có quyền dùng điệu nhảy này trước khi tải lên.
+   */
+  @Post('vrm/dance')
+  @HttpCode(HttpStatus.OK)
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: MAX_VRM_BYTES } }))
+  async uploadDanceClip(@UploadedFile() file: Express.Multer.File) {
+    if (!file?.buffer) {
+      throw new BadRequestException('Vui lòng chọn tệp .vrma hoặc .vmd để tải lên');
+    }
+
+    if (file.size > MAX_VRM_BYTES) {
+      throw new BadRequestException(
+        `Tệp ${(file.size / 1024 / 1024).toFixed(1)}MB vượt quá giới hạn ${MAX_VRM_BYTES / 1024 / 1024}MB`,
+      );
+    }
+
+    const isVmd = file.originalname?.toLowerCase().endsWith('.vmd');
+    const ext = isVmd ? '.vmd' : '.vrma';
+    const contentType = isVmd ? 'application/octet-stream' : 'model/gltf-binary';
+
+    if (this.supabaseStorage.isConfigured()) {
+      const stored = await this.supabaseStorage.upload(file.buffer, {
+        folder: 'vrm-dances',
+        extension: ext,
+        contentType: contentType,
+      });
+
+      return {
+        url: stored.url,
+        publicId: stored.path,
+        bytes: stored.bytes,
+      };
+    }
+
+    const result = await this.cloudinaryService.uploadFile(file, 'livenova/vrm-dances', {
+      resourceType: 'raw',
+      allowedExtensions: ['.vrma', '.vmd'],
+      defaultExtension: ext,
+      localFolder: 'vrm-dances',
+      requireRemote: process.env.NODE_ENV === 'production',
+    });
+
+    return {
+      url: result.secure_url,
+      publicId: result.public_id,
+      bytes: result.bytes ?? file.size,
+    };
+  }
 }

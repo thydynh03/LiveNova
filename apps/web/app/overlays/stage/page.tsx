@@ -4,11 +4,13 @@ import React, { useCallback, useEffect, useMemo, useRef, useState, Suspense } fr
 import dynamic from 'next/dynamic';
 import { useSearchParams } from 'next/navigation';
 import {
+  AvatarDancePayload,
   AvatarMotionPayload,
   OverlayAction,
   RuleActionType,
   StageEffectKind,
   STAGE_EFFECT_LIMITS,
+  readAvatarDancePayload,
   readAvatarMotionPayload,
   readEffectPayload,
 } from '@livenova/shared';
@@ -39,6 +41,7 @@ function StageOverlayContent() {
    */
   const [avatarEnabled, setAvatarEnabled] = useState(params.get('avatar') === '1');
   const [motion, setMotion] = useState<{ id: string; payload: AvatarMotionPayload } | null>(null);
+  const [dance, setDance] = useState<{ id: string; payload: AvatarDancePayload } | null>(null);
   const seenActions = useRef(new Set<string>());
 
   /**
@@ -49,6 +52,7 @@ function StageOverlayContent() {
    * đó là lý do state khởi tạo là `undefined` chứ không phải chuỗi rỗng.
    */
   const [configuredModelUrl, setConfiguredModelUrl] = useState<string | undefined>(undefined);
+  const [configuredDanceUrl, setConfiguredDanceUrl] = useState<string | undefined>(undefined);
 
   useEffect(() => {
     if (!token) return;
@@ -65,6 +69,8 @@ function StageOverlayContent() {
           if (cancelled) return;
           const url = data?.config?.vrmModelUrl;
           if (typeof url === 'string' && url.trim() !== '') setConfiguredModelUrl(url.trim());
+          const dUrl = data?.config?.danceUrl;
+          if (typeof dUrl === 'string' && dUrl.trim() !== '') setConfiguredDanceUrl(dUrl.trim());
         })
         .catch(() => undefined);
     } catch {
@@ -106,6 +112,21 @@ function StageOverlayContent() {
 
       setAvatarEnabled(true);
       setMotion({ id: action.id, payload });
+      return;
+    }
+
+    if (action.type === RuleActionType.AVATAR_DANCE) {
+      const payload = readAvatarDancePayload(action.payload);
+      if (!payload) return;
+
+      if (seenActions.current.has(action.id)) return;
+      seenActions.current.add(action.id);
+      if (seenActions.current.size > 256) {
+        seenActions.current.delete(seenActions.current.values().next().value as string);
+      }
+
+      setAvatarEnabled(true);
+      setDance({ id: action.id, payload });
       return;
     }
 
@@ -217,7 +238,7 @@ function StageOverlayContent() {
       >
         {/* Nhân vật nằm dưới lớp hiệu ứng: khói và pháo giấy phải phủ lên
             người, không phải bị người che mất. */}
-        {avatarEnabled && <VrmAvatarLayer motion={motion} modelUrl={configuredModelUrl} />}
+        {avatarEnabled && <VrmAvatarLayer motion={motion} dance={dance} modelUrl={configuredModelUrl} danceUrl={configuredDanceUrl} />}
 
         <EffectLayer effects={effects} reducedMotion={reducedMotion} />
 

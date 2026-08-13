@@ -475,3 +475,33 @@ export async function restoreSession(): Promise<string | null> {
 export function currentSessionGeneration(): number {
   return sessionGeneration;
 }
+
+/**
+ * Tải tệp hoạt ảnh VRMA cho điệu nhảy nền.
+ */
+export async function uploadVrmDanceClip(file: File): Promise<{
+  url: string;
+  publicId: string;
+  bytes: number;
+}> {
+  const formData = new FormData();
+  formData.append('file', file);
+
+  const token = getAccessToken();
+  const res = await fetch(`${apiBase()}/upload/vrm/dance`, {
+    method: 'POST',
+    headers: {
+      ...(token ? { authorization: `Bearer ${token}` } : {}),
+    },
+    body: formData,
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    const fromServer = Array.isArray(err?.message) ? err.message.join(', ') : err?.message;
+    throw new ApiError(fromServer || describeUploadFailure(res.status), res.status);
+  }
+
+  return res.json();
+}
+
