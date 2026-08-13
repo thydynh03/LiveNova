@@ -361,6 +361,9 @@ function MediaOverlayContent() {
             width: '100%',
             height: '100%',
             overflow: 'hidden',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
             filter: 'drop-shadow(0 0 15px rgba(255, 255, 255, 0.2))',
           }}
         >
@@ -374,7 +377,7 @@ function MediaOverlayContent() {
               display: 'block',
               width: '100%',
               height: '100%',
-              objectFit: 'fill',
+              objectFit: 'contain',
             }}
             ref={(el) => {
               if (el) {
