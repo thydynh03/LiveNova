@@ -231,6 +231,11 @@ function MediaOverlayContent() {
 
     // Schedule hide — start counting from NOW (item.durationMs after drain)
     timerRef.current = setTimeout(() => {
+      // Ensure default idle video decoder is active and playing before opacity transition begins
+      if (defaultVideoRef.current) {
+        defaultVideoRef.current.play().catch(() => {});
+      }
+
       // Fade the popup layer out
       setPopupVisible(false);
 
@@ -239,13 +244,12 @@ function MediaOverlayContent() {
         setCurrent(null);
         if (popupVideoRef.current) {
           popupVideoRef.current.pause();
-          popupVideoRef.current.src = '';
         }
         // Release the busy lock and immediately try to play the next item
         busyRef.current = false;
         // Call via ref — always the latest version, no stale closure possible
         processNextRef.current();
-      }, FADE_MS + 50);
+      }, FADE_MS + 30);
     }, item.durationMs);
   };
 
@@ -345,9 +349,10 @@ function MediaOverlayContent() {
           inset: 0;
           width: 100%;
           height: 100%;
-          /* GPU-composited transition — zero layout cost, tear-free crossfade */
-          will-change: opacity;
-          transition: opacity ${FADE_MS}ms ease-in-out;
+          /* GPU-composited hardware acceleration — zero layout cost, tear-free crossfade */
+          transform: translateZ(0);
+          will-change: opacity, transform;
+          transition: opacity ${FADE_MS}ms cubic-bezier(0.4, 0, 0.2, 1);
         }
 
         /* Video / image fill */
