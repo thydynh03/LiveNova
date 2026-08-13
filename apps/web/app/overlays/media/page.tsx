@@ -124,6 +124,11 @@ function MediaOverlayContent() {
   const searchParams = useSearchParams();
   const token = searchParams.get('token');
   const customDefaultVideoFromQuery = searchParams.get('defaultVideo');
+  const fitParam = searchParams.get('fit'); // 'cover' | 'contain' | 'fill'
+
+  // Default to 'cover' so video fills 100% of any Custom Resolution box in TikTok LIVE Studio / OBS without black borders
+  const objectFitMode: 'cover' | 'contain' | 'fill' =
+    fitParam === 'contain' ? 'contain' : fitParam === 'fill' ? 'fill' : 'cover';
 
   const [overlayDefaultVideo, setOverlayDefaultVideo] = useState<string | null>(null);
   const [activePopup, setActivePopup] = useState<MediaPopupItem | null>(null);
@@ -322,7 +327,7 @@ function MediaOverlayContent() {
                     display: 'block',
                     width: '100%',
                     height: '100%',
-                    objectFit: 'contain',
+                    objectFit: objectFitMode,
                   }}
                   ref={(el) => {
                     if (el) {
@@ -345,7 +350,7 @@ function MediaOverlayContent() {
                     display: 'block',
                     width: '100%',
                     height: '100%',
-                    objectFit: 'contain',
+                    objectFit: objectFitMode,
                   }}
                 />
               )
@@ -377,7 +382,7 @@ function MediaOverlayContent() {
               display: 'block',
               width: '100%',
               height: '100%',
-              objectFit: 'contain',
+              objectFit: objectFitMode,
             }}
             ref={(el) => {
               if (el) {
