@@ -12,6 +12,7 @@ export interface Dancer {
   targetScale: number;
   state: 'idle' | 'dancing' | 'jumping';
   danceOffset: number; // For bobbing up and down
+  isDj?: boolean; // DJ flag
 }
 
 export interface Firework {
@@ -19,6 +20,17 @@ export interface Firework {
   x: number;
   y: number;
   createdAt: number;
+}
+
+export interface Camera {
+  x: number;
+  y: number;
+  scale: number;
+  targetX: number;
+  targetY: number;
+  targetScale: number;
+  lockedOnId: string | null;
+  lockTimeout: number;
 }
 
 const SPRITES = [
@@ -33,6 +45,9 @@ const SPRITES = [
 export class DiscoEngine {
   dancers: Map<string, Dancer> = new Map();
   fireworks: Firework[] = [];
+  camera: Camera = {
+    x: 0, y: 0, scale: 1, targetX: 0, targetY: 0, targetScale: 1, lockedOnId: null, lockTimeout: 0
+  };
   lastTick: number = 0;
   
   private colors = ['#ff4b4b', '#ff7a4b', '#ffb54b', '#e2ff4b', '#62ff4b', '#4bff9a', '#4be2ff', '#4b7aff', '#9a4bff', '#ff4be2'];
@@ -62,6 +77,7 @@ export class DiscoEngine {
       targetScale: 1,
       state: 'dancing',
       danceOffset: Math.random() * Math.PI * 2,
+      isDj: false,
     });
   }
 
@@ -69,8 +85,8 @@ export class DiscoEngine {
     const dancer = this.dancers.get(id);
     if (!dancer) return;
     
-    // Only jump if near the floor
-    if (dancer.y >= 0.95) {
+    // Only jump if near the floor (DJs are floating, so they can jump anytime)
+    if (dancer.y >= 0.95 || dancer.isDj) {
       dancer.vy = -1.2; // Upward velocity
       dancer.state = 'jumping';
     }
@@ -80,22 +96,18 @@ export class DiscoEngine {
     const dancer = this.dancers.get(id);
     if (!dancer) return;
 
-    // Pick a new random sprite that is different from current
     let newSprite = SPRITES[Math.floor(Math.random() * SPRITES.length)];
     while (newSprite === dancer.spriteId && SPRITES.length > 1) {
       newSprite = SPRITES[Math.floor(Math.random() * SPRITES.length)];
     }
     dancer.spriteId = newSprite;
     
-    // Give a little hop
     this.jump(id);
   }
 
   walk(id: string) {
     const dancer = this.dancers.get(id);
     if (!dancer) return;
-
-    // Change horizontal velocity randomly
     dancer.vx = (Math.random() - 0.5) * 0.3;
   }
 
@@ -103,12 +115,36 @@ export class DiscoEngine {
     const dancer = this.dancers.get(id);
     if (!dancer) return;
 
-    // Scale up temporarily
     dancer.targetScale = 2.5;
-    
-    // Jump with excitement
     dancer.vy = -1.5;
     dancer.state = 'jumping';
+  }
+
+  setDj(id: string) {
+    // Revoke old DJ
+    for (const dancer of this.dancers.values()) {
+      if (dancer.id !== id) {
+        if (dancer.isDj) {
+          dancer.isDj = false;
+          // Fall back to ground
+          dancer.vy = 0;
+        }
+      }
+    }
+
+    const newDj = this.dancers.get(id);
+    if (newDj) {
+      newDj.isDj = true;
+      // Spawn some fireworks for the new DJ
+      this.triggerFirework(0.3, 0.3);
+      this.triggerFirework(0.5, 0.2);
+      this.triggerFirework(0.7, 0.3);
+    }
+  }
+
+  zoomOn(id: string) {
+    this.camera.lockedOnId = id;
+    this.camera.lockTimeout = Date.now() + 3500; // Lock for 3.5 seconds
   }
 
   triggerFirework(x?: number, y?: number) {
@@ -130,29 +166,43 @@ export class DiscoEngine {
     const BOUNCE = -0.4;
 
     for (const [id, dancer] of this.dancers.entries()) {
-      // Apply gravity
-      dancer.vy += GRAVITY * dt;
-      dancer.y += dancer.vy * dt;
-      dancer.x += dancer.vx * dt;
+      // DJ Physics override
+      if (dancer.isDj) {
+        // DJs float at the top center
+        const targetX = 0.5;
+        const targetY = 0.25;
+        
+        // Lerp to DJ position
+        dancer.x += (targetX - dancer.x) * 2 * dt;
+        dancer.y += (targetY - dancer.y) * 2 * dt;
+        dancer.vx = 0;
+        dancer.vy = 0;
 
-      // Floor collision
-      if (dancer.y >= FLOOR) {
-        dancer.y = FLOOR;
-        if (dancer.vy > 0.2) {
-          dancer.vy *= BOUNCE;
-        } else {
-          dancer.vy = 0;
-          dancer.state = 'dancing';
+      } else {
+        // Normal Physics
+        dancer.vy += GRAVITY * dt;
+        dancer.y += dancer.vy * dt;
+        dancer.x += dancer.vx * dt;
+
+        // Floor collision
+        if (dancer.y >= FLOOR) {
+          dancer.y = FLOOR;
+          if (dancer.vy > 0.2) {
+            dancer.vy *= BOUNCE;
+          } else {
+            dancer.vy = 0;
+            dancer.state = 'dancing';
+          }
         }
-      }
 
-      // Wall collision
-      if (dancer.x < 0.05) {
-        dancer.x = 0.05;
-        dancer.vx *= -1;
-      } else if (dancer.x > 0.95) {
-        dancer.x = 0.95;
-        dancer.vx *= -1;
+        // Wall collision
+        if (dancer.x < 0.05) {
+          dancer.x = 0.05;
+          dancer.vx *= -1;
+        } else if (dancer.x > 0.95) {
+          dancer.x = 0.95;
+          dancer.vx *= -1;
+        }
       }
 
       // Smooth scaling (shrink back to 1 over time)
@@ -168,6 +218,26 @@ export class DiscoEngine {
         dancer.danceOffset += dt * Math.PI * 5; 
       }
     }
+
+    // Camera logic
+    if (this.camera.lockedOnId && now < this.camera.lockTimeout) {
+      const lockedDancer = this.dancers.get(this.camera.lockedOnId);
+      if (lockedDancer) {
+        this.camera.targetX = lockedDancer.x;
+        this.camera.targetY = lockedDancer.y;
+        this.camera.targetScale = 1.6; // Zoom in 1.6x
+      }
+    } else {
+      this.camera.lockedOnId = null;
+      this.camera.targetX = 0.5; // Center
+      this.camera.targetY = 0.5;
+      this.camera.targetScale = 1.0;
+    }
+
+    // Lerp Camera
+    this.camera.x += (this.camera.targetX - this.camera.x) * 5 * dt;
+    this.camera.y += (this.camera.targetY - this.camera.y) * 5 * dt;
+    this.camera.scale += (this.camera.targetScale - this.camera.scale) * 5 * dt;
 
     // Clean up old fireworks
     this.fireworks = this.fireworks.filter(f => now - f.createdAt < 2000); // 2 seconds

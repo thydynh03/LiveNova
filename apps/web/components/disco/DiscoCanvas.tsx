@@ -74,27 +74,41 @@ export default function DiscoCanvas({ engine }: DiscoCanvasProps) {
 
       const W = canvas.width;
       const H = canvas.height;
+      const floorY = H - 150; // Adjusted for stage perspective
       
       ctx.clearRect(0, 0, W, H);
       
-      // We no longer draw the floor line because the stage background handles it
-      
+      // Apply Camera Transform
+      ctx.save();
+      // Move to center of screen for scaling pivot
+      ctx.translate(W / 2, H / 2);
+      ctx.scale(engine.camera.scale, engine.camera.scale);
+      // Translate to the camera's view target (relative to center)
+      // Since engine.camera.x/y is 0 to 1, we convert to pixels.
+      const camPx = engine.camera.x * W;
+      // y is tricky because our floor is floorY, so let's map camera.y to pixels using floorY
+      const camPy = engine.camera.y * floorY;
+      ctx.translate(-camPx, -camPy);
+
       // Draw Dancers
       for (const dancer of engine.dancers.values()) {
         const x = dancer.x * W;
-        const floorY = H - 150; // Adjusted for stage perspective
         let y = dancer.y * floorY;
         
         if (dancer.state === 'dancing') {
           y -= Math.abs(Math.sin(dancer.danceOffset)) * 10;
         }
 
-        // Draw shadow
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
-        ctx.beginPath();
-        const shadowScale = (1 - Math.max(0, floorY - y) / 300) * dancer.scale;
-        ctx.ellipse(x, floorY + 40, Math.max(10, 40 * shadowScale), Math.max(3, 12 * shadowScale), 0, 0, Math.PI * 2);
-        ctx.fill();
+        // Draw shadow (don't draw if they are a floating DJ high up, unless they are near floor)
+        if (!dancer.isDj || dancer.y > 0.8) {
+          ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
+          ctx.beginPath();
+          const shadowScale = (1 - Math.max(0, floorY - y) / 300) * dancer.scale;
+          if (shadowScale > 0) {
+            ctx.ellipse(x, floorY + 40, Math.max(10, 40 * shadowScale), Math.max(3, 12 * shadowScale), 0, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        }
 
         // Draw Sprite
         ctx.save();
@@ -111,21 +125,18 @@ export default function DiscoCanvas({ engine }: DiscoCanvasProps) {
         }
 
         // Apply scale (grow)
-        ctx.scale(dancer.scale, dancer.scale);
+        const renderScale = dancer.scale * (dancer.isDj ? 1.5 : 1); // DJ is naturally 1.5x bigger
+        ctx.scale(renderScale, renderScale);
 
         // Get frames for this sprite
         const frames = SPRITE_CACHE[dancer.spriteId];
         if (frames && frames.length > 0) {
-          // Calculate frame index based on time
-          // If it has multiple frames, cycle them (e.g. 10 frames per second)
           const frameIndex = frames.length > 1 
             ? Math.floor(now / 80) % frames.length 
             : 0;
             
           const img = frames[frameIndex];
           if (img && img.complete) {
-            // Draw centered
-            // Assume most sprites are around 150x150, but let's use their natural aspect ratio
             const drawW = 120;
             const drawH = 120 * (img.height / img.width || 1);
             ctx.drawImage(img, -drawW/2, -drawH + 40, drawW, drawH);
@@ -134,17 +145,28 @@ export default function DiscoCanvas({ engine }: DiscoCanvasProps) {
         ctx.restore();
 
         // Draw Nameplate
-        ctx.font = 'bold 16px sans-serif';
-        ctx.fillStyle = dancer.color;
         ctx.textAlign = 'center';
         
-        // Nameplate goes above the scaled character
-        const nameY = y - 90 * dancer.scale;
+        const nameY = y - (90 * renderScale);
         
-        ctx.strokeStyle = 'rgba(0,0,0,0.8)';
-        ctx.lineWidth = 3;
-        ctx.strokeText(dancer.name, x, nameY);
-        ctx.fillText(dancer.name, x, nameY);
+        if (dancer.isDj) {
+          // Special DJ Crown and Name
+          ctx.font = 'bold 24px sans-serif';
+          ctx.fillStyle = '#FFD700'; // Gold
+          ctx.strokeStyle = 'rgba(0,0,0,0.8)';
+          ctx.lineWidth = 4;
+          const djText = `👑 TOP DJ: ${dancer.name}`;
+          ctx.strokeText(djText, x, nameY - 15);
+          ctx.fillText(djText, x, nameY - 15);
+        } else {
+          // Normal Nameplate
+          ctx.font = 'bold 16px sans-serif';
+          ctx.fillStyle = dancer.color;
+          ctx.strokeStyle = 'rgba(0,0,0,0.8)';
+          ctx.lineWidth = 3;
+          ctx.strokeText(dancer.name, x, nameY);
+          ctx.fillText(dancer.name, x, nameY);
+        }
       }
 
       // Draw Fireworks
@@ -172,6 +194,8 @@ export default function DiscoCanvas({ engine }: DiscoCanvasProps) {
         }
         ctx.restore();
       }
+
+      ctx.restore(); // End Camera Transform
     };
 
     animId = requestAnimationFrame(draw);
