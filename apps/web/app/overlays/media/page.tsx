@@ -231,6 +231,9 @@ function MediaOverlayContent() {
         overflow: 'hidden',
         boxSizing: 'border-box',
         position: 'relative',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
       }}
     >
       <style>{`
@@ -265,8 +268,6 @@ function MediaOverlayContent() {
           {statusMessage}
         </div>
       )}
-
-
 
       {/* Donate Popup Reaction Video / Image / Blackout Effect */}
       {activePopup ? (
@@ -306,6 +307,9 @@ function MediaOverlayContent() {
               width: '100%',
               height: '100%',
               overflow: 'hidden',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
             }}
           >
             {activePopup.url && (
@@ -318,7 +322,7 @@ function MediaOverlayContent() {
                     display: 'block',
                     width: '100%',
                     height: '100%',
-                    objectFit: 'fill',
+                    objectFit: 'contain',
                   }}
                   ref={(el) => {
                     if (el) {
@@ -341,7 +345,7 @@ function MediaOverlayContent() {
                     display: 'block',
                     width: '100%',
                     height: '100%',
-                    objectFit: 'fill',
+                    objectFit: 'contain',
                   }}
                 />
               )
@@ -357,6 +361,7 @@ function MediaOverlayContent() {
             width: '100%',
             height: '100%',
             overflow: 'hidden',
+            filter: 'drop-shadow(0 0 15px rgba(255, 255, 255, 0.2))',
           }}
         >
           <video
