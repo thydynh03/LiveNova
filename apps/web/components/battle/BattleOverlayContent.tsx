@@ -156,7 +156,7 @@ const DEFAULT_4_KINGDOMS_STATE: BattleState = {
 
 export function BattleOverlayContent({
   customState,
-  onCardClick,
+  onCardClick: _onCardClick,
   fillerCount = 8,
 }: {
   customState?: BattleState;

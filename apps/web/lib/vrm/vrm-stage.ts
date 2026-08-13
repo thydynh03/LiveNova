@@ -224,7 +224,21 @@ export class VrmStage {
         }
       },
       undefined,
-      (err) => console.error('Không tải được tệp VRMA:', err)
+      (err) => {
+        if (err instanceof Error && err.message.includes('Vocaloid M')) {
+          console.warn('Phát hiện tệp VMD bị sai đuôi, tự động chuyển hướng...');
+          import('./vmd-retarget').then(({ loadVmdAsVrmAnimationClip }) => {
+            loadVmdAsVrmAnimationClip(vrmaUrl, this.vrm!).then(clip => {
+              if (this.disposed || this.currentAnimationUrl !== vrmaUrl) return;
+              this.animationMixer = new THREE.AnimationMixer(this.vrm!.scene);
+              const action = this.animationMixer.clipAction(clip);
+              action.play();
+            }).catch(e => console.error('Không tải được tệp VMD (tự phục hồi):', e));
+          });
+          return;
+        }
+        console.error('Không tải được tệp VRMA:', err);
+      }
     );
   }
 
@@ -270,7 +284,17 @@ export class VrmStage {
         if (anim) this.danceAnimCache.set(vrmaUrl, anim);
       },
       undefined,
-      (err) => console.error('Không tải trước được clip nhảy:', err),
+      (err) => {
+        if (err instanceof Error && err.message.includes('Vocaloid M')) {
+          import('./vmd-retarget').then(({ loadVmdAsVrmAnimationClip }) => {
+            loadVmdAsVrmAnimationClip(vrmaUrl, this.vrm!).then(clip => {
+              this.danceAnimCache.set(vrmaUrl, clip);
+            }).catch(e => console.error('Không tải trước được VMD (tự phục hồi):', e));
+          });
+          return;
+        }
+        console.error('Không tải trước được clip nhảy:', err);
+      }
     );
   }
 
@@ -355,7 +379,20 @@ export class VrmStage {
         startClip(anim);
       },
       undefined,
-      (err) => console.error('Không tải được clip nhảy:', err),
+      (err) => {
+        if (err instanceof Error && err.message.includes('Vocaloid M')) {
+          import('./vmd-retarget').then(({ loadVmdAsVrmAnimationClip }) => {
+            loadVmdAsVrmAnimationClip(opts.clipUrl, this.vrm!).then(clip => {
+              this.danceAnimCache.set(opts.clipUrl, clip);
+              startClip(clip);
+            }).catch(e => {
+              console.error('Không tải được clip nhảy VMD (tự phục hồi):', e);
+            });
+          });
+          return;
+        }
+        console.error('Không tải được clip nhảy:', err);
+      },
     );
   }
 

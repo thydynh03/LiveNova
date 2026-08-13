@@ -158,8 +158,8 @@ describe('nhịp trận đánh', () => {
     // Đây chính là điều người dùng phàn nàn: máu tụt quá nhanh nên trận đánh
     // xong trước khi kịp thấy. Khoá lại bằng số giây, không phải bằng hằng số.
     const secondsToDie = COMBAT.DEFAULT_MAX_HP / COMBAT.FIGHT_DPS;
-    expect(secondsToDie).toBeGreaterThanOrEqual(4);
-    expect(secondsToDie).toBeLessThanOrEqual(8);
+    expect(secondsToDie).toBeGreaterThanOrEqual(10);
+    expect(secondsToDie).toBeLessThanOrEqual(15);
   });
 
   it('để lính đứng một mình lâu hơn hẳn lính đang giao chiến', () => {
