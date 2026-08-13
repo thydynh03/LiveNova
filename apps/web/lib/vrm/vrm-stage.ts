@@ -194,7 +194,7 @@ export class VrmStage {
 
     if (!this.vrm) return;
 
-    if (vrmaUrl.toLowerCase().endsWith('.vmd')) {
+    if (vrmaUrl.split('?')[0].split('#')[0].toLowerCase().endsWith('.vmd')) {
       try {
         const { loadVmdAsVrmAnimationClip } = await import('./vmd-retarget');
         const clip = await loadVmdAsVrmAnimationClip(vrmaUrl, this.vrm);
@@ -250,7 +250,7 @@ export class VrmStage {
     if (this.danceAnimCache.has(vrmaUrl)) return;
     if (!this.vrm) return;
 
-    if (vrmaUrl.toLowerCase().endsWith('.vmd')) {
+    if (vrmaUrl.split('?')[0].split('#')[0].toLowerCase().endsWith('.vmd')) {
       try {
         const { loadVmdAsVrmAnimationClip } = await import('./vmd-retarget');
         const clip = await loadVmdAsVrmAnimationClip(vrmaUrl, this.vrm);
@@ -333,7 +333,7 @@ export class VrmStage {
       return;
     }
 
-    if (opts.clipUrl.toLowerCase().endsWith('.vmd')) {
+    if (opts.clipUrl.split('?')[0].split('#')[0].toLowerCase().endsWith('.vmd')) {
       import('./vmd-retarget').then(({ loadVmdAsVrmAnimationClip }) => {
         if (!this.vrm) return;
         loadVmdAsVrmAnimationClip(opts.clipUrl, this.vrm).then((clip) => {
