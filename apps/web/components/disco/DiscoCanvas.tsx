@@ -78,23 +78,20 @@ export default function DiscoCanvas({ engine }: DiscoCanvasProps) {
       animId = requestAnimationFrame(draw);
       engine.tick(now);
 
-      const W = canvas.width;
-      const H = canvas.height;
-      const floorY = H - 150; // Adjusted for stage perspective
+      const W = canvas.width || 800;
+      const H = canvas.height || 600;
+      const floorY = H * 0.85; // Natural floor position on stage
       
       ctx.clearRect(0, 0, W, H);
       
       // Apply Camera Transform
       ctx.save();
-      // Move to center of screen for scaling pivot
+      const targetPx = engine.camera.x * W;
+      const targetPy = engine.camera.y <= 0.5 ? engine.camera.y * H : engine.camera.y * floorY;
+      
       ctx.translate(W / 2, H / 2);
       ctx.scale(engine.camera.scale, engine.camera.scale);
-      // Translate to the camera's view target (relative to center)
-      // Since engine.camera.x/y is 0 to 1, we convert to pixels.
-      const camPx = engine.camera.x * W;
-      // y is tricky because our floor is floorY, so let's map camera.y to pixels using floorY
-      const camPy = engine.camera.y * floorY;
-      ctx.translate(-camPx, -camPy);
+      ctx.translate(-targetPx, -targetPy);
 
       // Draw Dancers
       const dancersArray = Array.from(engine.dancers.values());

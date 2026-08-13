@@ -1,140 +1,119 @@
 'use client';
 
-import React, { useMemo, useCallback } from 'react';
-import { useAuth } from '../../../context/AuthContext';
-import { useEventsSocket } from '../../../lib/use-events-socket';
-import { LiveEvent, LiveEventType } from '@livenova/shared';
-import DiscoCanvas from '../../../components/disco/DiscoCanvas';
-import { DiscoEngine } from '../../../components/disco/disco-engine';
+import React, { useMemo, useCallback, useEffect, Suspense } from 'react';
 import Image from 'next/image';
-import { useApi } from '../../../lib/use-api';
-import type { Channel } from '../../../lib/types';
+import { useSearchParams } from 'next/navigation';
+import { OverlayAction, LiveEventType } from '@livenova/shared';
+import { useOverlaySocket } from '../../../lib/use-overlay-socket';
+import { DiscoEngine } from '../../../components/disco/disco-engine';
+import DiscoCanvas from '../../../components/disco/DiscoCanvas';
 
-export default function DiscoOverlayPage() {
-  const { user } = useAuth();
-  
-  // The engine holds all the physics and state for dancers
+function DiscoOverlayContent() {
+  const searchParams = useSearchParams();
+  const token = searchParams ? searchParams.get('token') : null;
+
   const engine = useMemo(() => new DiscoEngine(), []);
 
+  useEffect(() => {
+    // OBS / TikTok Live Studio compositing
+    document.body.style.backgroundColor = 'transparent';
+    document.documentElement.style.backgroundColor = 'transparent';
+  }, []);
 
-  // Fetch channels to listen to
-  const channels = useApi<Channel[]>('/channels');
-  const channelIds = useMemo(() => (channels.data ?? []).map((c) => c.id), [channels.data]);
+  const handleAction = useCallback((action: OverlayAction) => {
+    const { event } = action;
+    if (!event) return;
 
-  const handleEvent = useCallback((event: LiveEvent) => {
+    const senderId = event.senderDisplayName || 'khangia';
+    const senderName = event.senderDisplayName || senderId;
+    const avatarUrl = event.senderAvatar;
+
     if (event.type === LiveEventType.COMMENT) {
       const comment = (event.content || '').toLowerCase().trim();
-      const senderId = event.senderUsername || 'unknown';
-      const senderName = event.senderDisplayName || senderId;
-      const avatarUrl = event.senderAvatar;
-
-      // Command: "1", "join", "vào" -> Join the dance floor
       if (['1', 'join', 'vào'].includes(comment)) {
         engine.join(senderId, senderName, avatarUrl);
-      }
-      // Command: "2", "jump", "lên", "nhảy" -> Jump
-      else if (['2', 'jump', 'lên', 'nhảy'].includes(comment)) {
+      } else if (['2', 'jump', 'lên', 'nhảy'].includes(comment)) {
         engine.jump(senderId);
-      }
-      // Command: "3", "đổi", "đổi nv", "change" -> Change avatar
-      else if (['3', 'đổi', 'đổi nv', 'change'].includes(comment)) {
+      } else if (['3', 'đổi', 'đổi nv', 'change'].includes(comment)) {
         engine.changeAvatar(senderId);
-      }
-      // Command: "4", "đi", "đi vòng", "walk" -> Walk around
-      else if (['4', 'đi', 'đi vòng', 'walk'].includes(comment)) {
+      } else if (['4', 'đi', 'đi vòng', 'walk'].includes(comment)) {
         engine.walk(senderId);
       }
     } else if (event.type === LiveEventType.GIFT) {
-      // Whenever a gift is sent
-      const senderId = event.senderUsername || 'unknown';
-      const senderName = event.senderDisplayName || senderId;
-      const avatarUrl = event.senderAvatar;
       const diamondCount = event.giftCoinValue || 1;
-      
       engine.join(senderId, senderName, avatarUrl);
-      
-      // Zoom in on the gifter!
       engine.zoomOn(senderId);
-      engine.grow(senderId); // Make them huge temporarily
-      
-      // If gift >= 199 diamonds, they become the TOP DJ!
+      engine.grow(senderId);
+
       if (diamondCount >= 199) {
         engine.setDj(senderId);
       }
-      
-      // Trigger a bunch of fireworks for gifts
-      const numFireworks = Math.min(10, Math.max(3, diamondCount / 10));
+
+      const numFireworks = Math.min(10, Math.max(3, Math.floor(diamondCount / 10)));
       for (let i = 0; i < numFireworks; i++) {
         setTimeout(() => {
           engine.triggerFirework();
-        }, i * 300);
+        }, i * 250);
       }
     } else if (
-      event.type === LiveEventType.JOIN || 
-      event.type === LiveEventType.FOLLOW || 
-      event.type === LiveEventType.LIKE || 
+      event.type === LiveEventType.JOIN ||
+      event.type === LiveEventType.FOLLOW ||
+      event.type === LiveEventType.LIKE ||
       event.type === LiveEventType.SHARE
     ) {
-       // VIP joins or top fans join trigger a firework
-       const senderId = event.senderUsername || 'unknown';
-       const senderName = event.senderDisplayName || senderId;
-       engine.join(senderId, senderName);
-       engine.triggerFirework();
+      engine.join(senderId, senderName, avatarUrl);
+      engine.triggerFirework();
     }
   }, [engine]);
 
-  const { status } = useEventsSocket({
-    channelIds,
-    onEvent: handleEvent,
-    enabled: channelIds.length > 0,
+  const { status, rejectionCode } = useOverlaySocket(token, {
+    onAction: handleAction,
+    enabled: Boolean(token),
   });
-
-
-  if (!user) {
-    return null;
-  }
 
   return (
     <div style={{ position: 'relative', width: '100vw', height: '100vh', overflow: 'hidden', backgroundColor: 'transparent' }}>
-      
-      {/* Background styling for the nightclub using the premium stage image */}
-      <div style={{
-        position: 'absolute',
-        inset: 0,
-        zIndex: 0
-      }}>
-        <Image 
-          src="/assets/disco/Stage/premium-stage-v2.png" 
-          alt="Premium Stage" 
+      {/* Background Stage Image */}
+      <div style={{ position: 'absolute', inset: 0, zIndex: 0 }}>
+        <Image
+          src="/assets/disco/Stage/premium-stage-v2.png"
+          alt="Premium Disco Stage"
           fill
           style={{ objectFit: 'cover' }}
           priority
         />
       </div>
 
-      {/* Connection status overlay for debugging */}
-      {status !== 'connected' && (
+      {/* Connection Indicator in dev or error */}
+      {token && status !== 'connected' && (
         <div style={{
           position: 'absolute',
           top: 10,
           left: 10,
-          padding: '8px 12px',
+          padding: '6px 12px',
           background: 'rgba(0,0,0,0.7)',
-          color: 'white',
+          color: status === 'rejected' ? '#ff6b6b' : '#ffa94d',
           borderRadius: 8,
           zIndex: 100,
           fontFamily: 'sans-serif',
-          fontSize: 12
+          fontSize: 12,
         }}>
-          Trạng thái kết nối: {status}
+          {status === 'rejected' ? `Token không hợp lệ (${rejectionCode ?? 'rejected'})` : `Đang kết nối: ${status}…`}
         </div>
       )}
 
-      {/* The main 2D render context */}
+      {/* 2D Dance Canvas */}
       <div style={{ position: 'absolute', inset: 0, zIndex: 10 }}>
         <DiscoCanvas engine={engine} />
       </div>
-
     </div>
+  );
+}
+
+export default function DiscoOverlayPage() {
+  return (
+    <Suspense fallback={<div style={{ color: '#fff', padding: '1rem' }}>Đang khởi tạo Sàn Nhảy LiveNova…</div>}>
+      <DiscoOverlayContent />
+    </Suspense>
   );
 }

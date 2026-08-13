@@ -52,7 +52,51 @@ export class DiscoEngine {
   
   private colors = ['#ff4b4b', '#ff7a4b', '#ffb54b', '#e2ff4b', '#62ff4b', '#4bff9a', '#4be2ff', '#4b7aff', '#9a4bff', '#ff4be2'];
 
-  constructor() {}
+  constructor() {
+    this.addDemoDancers(4);
+  }
+
+  addDemoDancers(count = 4) {
+    const demoNames = [
+      { id: 'bot_dj_mushroom', name: '🍄 DJ Mushroom', sprite: 'mushroom_dance_15', isDj: true },
+      { id: 'bot_party_cat', name: '🐱 Party Cat', sprite: 'npc-avatar-02', isDj: false },
+      { id: 'bot_capy_dancer', name: '🌿 Capy Dancer', sprite: 'npc-avatar-05', isDj: false },
+      { id: 'bot_magic_star', name: '✨ Star Boy', sprite: 'mushroom_magic_02', isDj: false },
+      { id: 'bot_super_fan', name: '🔥 Super Fan', sprite: 'npc-avatar-08', isDj: false },
+      { id: 'bot_livenova', name: '🚀 LiveNova VIP', sprite: 'npc-avatar-11', isDj: false },
+    ];
+
+    const toAdd = demoNames.slice(0, count);
+    for (const item of toAdd) {
+      if (!this.dancers.has(item.id)) {
+        const randomColor = this.colors[Math.floor(Math.random() * this.colors.length)];
+        this.dancers.set(item.id, {
+          id: item.id,
+          name: item.name,
+          x: item.isDj ? 0.5 : Math.random() * 0.7 + 0.15,
+          y: item.isDj ? 0.25 : 0.95,
+          vy: 0,
+          vx: (Math.random() - 0.5) * 0.05,
+          color: randomColor,
+          spriteId: item.sprite,
+          scale: 1,
+          targetScale: 1,
+          state: 'dancing',
+          danceOffset: Math.random() * Math.PI * 2,
+          isDj: item.isDj,
+        });
+      }
+    }
+  }
+
+  clear() {
+    this.dancers.clear();
+    this.fireworks = [];
+    this.camera.lockedOnId = null;
+    this.camera.targetScale = 1;
+    this.camera.targetX = 0.5;
+    this.camera.targetY = 0.5;
+  }
 
   join(id: string, name: string, avatarUrl?: string) {
     if (this.dancers.has(id)) {
@@ -218,6 +262,14 @@ export class DiscoEngine {
       // Dance bobbing
       if (dancer.state === 'dancing' && dancer.vy === 0) {
         dancer.danceOffset += dt * Math.PI * 5; 
+        // Random autonomous hops for energetic club atmosphere
+        if (Math.random() < 0.004) {
+          dancer.vy = -(0.6 + Math.random() * 0.6);
+          dancer.state = 'jumping';
+        }
+        if (Math.random() < 0.008) {
+          dancer.vx = (Math.random() - 0.5) * 0.12;
+        }
       }
     }
 
