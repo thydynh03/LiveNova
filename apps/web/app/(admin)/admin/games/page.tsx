@@ -214,6 +214,39 @@ export default function AdminGamesPage() {
               </button>
             </div>
           </Panel>
+
+          <div style={{ marginTop: '2rem' }}>
+            <Panel title="Sàn Nhảy Disco (Game Tương Tác Mới)">
+              <div style={{ background: 'var(--background)', padding: '1rem', borderRadius: '8px', border: '1px solid var(--border)' }}>
+                <h3 style={{ margin: '0 0 0.5rem 0', color: 'var(--foreground)' }}>Chế độ: Tu Cẩu (XiuGou Disco)</h3>
+                <p style={{ color: 'var(--muted-foreground)', marginBottom: '1rem' }}>
+                  Sàn nhảy ảo nơi khán giả có thể tham gia bằng cách bình luận "vào", "join", "nhảy", "lên".
+                  Bạn cần mở sàn nhảy trên một tab trình duyệt và dùng chức năng <strong>Window Capture (Quay cửa sổ)</strong> của OBS để đưa lên stream.
+                </p>
+                <div style={{ display: 'flex', gap: '1rem' }}>
+                  <button
+                    className="btn-primary"
+                    onClick={() => {
+                      window.open('/disco', '_blank');
+                    }}
+                    style={{
+                      flex: 1,
+                      padding: '0.75rem',
+                      borderRadius: '6px',
+                      background: 'var(--primary)',
+                      color: 'var(--primary-foreground)',
+                      border: 'none',
+                      cursor: 'pointer',
+                      fontWeight: 'bold',
+                      textAlign: 'center'
+                    }}
+                  >
+                    🎉 Mở Sàn Nhảy (Tab Mới)
+                  </button>
+                </div>
+              </div>
+            </Panel>
+          </div>
         </div>
       </div>
     </main>
