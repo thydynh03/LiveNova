@@ -60,7 +60,7 @@ function playTVStaticSound(durationMs = 5000) {
       try {
         noise.stop();
         ctx.close();
-      } catch {}
+      } catch (e) { console.debug(e); }
     }, durationMs);
   } catch (e) {
     console.error('TV Static sound error:', e);
@@ -124,7 +124,7 @@ function playCSGOFlashbangSound(durationMs = 5000) {
     setTimeout(() => {
       try {
         ctx.close();
-      } catch {}
+      } catch (e) { console.debug(e); }
     }, durationMs + 200);
   } catch (e) {
     console.error('CS:GO Flashbang sound error:', e);

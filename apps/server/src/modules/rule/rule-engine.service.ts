@@ -18,6 +18,7 @@ import {
   clampMediaDuration,
   readEffectPayload,
   readAvatarMotionPayload,
+  readAvatarDancePayload,
   readGameInput,
   BATTLE_ACTION_DISPATCH,
   BattleActionDispatchEvent,
@@ -67,6 +68,7 @@ export class RuleEngineService {
     RuleActionType.MEDIA_POPUP,
     RuleActionType.EFFECT,
     RuleActionType.AVATAR_MOTION,
+    RuleActionType.AVATAR_DANCE,
     RuleActionType.SOUND,
     RuleActionType.TTS_READ,
   ]);
@@ -192,6 +194,17 @@ export class RuleEngineService {
         return;
       }
       payload = motion as unknown as Record<string, unknown>;
+    }
+
+    if (action.type === RuleActionType.AVATAR_DANCE) {
+      const dance = readAvatarDancePayload(payload);
+      if (!dance) {
+        this.logger.warn(
+          `Rule "${rule.name}" has an avatar dance action with no usable clip URL; skipping`,
+        );
+        return;
+      }
+      payload = dance as unknown as Record<string, unknown>;
     }
 
     if (action.type === RuleActionType.TTS_READ) {
@@ -320,10 +333,15 @@ export class RuleEngineService {
     // character only exists on the stage overlay. Falling back to the alerts
     // source gives that source a motion for a model it does not render — the
     // action is better dropped, and the warning below says why.
-    if (actionType === RuleActionType.EFFECT || actionType === RuleActionType.AVATAR_MOTION) {
+    if (
+      actionType === RuleActionType.EFFECT ||
+      actionType === RuleActionType.AVATAR_MOTION ||
+      actionType === RuleActionType.AVATAR_DANCE
+    ) {
       const stage = await this.resolveStageOverlay(userId);
       if (stage) return stage;
-      if (actionType === RuleActionType.AVATAR_MOTION) return null;
+      if (actionType === RuleActionType.AVATAR_MOTION || actionType === RuleActionType.AVATAR_DANCE)
+        return null;
     }
     return this.resolveAlertOverlay(userId);
   }
