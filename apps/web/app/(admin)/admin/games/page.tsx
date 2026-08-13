@@ -187,6 +187,32 @@ export default function AdminGamesPage() {
             <p className="text-xs text-[var(--muted-foreground)] mt-2 text-center" style={{ color: 'var(--muted-foreground)' }}>
               Khung hình hiển thị 16:9, tương đương 1920x1080 trên OBS.
             </p>
+            <div style={{ marginTop: '1rem', display: 'flex', justifyContent: 'center' }}>
+              <button
+                className="btn-secondary"
+                onClick={() => {
+                  let origin = typeof window !== 'undefined' ? window.location.origin : '';
+                  if (process.env.NEXT_PUBLIC_OVERLAY_URL) {
+                    origin = process.env.NEXT_PUBLIC_OVERLAY_URL.replace(/\/$/, '');
+                  }
+                  const url = `${origin}/overlays/battle?token=${battleState?.battleId || 'admin'}`;
+                  navigator.clipboard.writeText(url).then(() => alert('Đã chép link OBS: ' + url));
+                }}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.5rem',
+                  padding: '0.5rem 1rem',
+                  borderRadius: '6px',
+                  background: 'var(--secondary)',
+                  color: 'var(--secondary-foreground)',
+                  border: '1px solid var(--border)',
+                  cursor: 'pointer'
+                }}
+              >
+                📋 Sao chép link OBS
+              </button>
+            </div>
           </Panel>
         </div>
       </div>

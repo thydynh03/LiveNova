@@ -350,24 +350,34 @@ function MediaOverlayContent() {
         )
       ) : (
         /* Default Idle Video: DogDefault.mp4 plays continuously on loop */
-        <video
-          src={defaultVideoUrl}
-          autoPlay
-          loop
-          muted
-          playsInline
+        <div
           style={{
-            maxWidth: '100%',
-            maxHeight: '450px',
-            objectFit: 'contain',
-            filter: 'drop-shadow(0 0 15px rgba(255, 255, 255, 0.2))',
+            position: 'absolute',
+            inset: 0,
+            width: '100%',
+            height: '100%',
+            overflow: 'hidden',
           }}
-          ref={(el) => {
-            if (el) {
-              el.play().catch(() => {});
-            }
-          }}
-        />
+        >
+          <video
+            src={defaultVideoUrl}
+            autoPlay
+            loop
+            muted
+            playsInline
+            style={{
+              display: 'block',
+              width: '100%',
+              height: '100%',
+              objectFit: 'fill',
+            }}
+            ref={(el) => {
+              if (el) {
+                el.play().catch(() => {});
+              }
+            }}
+          />
+        </div>
       )}
     </div>
   );
