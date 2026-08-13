@@ -111,10 +111,22 @@ export default function BattleSimulatorPage() {
 
   const copyObsUrl = () => {
     if (!publicToken) return;
-    const url = `${window.location.origin}/overlays/battle?token=${publicToken}`;
+    let origin = window.location.origin;
+    if (process.env.NEXT_PUBLIC_OVERLAY_URL) {
+      origin = process.env.NEXT_PUBLIC_OVERLAY_URL.replace(/\/$/, '');
+    }
+    const url = `${origin}/overlays/battle?token=${publicToken}`;
     navigator.clipboard.writeText(url);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const getPreviewHref = () => {
+    let origin = typeof window === 'undefined' ? '' : window.location.origin;
+    if (process.env.NEXT_PUBLIC_OVERLAY_URL) {
+      origin = process.env.NEXT_PUBLIC_OVERLAY_URL.replace(/\/$/, '');
+    }
+    return publicToken ? `${origin}/overlays/battle?token=${publicToken}` : `${origin}/overlays/battle`;
   };
 
   const currentTeam: BattleTeamState =
@@ -217,7 +229,7 @@ export default function BattleSimulatorPage() {
           )}
 
           <a
-            href={publicToken ? `/overlays/battle?token=${publicToken}` : '/overlays/battle'}
+            href={getPreviewHref()}
             target="_blank"
             rel="noopener noreferrer"
             style={{
