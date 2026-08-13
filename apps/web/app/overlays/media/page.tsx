@@ -73,7 +73,6 @@ function playCSGOFlashbangSound(durationMs = 5000) {
     bangSource.connect(bangGain);
     bangGain.connect(ctx.destination);
     bangSource.start(now);
-    // Sub-bass kick
     const kickOsc = ctx.createOscillator();
     kickOsc.type = 'sine';
     kickOsc.frequency.setValueAtTime(160, now);
@@ -85,7 +84,6 @@ function playCSGOFlashbangSound(durationMs = 5000) {
     kickGain.connect(ctx.destination);
     kickOsc.start(now);
     kickOsc.stop(now + 0.3);
-    // Tinnitus ring
     const ringOsc = ctx.createOscillator();
     ringOsc.type = 'sine';
     ringOsc.frequency.setValueAtTime(4200, now);
@@ -101,21 +99,15 @@ function playCSGOFlashbangSound(durationMs = 5000) {
 }
 
 // ---------------------------------------------------------------------------
-// Main overlay component
+// Constants
 // ---------------------------------------------------------------------------
 
-/**
- * Crossfade duration in ms.  Short enough to feel snappy, long enough for the
- * GPU compositor to avoid any visible tear.
- */
+/** CSS crossfade duration — short enough to feel snappy */
 const FADE_MS = 180;
 
-/**
- * How many ms before the current item ends do we start preloading the next
- * video in the queue.  Gives the decoder time to buffer the first frame so
- * the crossfade into the next clip is instant.
- */
-const PRELOAD_AHEAD_MS = 500;
+// ---------------------------------------------------------------------------
+// Main overlay component
+// ---------------------------------------------------------------------------
 
 function MediaOverlayContent() {
   const searchParams = useSearchParams();
@@ -123,36 +115,46 @@ function MediaOverlayContent() {
   const customDefaultVideoFromQuery = searchParams.get('defaultVideo');
   const fitParam = searchParams.get('fit');
 
-  // 'cover' fills the Custom Resolution box without black bars (default).
-  // Append &fit=contain or &fit=fill to the overlay URL to override.
   const objectFitMode: 'cover' | 'contain' | 'fill' =
     fitParam === 'contain' ? 'contain' : fitParam === 'fill' ? 'fill' : 'cover';
 
-  // --- state ---
+  // ---------------------------------------------------------------------------
+  // State — only what the renderer needs
+  // ---------------------------------------------------------------------------
   const [overlayDefaultVideo, setOverlayDefaultVideo] = useState<string | null>(null);
-
-  // The item currently being displayed
+  /** The item currently being rendered (drives which layers are shown) */
   const [current, setCurrent] = useState<MediaPopupItem | null>(null);
-  // Whether the popup layer is visible (opacity 1)
+  /** Controls the opacity 0→1 crossfade */
   const [popupVisible, setPopupVisible] = useState(false);
 
-  // --- refs ---
-  // Queue of pending items (processed serially)
+  // ---------------------------------------------------------------------------
+  // Refs — mutable state that must NOT trigger re-renders
+  // ---------------------------------------------------------------------------
+  /** Pending items to be played sequentially */
   const queueRef = useRef<MediaPopupItem[]>([]);
-  // True while an item is being played (guards concurrent drains)
+  /** True while an item is being shown (prevents concurrent plays) */
   const busyRef = useRef(false);
-  // setTimeout handle for the current item's duration
+  /** Handle for the hide-after-duration timer */
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // setTimeout handle for preload
-  const preloadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** Handle for the fade-out → cleanup timer */
+  const fadeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Video element refs — kept always in the DOM to avoid decoder re-init
+  /** Always-in-DOM video elements so the browser keeps the decoder warm */
   const defaultVideoRef = useRef<HTMLVideoElement>(null);
   const popupVideoRef = useRef<HTMLVideoElement>(null);
-  // Hidden preloader: loads next video src while current is playing
+  /** Hidden off-screen element used to preload the next video in queue */
   const preloadVideoRef = useRef<HTMLVideoElement>(null);
 
-  // --- user config ---
+  /**
+   * processNext is stored in a ref so every timer callback always calls the
+   * LATEST version of the function — this is the canonical React pattern to
+   * avoid stale-closure bugs in nested setTimeouts.
+   */
+  const processNextRef = useRef<() => void>(() => {});
+
+  // ---------------------------------------------------------------------------
+  // User config fetch
+  // ---------------------------------------------------------------------------
   const defaultVideoUrl = overlayDefaultVideo || customDefaultVideoFromQuery || '/DogDefault.mp4';
 
   useEffect(() => {
@@ -169,85 +171,100 @@ function MediaOverlayContent() {
     document.documentElement.style.backgroundColor = 'transparent';
   }, []);
 
-  // --- queue drain ---
-  const drainQueue = useCallback(() => {
+  // ---------------------------------------------------------------------------
+  // Queue processor — defined inline (not memoised) so it always captures
+  // the latest state setters, but called exclusively via processNextRef so
+  // recursive invocations are also fresh.
+  // ---------------------------------------------------------------------------
+  processNextRef.current = () => {
+    // Guard: one item at a time
     if (busyRef.current) return;
     if (queueRef.current.length === 0) return;
 
     const item = queueRef.current.shift()!;
     busyRef.current = true;
 
-    // 1. Play audio side-effects immediately (before video appears)
+    // Clear any lingering timers from a previous item (safety net)
+    if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
+    if (fadeTimerRef.current) { clearTimeout(fadeTimerRef.current); fadeTimerRef.current = null; }
+
+    // Trigger audio side-effects immediately
     if (item.mediaType === 'blackout') playTVStaticSound(item.durationMs);
     if (item.mediaType === 'flashbang') playCSGOFlashbangSound(item.durationMs);
 
-    // 2. For video items: set src on the hidden popup video element so the
-    //    decoder can start buffering before we make it visible.
+    // For video: set src NOW so the decoder starts buffering before the
+    // element becomes visible — eliminates the first-frame black flash.
     if (item.mediaType === 'video' && popupVideoRef.current) {
       const el = popupVideoRef.current;
+      el.pause();
       el.src = item.url;
       el.volume = item.volume;
       el.currentTime = 0;
-      // Preload — play() then immediately pause so the first frame is decoded
-      el.load();
+      el.load(); // kick off buffering
     }
 
-    // 3. Update state — this triggers the crossfade
+    // Update the rendered item (sync — sets which layer CSS class is active)
     setCurrent(item);
-    // Small rAF delay so the browser paints the new src before opacity flip
+
+    // Fade in: two rAF passes ensure the browser has committed the new src
+    // attribute to the GPU before we change opacity, eliminating the flash.
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
         setPopupVisible(true);
-        // If it's a video, actually start playback now that it's visible
         if (item.mediaType === 'video' && popupVideoRef.current) {
-          const el = popupVideoRef.current;
-          el.play().catch(() => { el.muted = true; el.play().catch(() => {}); });
+          popupVideoRef.current.play().catch(() => {
+            if (popupVideoRef.current) {
+              popupVideoRef.current.muted = true;
+              popupVideoRef.current.play().catch(() => {});
+            }
+          });
+        }
+
+        // Preload next video in queue while this one plays
+        const next = queueRef.current[0];
+        if (next?.mediaType === 'video' && preloadVideoRef.current) {
+          preloadVideoRef.current.src = next.url;
+          preloadVideoRef.current.load();
         }
       });
     });
 
-    // 4. Preload the NEXT item in queue while current plays
-    if (queueRef.current.length > 0 && item.durationMs > PRELOAD_AHEAD_MS) {
-      const next = queueRef.current[0];
-      if (next.mediaType === 'video' && preloadVideoRef.current) {
-        preloadTimerRef.current = setTimeout(() => {
-          if (preloadVideoRef.current) {
-            preloadVideoRef.current.src = next.url;
-            preloadVideoRef.current.load();
-          }
-        }, item.durationMs - PRELOAD_AHEAD_MS);
-      }
-    }
-
-    // 5. Schedule hide
+    // Schedule hide — start counting from NOW (item.durationMs after drain)
     timerRef.current = setTimeout(() => {
-      // Fade out popup layer
+      // Fade the popup layer out
       setPopupVisible(false);
-      // After fade completes, clear current and allow next item
-      setTimeout(() => {
+
+      // After the CSS transition completes, clean up and dequeue the next item
+      fadeTimerRef.current = setTimeout(() => {
         setCurrent(null);
         if (popupVideoRef.current) {
           popupVideoRef.current.pause();
           popupVideoRef.current.src = '';
         }
+        // Release the busy lock and immediately try to play the next item
         busyRef.current = false;
-        drainQueue();
+        // Call via ref — always the latest version, no stale closure possible
+        processNextRef.current();
       }, FADE_MS + 50);
     }, item.durationMs);
-  }, []);
+  };
 
-  // Cleanup on unmount
+  // Cleanup timers on unmount
   useEffect(() => {
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current);
-      if (preloadTimerRef.current) clearTimeout(preloadTimerRef.current);
+      if (fadeTimerRef.current) clearTimeout(fadeTimerRef.current);
     };
   }, []);
 
-  // --- speech queue ---
+  // ---------------------------------------------------------------------------
+  // Speech queue
+  // ---------------------------------------------------------------------------
   const { enqueue: speak, status: speechStatus } = useSpeechQueue();
 
-  // --- websocket action handler ---
+  // ---------------------------------------------------------------------------
+  // WebSocket action handler
+  // ---------------------------------------------------------------------------
   const handleAction = useCallback((action: OverlayAction) => {
     if (action.type === RuleActionType.TTS_READ) {
       const audioUrl = (action.payload as { audioUrl?: unknown }).audioUrl;
@@ -264,8 +281,7 @@ function MediaOverlayContent() {
     const isBlackout = (payload.mediaType as string) === 'blackout' || payload.url === 'blackout';
     const isFlashbang = (payload.mediaType as string) === 'flashbang' || payload.url === 'flashbang';
     const isVideoUrl =
-      !isBlackout &&
-      !isFlashbang &&
+      !isBlackout && !isFlashbang &&
       (payload.url?.endsWith('.mp4') || payload.url?.endsWith('.webm') || payload.mediaType === 'video');
 
     const item: MediaPopupItem = {
@@ -276,11 +292,16 @@ function MediaOverlayContent() {
       durationMs: payload.durationMs || 5000,
     };
 
-    // Push to queue — drainQueue() will play them serially
+    // Enqueue — processNext will play it as soon as the current item finishes
     queueRef.current.push(item);
-    drainQueue();
-  }, [speak, drainQueue]);
 
+    // Try to start immediately (no-op if busyRef is true)
+    processNextRef.current();
+  }, [speak]); // speak is the only external dep; processNextRef is always fresh
+
+  // ---------------------------------------------------------------------------
+  // WebSocket connection
+  // ---------------------------------------------------------------------------
   const { status, rejectionCode } = useOverlaySocket(token, { onAction: handleAction });
 
   const statusMessage =
@@ -296,35 +317,40 @@ function MediaOverlayContent() {
       ? `Token không hợp lệ (${rejectionCode ?? 'unknown'})`
       : null;
 
-  // Derived booleans for render
+  // Derive booleans for the render — avoids repeated ternary chains
   const isVideo = current?.mediaType === 'video';
   const isImage = current?.mediaType === 'image';
   const isBlackout = current?.mediaType === 'blackout';
   const isFlashbang = current?.mediaType === 'flashbang';
 
+  // ---------------------------------------------------------------------------
+  // Render
+  // ---------------------------------------------------------------------------
   return (
     <div
       style={{
         width: '100vw',
         height: '100vh',
         overflow: 'hidden',
-        boxSizing: 'border-box',
         position: 'relative',
         background: 'transparent',
       }}
     >
       <style>{`
-        *, *::before, *::after { box-sizing: border-box; }
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        /* All layers share the same base rules */
         .ol-layer {
           position: absolute;
           inset: 0;
           width: 100%;
           height: 100%;
-          /* Use will-change so the browser composites these on the GPU,
-             guaranteeing tear-free opacity transitions with zero layout cost. */
+          /* GPU-composited transition — zero layout cost, tear-free crossfade */
           will-change: opacity;
           transition: opacity ${FADE_MS}ms ease-in-out;
         }
+
+        /* Video / image fill */
         .ol-video, .ol-img {
           display: block;
           width: 100%;
@@ -340,14 +366,17 @@ function MediaOverlayContent() {
           padding: '0.5rem 0.75rem', borderRadius: '8px',
           background: 'rgba(0,0,0,0.75)', color: '#fff',
           fontFamily: 'sans-serif', fontSize: '0.85rem',
+          pointerEvents: 'none',
         }}>
           {statusMessage}
         </div>
       )}
 
-      {/* LAYER 0 — default idle video (always in DOM, never unmounted)
-          Fades out while a popup is showing so the video keeps playing
-          underneath and snaps back instantly when the popup ends. */}
+      {/* ------------------------------------------------------------------ */}
+      {/* LAYER 0 — default idle video                                        */}
+      {/* Always in DOM. Fades to opacity 0 while a popup is showing so the  */}
+      {/* video keeps playing underneath and snaps back when the popup ends.  */}
+      {/* ------------------------------------------------------------------ */}
       <div className="ol-layer" style={{ opacity: popupVisible ? 0 : 1, zIndex: 1 }}>
         <video
           ref={defaultVideoRef}
@@ -361,19 +390,35 @@ function MediaOverlayContent() {
         />
       </div>
 
-      {/* LAYER 1 — donate reaction video (always in DOM, src swapped per item)
-          Fades in from opacity 0 → 1 when an item starts, then back to 0. */}
-      <div className="ol-layer" style={{ opacity: popupVisible && isVideo ? 1 : 0, zIndex: 2 }}>
-        <video
-          ref={popupVideoRef}
-          playsInline
-          className="ol-video"
-        />
+      {/* ------------------------------------------------------------------ */}
+      {/* LAYER 1 — donate reaction video                                     */}
+      {/* Always in DOM. src is changed imperatively via popupVideoRef to     */}
+      {/* avoid React unmounting the element (which resets the decoder).      */}
+      {/* ------------------------------------------------------------------ */}
+      <div
+        className="ol-layer"
+        style={{
+          opacity: popupVisible && isVideo ? 1 : 0,
+          zIndex: 2,
+          // Prevent invisible layer from intercepting pointer events
+          pointerEvents: popupVisible && isVideo ? 'auto' : 'none',
+        }}
+      >
+        <video ref={popupVideoRef} playsInline className="ol-video" />
       </div>
 
-      {/* LAYER 2 — image popup */}
-      {isImage && current?.url && (
-        <div className="ol-layer" style={{ opacity: popupVisible ? 1 : 0, zIndex: 2 }}>
+      {/* ------------------------------------------------------------------ */}
+      {/* LAYER 2 — image popup                                              */}
+      {/* ------------------------------------------------------------------ */}
+      <div
+        className="ol-layer"
+        style={{
+          opacity: popupVisible && isImage ? 1 : 0,
+          zIndex: 2,
+          pointerEvents: popupVisible && isImage ? 'auto' : 'none',
+        }}
+      >
+        {isImage && current?.url && (
           <img
             src={current.url}
             alt="Popup effect"
@@ -383,10 +428,12 @@ function MediaOverlayContent() {
                 'https://media.giphy.com/media/3o7TKrEzvLbsVAud8I/giphy.gif';
             }}
           />
-        </div>
-      )}
+        )}
+      </div>
 
-      {/* LAYER 3 — broken TV screen (blackout) */}
+      {/* ------------------------------------------------------------------ */}
+      {/* LAYER 3 — blackout (Broken TV Screen)                              */}
+      {/* ------------------------------------------------------------------ */}
       <div
         className="ol-layer"
         style={{
@@ -396,12 +443,13 @@ function MediaOverlayContent() {
           backgroundSize: 'cover',
           backgroundPosition: 'center',
           backgroundColor: '#000',
-          // pointer-events none so it doesn't block clicks when hidden
           pointerEvents: popupVisible && isBlackout ? 'auto' : 'none',
         }}
       />
 
-      {/* LAYER 4 — flashbang white */}
+      {/* ------------------------------------------------------------------ */}
+      {/* LAYER 4 — flashbang white                                          */}
+      {/* ------------------------------------------------------------------ */}
       <div
         className="ol-layer"
         style={{
@@ -412,7 +460,7 @@ function MediaOverlayContent() {
         }}
       />
 
-      {/* Hidden preloader — loads next video src off-screen */}
+      {/* Off-screen preloader — buffers the next video in queue */}
       <video
         ref={preloadVideoRef}
         style={{ position: 'absolute', width: 1, height: 1, opacity: 0, pointerEvents: 'none' }}
