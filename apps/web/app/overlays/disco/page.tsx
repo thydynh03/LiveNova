@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo, useCallback, useRef } from 'react';
+import React, { useMemo, useCallback } from 'react';
 import { useAuth } from '../../../context/AuthContext';
 import { useEventsSocket } from '../../../lib/use-events-socket';
 import { LiveEvent, LiveEventType } from '@livenova/shared';
@@ -16,9 +16,6 @@ export default function DiscoOverlayPage() {
   // The engine holds all the physics and state for dancers
   const engine = useMemo(() => new DiscoEngine(), []);
 
-  // Music Player State
-  const [musicUrl, setMusicUrl] = useState<string>('');
-  const audioRef = useRef<HTMLAudioElement>(null);
 
   // Fetch channels to listen to
   const channels = useApi<Channel[]>('/channels');
@@ -92,35 +89,13 @@ export default function DiscoOverlayPage() {
     enabled: channelIds.length > 0,
   });
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const url = URL.createObjectURL(file);
-      setMusicUrl(url);
-      setTimeout(() => {
-        if (audioRef.current) audioRef.current.play();
-      }, 100);
-    }
-  };
 
   if (!user) {
-    return (
-      <div style={{ padding: '2rem', color: '#fff' }}>
-        <h2>Vui lòng đăng nhập để sử dụng Sàn Nhảy</h2>
-      </div>
-    );
+    return null;
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', width: '100%', height: 'calc(100vh - 120px)' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h1 className="page-title">Sàn Nhảy</h1>
-        <a href="/overlays/disco" target="_blank" rel="noopener noreferrer" style={{
-          padding: '0.5rem 1rem', background: 'hsl(var(--primary))', color: 'hsl(var(--primary-foreground))', 
-          borderRadius: 'var(--radius)', fontWeight: 600, textDecoration: 'none'
-        }}>Mở toàn màn hình (Cho OBS)</a>
-      </div>
-      <div style={{ position: 'relative', flex: 1, width: '100%', overflow: 'hidden', backgroundColor: '#111', borderRadius: '12px' }}>
+    <div style={{ position: 'relative', width: '100vw', height: '100vh', overflow: 'hidden', backgroundColor: 'transparent' }}>
       
       {/* Background styling for the nightclub using the premium stage image */}
       <div style={{
@@ -155,50 +130,11 @@ export default function DiscoOverlayPage() {
         </div>
       )}
 
-      {/* Admin Music Player Overlay */}
-      <div style={{
-        position: 'absolute',
-        bottom: 20,
-        left: 20,
-        padding: '12px',
-        background: 'rgba(0,0,0,0.6)',
-        backdropFilter: 'blur(10px)',
-        border: '1px solid rgba(255,255,255,0.2)',
-        borderRadius: 12,
-        zIndex: 100,
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '8px',
-        minWidth: '250px'
-      }}>
-        <h3 style={{ margin: 0, color: '#fff', fontSize: '14px', fontFamily: 'sans-serif' }}>🎧 Admin Music Player</h3>
-        
-        <input 
-          type="file" 
-          accept="audio/*" 
-          onChange={handleFileChange}
-          style={{ color: '#fff', fontSize: '12px' }}
-        />
-        
-        {musicUrl && (
-          <>
-            <audio 
-              ref={audioRef} 
-              src={musicUrl} 
-              loop 
-              style={{ width: '100%', height: '30px', marginTop: '4px' }} 
-              controls 
-            />
-          </>
-        )}
-      </div>
-
       {/* The main 2D render context */}
       <div style={{ position: 'absolute', inset: 0, zIndex: 10 }}>
         <DiscoCanvas engine={engine} />
       </div>
 
-    </div>
     </div>
   );
 }

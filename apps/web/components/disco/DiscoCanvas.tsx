@@ -47,12 +47,18 @@ function preloadSprites() {
 
 export default function DiscoCanvas({ engine }: DiscoCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const wrapperRef = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState({ width: 0, height: 0 });
 
   useEffect(() => {
     preloadSprites();
     const handleResize = () => {
-      setSize({ width: window.innerWidth, height: window.innerHeight });
+      if (wrapperRef.current) {
+        setSize({ 
+          width: wrapperRef.current.clientWidth, 
+          height: wrapperRef.current.clientHeight 
+        });
+      }
     };
     handleResize();
     window.addEventListener('resize', handleResize);
@@ -204,20 +210,21 @@ export default function DiscoCanvas({ engine }: DiscoCanvasProps) {
   }, [engine, size]);
 
   return (
-    <canvas
-      ref={canvasRef}
-      width={size.width}
-      height={size.height}
-      style={{
-        display: 'block',
-        width: '100vw',
-        height: '100vh',
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        pointerEvents: 'none',
-        zIndex: 10
-      }}
-    />
+    <div ref={wrapperRef} style={{ width: '100%', height: '100%', position: 'absolute', top: 0, left: 0, pointerEvents: 'none' }}>
+      <canvas
+        ref={canvasRef}
+        width={size.width}
+        height={size.height}
+        style={{
+          display: 'block',
+          width: '100%',
+          height: '100%',
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          pointerEvents: 'none'
+        }}
+      />
+    </div>
   );
 }
