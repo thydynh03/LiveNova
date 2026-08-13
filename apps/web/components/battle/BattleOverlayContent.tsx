@@ -371,6 +371,13 @@ export function BattleOverlayContent({
             ...prev.slice(-4),
             { id: `shock_${Date.now()}`, x: 50, y: 50, type: newEvt.actionKey as Shockwave['type'], createdAt: Date.now() },
           ]);
+          
+          // Triger AoE damage for 2D mode after 2.5s (3D mode handles its own)
+          if (newEvt.actionKey === 'dragon') {
+            setTimeout(() => {
+              troopCanvasRef.current?.applyAoE?.(newEvt.teamKey, 1000);
+            }, 2500);
+          }
         }
       }
     }
@@ -832,104 +839,7 @@ export function BattleOverlayContent({
         ))}
       </div>
 
-      {/* ── BOTTOM HUD: INTERACTION DECK & LIVE CHAT & MINIMAP ─────────────── */}
-      <footer
-        style={{
-          position: 'absolute',
-          bottom: 6,
-          left: 12,
-          right: 12,
-          zIndex: 55,
-          display: 'flex',
-          alignItems: 'flex-end',
-          justifyContent: 'space-between',
-          gap: 8,
-        }}
-      >
-        {/* Center: 6 Skill Gift Cards & Big Action Button */}
-        <div
-          style={{
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            gap: 4,
-          }}
-        >
-          {/* Big Highlight Action Button: NÉM BOM 💣 */}
-          <button
-            type="button"
-            onClick={() => onCardClick?.('bomb', 'Bomb', 50)}
-            style={{
-              background: 'linear-gradient(135deg, #f59e0b, #d97706)',
-              color: '#000000',
-              border: '1.5px solid #fef08a',
-              borderRadius: 12,
-              padding: '4px 18px',
-              fontSize: '0.78rem',
-              fontWeight: 900,
-              letterSpacing: '0.03em',
-              boxShadow: '0 0 16px rgba(245, 158, 11, 0.7)',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 4,
-              transition: 'transform 0.1s ease',
-            }}
-          >
-            <span>🔥 NÉM BOM KHẨN CẤP</span>
-            <span style={{ background: 'rgba(0,0,0,0.2)', padding: '1px 5px', borderRadius: 6, fontSize: '0.68rem' }}>🪙 199</span>
-          </button>
 
-          {/* 6 Skill Gift Cards */}
-          <div style={{ display: 'flex', gap: 4 }}>
-            {[
-              { key: 'soldier', name: 'Triệu hồi lính', icon: '🐱', cost: '🌹 1', power: 1, gift: 'Rose', border: '#c084fc' },
-              { key: 'castle', name: 'Xây thành', icon: '🏰', cost: '🌸 10', power: 10, gift: 'Perfume', border: '#60a5fa' },
-              { key: 'bomb', name: 'Ném bom', icon: '💣', cost: '🍩 50', power: 50, gift: 'Donut', border: '#fb923c' },
-              { key: 'dragon', name: 'Gọi rồng', icon: '🐉', cost: '🐲 99', power: 99, gift: 'Dragon', border: '#34d399' },
-              { key: 'cannon', name: 'Bắn đại bác', icon: '💥', cost: '🎆 199', power: 199, gift: 'Cannon', border: '#facc15' },
-              { key: 'meteor', name: 'Thiên thạch', icon: '☄️', cost: '🌌 999', power: 999, gift: 'Meteor', border: '#ec4899' },
-            ].map((card) => (
-              <button
-                key={card.key}
-                type="button"
-                onClick={() => onCardClick?.(card.key, card.gift, card.power)}
-                style={{
-                  background: 'rgba(15, 23, 42, 0.88)',
-                  backdropFilter: 'blur(8px)',
-                  border: `1.5px solid ${card.border}`,
-                  borderRadius: 8,
-                  padding: '3px 6px',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  gap: 1,
-                  cursor: 'pointer',
-                  color: '#ffffff',
-                  boxShadow: `0 2px 6px ${card.border}33`,
-                  transition: 'all 0.15s ease',
-                  minWidth: 'clamp(48px, 6vw, 62px)',
-                }}
-              >
-                <span style={{ fontSize: '0.55rem', fontWeight: 800, color: card.border }}>{card.name}</span>
-                <span style={{ fontSize: '1rem' }}>{card.icon}</span>
-                <span
-                  style={{
-                    fontSize: '0.55rem',
-                    fontWeight: 700,
-                    background: 'rgba(255,255,255,0.1)',
-                    padding: '1px 4px',
-                    borderRadius: 4,
-                  }}
-                >
-                  {card.cost}
-                </span>
-              </button>
-            ))}
-          </div>
-        </div>
-
-      </footer>
     </div>
   );
 }

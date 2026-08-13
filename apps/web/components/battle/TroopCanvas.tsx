@@ -115,6 +115,7 @@ export interface TroopCanvasHandle {
   spawn: (troops: Troop[]) => void;
   /** Live count, for a caller that wants to enforce its own ceiling. */
   count: () => number;
+  applyAoE?: (sourceTeamKey: string, damage: number) => void;
 }
 
 interface Props {
@@ -156,6 +157,13 @@ export const TroopCanvas = forwardRef<TroopCanvasHandle, Props>(function TroopCa
     count() {
       return troopsRef.current.length;
     },
+    applyAoE(sourceTeamKey: string, damage: number) {
+      for (const t of troopsRef.current) {
+        if (t.phase === 'fight' && t.teamKey !== sourceTeamKey) {
+           t.hp = Math.max(0, (t.hp ?? 100) - damage);
+        }
+      }
+    }
   }));
 
   useEffect(() => {

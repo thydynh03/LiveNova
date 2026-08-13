@@ -12,7 +12,8 @@ interface Props {
 
 interface Unit3D {
   mesh: THREE.Group;
-  hpBar: THREE.Mesh;
+  hpGroup: THREE.Group;
+  hpFill: THREE.Mesh;
   teamKey: string;
   progress: number;
   speed: number;
@@ -20,6 +21,10 @@ interface Unit3D {
   offset: number;
   maxHp: number;
   currentHp: number;
+  phase: 'march' | 'fight' | 'dying';
+  swingIn: number;
+  swingPeriod: number;
+  dyingFor: number;
 }
 
 const TEAM_COLORS: Record<string, { hex: number; css: string; lightHex: number }> = {
@@ -52,6 +57,7 @@ export function BattleArena3D({ state, isDark = true }: Props) {
   const crystalRef = useRef<THREE.Mesh | null>(null);
   const crystalRingsRef = useRef<THREE.Group | null>(null);
   const teamTroopCountsRef = useRef<Record<string, number>>({});
+  const seenDragonEventsRef = useRef<Set<string>>(new Set());
 
   // Helper to build 3D Castle Tower
   const buildCastle = (scene: THREE.Scene, cornerKey: 'cat' | 'dog' | 'bear' | 'capy') => {
@@ -139,6 +145,7 @@ export function BattleArena3D({ state, isDark = true }: Props) {
       roughness: 0.4,
       metalness: 0.2,
       flatShading: true,
+      transparent: true,
     });
     const body = new THREE.Mesh(bodyGeo, bodyMat);
     body.position.y = 1.1;
@@ -150,6 +157,7 @@ export function BattleArena3D({ state, isDark = true }: Props) {
       color: isDark ? 0x1e293b : 0xe2e8f0,
       roughness: 0.5,
       flatShading: true,
+      transparent: true,
     });
     const head = new THREE.Mesh(headGeo, headMat);
     head.position.y = 2.1;
@@ -161,36 +169,40 @@ export function BattleArena3D({ state, isDark = true }: Props) {
       color: 0xffffff,
       metalness: 0.8,
       roughness: 0.2,
+      transparent: true,
     });
     const sword = new THREE.Mesh(swordGeo, swordMat);
     sword.position.set(0.9, 1.4, 0.4);
     sword.rotation.x = Math.PI * 0.25;
     group.add(sword);
 
-    // Mini 3D Health Bar Plane floating above head
-    const hpCanvas = document.createElement('canvas');
-    hpCanvas.width = 64;
-    hpCanvas.height = 12;
-    const hpCtx = hpCanvas.getContext('2d');
-    if (hpCtx) {
-      hpCtx.fillStyle = '#0f172a';
-      hpCtx.fillRect(0, 0, 64, 12);
-      hpCtx.fillStyle = '#22c55e';
-      hpCtx.fillRect(2, 2, 60, 8);
-    }
-    const hpTex = new THREE.CanvasTexture(hpCanvas);
-    const hpMat = new THREE.MeshBasicMaterial({ map: hpTex, transparent: true });
-    const hpGeo = new THREE.PlaneGeometry(1.8, 0.35);
-    const hpMesh = new THREE.Mesh(hpGeo, hpMat);
-    hpMesh.position.y = 3.1;
-    group.add(hpMesh);
+    // Mini 3D Health Bar Group
+    const hpGroup = new THREE.Group();
+    hpGroup.position.y = 3.1;
+    
+    const hpBgGeo = new THREE.PlaneGeometry(1.8, 0.35);
+    const hpBgMat = new THREE.MeshBasicMaterial({ color: 0x0f172a, depthWrite: false });
+    const hpBg = new THREE.Mesh(hpBgGeo, hpBgMat);
+    hpBg.renderOrder = 999;
+    hpGroup.add(hpBg);
+
+    const hpFillGeo = new THREE.PlaneGeometry(1.8, 0.35);
+    hpFillGeo.translate(0.9, 0, 0); // Translate so scaling works from the left
+    const hpFillMat = new THREE.MeshBasicMaterial({ color: 0x22c55e, depthWrite: false });
+    const hpFill = new THREE.Mesh(hpFillGeo, hpFillMat);
+    hpFill.position.x = -0.9;
+    hpFill.renderOrder = 1000;
+    hpGroup.add(hpFill);
+
+    group.add(hpGroup);
 
     const startPos = CORNERS[lane];
     group.position.set(startPos.x, 0.5, startPos.z);
 
     return {
       mesh: group,
-      hpBar: hpMesh,
+      hpGroup,
+      hpFill,
       teamKey,
       progress: 0,
       speed: 0.18 + Math.random() * 0.05,
@@ -198,6 +210,10 @@ export function BattleArena3D({ state, isDark = true }: Props) {
       offset: (Math.random() - 0.5) * 1.8,
       maxHp: 100,
       currentHp: 100,
+      phase: 'march',
+      swingIn: 0.45 + Math.random() * 0.4,
+      swingPeriod: 0.45 + Math.random() * 0.4,
+      dyingFor: 0,
     };
   };
 
@@ -392,52 +408,92 @@ export function BattleArena3D({ state, isDark = true }: Props) {
       const survivors: Unit3D[] = [];
       const units = unitsRef.current;
 
+      const holding = new Set<string>();
+      for (const u of units) if (u.phase === 'fight') holding.add(u.teamKey);
+      const contested = holding.size > 1;
+
       for (const unit of units) {
-        unit.progress += unit.speed * delta;
+        if (unit.phase === 'march') {
+          unit.progress += unit.speed * delta;
+          if (unit.progress >= 1) {
+            unit.progress = 1;
+            unit.phase = 'fight';
+          }
+        }
 
-        if (unit.progress >= 1) {
-          // Clash explosion at center: trigger expanding shockwave
-          const shockGeo = new THREE.RingGeometry(0.5, 1.2, 16);
-          const shockMat = new THREE.MeshBasicMaterial({
-            color: TEAM_COLORS[unit.teamKey]?.hex || 0xffffff,
-            side: THREE.DoubleSide,
-            transparent: true,
-            opacity: 0.9,
-          });
-          const shock = new THREE.Mesh(shockGeo, shockMat);
-          shock.rotation.x = -Math.PI / 2;
-          shock.position.set((Math.random() - 0.5) * 6, 1.2, (Math.random() - 0.5) * 6);
-          scene.add(shock);
-          shockwavesRef.current.push(shock);
+        let lunge = 0;
+        if (unit.phase === 'fight') {
+          const dps = contested ? 20 : 5.5;
+          unit.currentHp -= dps * delta;
 
-          scene.remove(unit.mesh);
-          continue;
+          unit.swingIn -= delta;
+          if (unit.swingIn <= 0) {
+            unit.swingIn = 0.45 + Math.random() * 0.4;
+            unit.swingPeriod = unit.swingIn;
+            if (contested) {
+              const sparkGeo = new THREE.RingGeometry(0.2, 0.4, 8);
+              const sparkMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.8, side: THREE.DoubleSide });
+              const spark = new THREE.Mesh(sparkGeo, sparkMat);
+              spark.position.copy(unit.mesh.position);
+              spark.position.y += 1.5;
+              if (cameraRef.current) spark.lookAt(cameraRef.current.position);
+              scene.add(spark);
+              shockwavesRef.current.push(spark);
+            }
+          }
+          const t = 1 - Math.min(1, Math.max(0, unit.swingIn / unit.swingPeriod));
+          lunge = Math.sin((t * Math.PI) / 2) * (contested ? 0.8 : 0.2);
+
+          if (unit.currentHp <= 0) {
+            unit.currentHp = 0;
+            unit.phase = 'dying';
+            unit.dyingFor = 0;
+          }
+
+          unit.hpFill.scale.x = Math.max(0.01, unit.currentHp / unit.maxHp);
+          const hpRatio = unit.currentHp / unit.maxHp;
+          if (unit.hpFill.material instanceof THREE.MeshBasicMaterial) {
+             unit.hpFill.material.color.setHex(hpRatio > 0.5 ? 0x22c55e : hpRatio > 0.25 ? 0xf59e0b : 0xef4444);
+          }
+        } else if (unit.phase === 'dying') {
+          unit.dyingFor += delta;
+          if (unit.dyingFor >= 0.55) {
+            scene.remove(unit.mesh);
+            continue;
+          }
         }
 
         const start = CORNERS[unit.lane];
-
-        // Scatter sideways across the deck, not around it. The offset used to
-        // be fed through sin() on X and cos() on Z, which swings a unit in a
-        // circle as it advances — it left the bridge on one side, crossed open
-        // water, and came back on the other. A fixed perpendicular offset that
-        // tapers toward the centre keeps the squad on the stone and closes the
-        // ranks up as they arrive.
         const len = Math.hypot(start.x, start.z) || 1;
         const perpX = start.z / len;
         const perpZ = -start.x / len;
+        const dirX = -start.x / len;
+        const dirZ = -start.z / len;
+        
         const spread = unit.offset * (1 - unit.progress);
+        const currentX = start.x * (1 - unit.progress) + perpX * spread + dirX * lunge;
+        const currentZ = start.z * (1 - unit.progress) + perpZ * spread + dirZ * lunge;
 
-        const currentX = start.x * (1 - unit.progress) + perpX * spread;
-        const currentZ = start.z * (1 - unit.progress) + perpZ * spread;
+        let yPos = 1.1 + Math.abs(Math.sin(time * 8 + unit.offset)) * (unit.phase === 'march' ? 0.35 : 0.1);
+        
+        if (unit.phase === 'dying') {
+           yPos -= (unit.dyingFor / 0.55) * 1.5;
+           const opac = 1 - (unit.dyingFor / 0.55);
+           unit.mesh.children.forEach(c => {
+             if (c instanceof THREE.Mesh && c.material instanceof THREE.Material) {
+               c.material.opacity = opac;
+             }
+           });
+           unit.hpGroup.visible = false;
+        } else {
+           unit.hpGroup.visible = unit.phase === 'fight' || unit.currentHp < unit.maxHp;
+        }
 
-        unit.mesh.position.set(currentX, 1.1 + Math.abs(Math.sin(time * 8 + unit.offset)) * 0.35, currentZ);
-
-        // Turn towards center
+        unit.mesh.position.set(currentX, yPos, currentZ);
         unit.mesh.lookAt(0, 1.1, 0);
 
-        // Billboard HP bar to face camera
         if (cameraRef.current) {
-          unit.hpBar.quaternion.copy(cameraRef.current.quaternion);
+          unit.hpGroup.quaternion.copy(cameraRef.current.quaternion);
         }
 
         survivors.push(unit);
@@ -479,10 +535,34 @@ export function BattleArena3D({ state, isDark = true }: Props) {
     };
   }, [isDark, cameraMode]);
 
-  // Sync incoming state events or soldier counts to spawn 3D troops
   useEffect(() => {
     if (!sceneRef.current) return;
     const scene = sceneRef.current;
+
+    // Lắng nghe sự kiện quà Rồng để tạo sát thương diện rộng sau 2.5s
+    const fresh = [...state.recentEvents].reverse();
+    for (const evt of fresh) {
+      if (evt.actionKey === 'dragon' && !seenDragonEventsRef.current.has(evt.id)) {
+        seenDragonEventsRef.current.add(evt.id);
+        
+        setTimeout(() => {
+          unitsRef.current.forEach(u => {
+            if (u.progress >= 1 && u.teamKey !== evt.teamKey) {
+              u.currentHp -= 1000;
+            }
+          });
+          
+          if (sceneRef.current) {
+             const fireGeo = new THREE.SphereGeometry(7, 24, 24);
+             const fireMat = new THREE.MeshBasicMaterial({ color: 0xf97316, transparent: true, opacity: 0.85 });
+             const fire = new THREE.Mesh(fireGeo, fireMat);
+             fire.position.y = 2.5;
+             sceneRef.current.add(fire);
+             shockwavesRef.current.push(fire);
+          }
+        }, 2500);
+      }
+    }
 
     state.teams.forEach((t) => {
       const prev = teamTroopCountsRef.current[t.key] || 0;
@@ -504,7 +584,7 @@ export function BattleArena3D({ state, isDark = true }: Props) {
         }
       }
     });
-  }, [state.teams]);
+  }, [state.teams, state.recentEvents]);
 
   const pill = (active: boolean, activeBg: string): React.CSSProperties => ({
     padding: '4px 12px',
