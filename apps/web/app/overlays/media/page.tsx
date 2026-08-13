@@ -228,6 +228,14 @@ function MediaOverlayContent() {
     ? `Token không hợp lệ (${rejectionCode ?? 'unknown'})`
     : null;
 
+  // Always keep both layers in the DOM — swap visibility via opacity to avoid
+  // React mount/unmount flicker and give the video decoder time to buffer frames
+  // before the crossfade begins.
+  const popupVideoRef = React.useRef<HTMLVideoElement>(null);
+  const defaultVideoRef = React.useRef<HTMLVideoElement>(null);
+  const showingPopup = activePopup !== null && activePopup.mediaType === 'video';
+  const showingEffect = activePopup !== null && (activePopup.mediaType === 'blackout' || activePopup.mediaType === 'flashbang');
+
   return (
     <div
       style={{
@@ -246,12 +254,20 @@ function MediaOverlayContent() {
           from { opacity: 0; }
           to { opacity: 1; }
         }
-        @keyframes pulseGlow {
-          0% { transform: scale(1); opacity: 0.9; }
-          100% { transform: scale(1.03); opacity: 1; }
+        .overlay-layer {
+          position: absolute;
+          inset: 0;
+          width: 100%;
+          height: 100%;
         }
-        .media-popup {
-          animation: popupIn 0.25s ease-out forwards;
+        .overlay-video {
+          display: block;
+          width: 100%;
+          height: 100%;
+          object-fit: ${objectFitMode};
+        }
+        .overlay-fade {
+          transition: opacity 0.18s ease-in-out;
         }
       `}</style>
 
@@ -274,123 +290,110 @@ function MediaOverlayContent() {
         </div>
       )}
 
-      {/* Donate Popup Reaction Video / Image / Blackout Effect */}
-      {activePopup ? (
-        activePopup.mediaType === 'blackout' ? (
-          <div
-            className="media-popup"
-            style={{
-              position: 'fixed',
-              inset: 0,
-              width: '100vw',
-              height: '100vh',
-              backgroundImage: 'url(/uploads/broken-screen.png)',
-              backgroundSize: 'cover',
-              backgroundPosition: 'center',
-              backgroundColor: '#000000',
-              zIndex: 999999,
-            }}
-          />
-        ) : activePopup.mediaType === 'flashbang' ? (
-          <div
-            className="media-popup"
-            style={{
-              position: 'fixed',
-              inset: 0,
-              width: '100vw',
-              height: '100vh',
-              backgroundColor: '#ffffff',
-              zIndex: 999999,
-            }}
-          />
-        ) : (
-          <div
-            className="media-popup"
-            style={{
-              position: 'absolute',
-              inset: 0,
-              width: '100%',
-              height: '100%',
-              overflow: 'hidden',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            {activePopup.url && (
-              activePopup.mediaType === 'video' ? (
-                <video
-                  src={activePopup.url}
-                  autoPlay
-                  playsInline
-                  style={{
-                    display: 'block',
-                    width: '100%',
-                    height: '100%',
-                    objectFit: objectFitMode,
-                  }}
-                  ref={(el) => {
-                    if (el) {
-                      el.volume = activePopup.volume;
-                      el.play().catch(() => {
-                        el.muted = true;
-                        el.play().catch(() => {});
-                      });
-                    }
-                  }}
-                />
-              ) : (
-                <img
-                  src={activePopup.url}
-                  alt="Popup effect"
-                  onError={(e) => {
-                    (e.target as HTMLImageElement).src = 'https://media.giphy.com/media/3o7TKrEzvLbsVAud8I/giphy.gif';
-                  }}
-                  style={{
-                    display: 'block',
-                    width: '100%',
-                    height: '100%',
-                    objectFit: objectFitMode,
-                  }}
-                />
-              )
-            )}
-          </div>
-        )
-      ) : (
-        /* Default Idle Video: DogDefault.mp4 plays continuously on loop */
+      {/* Layer 1: Default idle video — always mounted, fades out during popup */}
+      <div
+        className="overlay-layer overlay-fade"
+        style={{
+          opacity: activePopup ? 0 : 1,
+          filter: 'drop-shadow(0 0 15px rgba(255, 255, 255, 0.2))',
+          zIndex: 1,
+        }}
+      >
+        <video
+          src={defaultVideoUrl}
+          autoPlay
+          loop
+          muted
+          playsInline
+          className="overlay-video"
+          ref={(el) => {
+            (defaultVideoRef as React.MutableRefObject<HTMLVideoElement | null>).current = el;
+            if (el) el.play().catch(() => {});
+          }}
+        />
+      </div>
+
+      {/* Layer 2: Popup reaction video — always mounted, fades in on donate */}
+      {(showingPopup || (!activePopup && popupVideoRef.current?.src)) && (
         <div
+          className="overlay-layer overlay-fade"
           style={{
-            position: 'absolute',
-            inset: 0,
-            width: '100%',
-            height: '100%',
-            overflow: 'hidden',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            filter: 'drop-shadow(0 0 15px rgba(255, 255, 255, 0.2))',
+            opacity: showingPopup ? 1 : 0,
+            zIndex: 2,
           }}
         >
           <video
-            src={defaultVideoUrl}
-            autoPlay
-            loop
-            muted
+            src={activePopup?.url ?? (popupVideoRef.current?.src ?? '')}
             playsInline
+            className="overlay-video"
+            ref={(el) => {
+              (popupVideoRef as React.MutableRefObject<HTMLVideoElement | null>).current = el;
+              if (el && activePopup) {
+                el.volume = activePopup.volume;
+                el.currentTime = 0;
+                el.play().catch(() => {
+                  el.muted = true;
+                  el.play().catch(() => {});
+                });
+              }
+            }}
+          />
+        </div>
+      )}
+
+      {/* Layer 3: Image popup */}
+      {activePopup && activePopup.mediaType === 'image' && activePopup.url && (
+        <div
+          className="overlay-layer overlay-fade"
+          style={{
+            opacity: 1,
+            zIndex: 2,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <img
+            src={activePopup.url}
+            alt="Popup effect"
+            onError={(e) => {
+              (e.target as HTMLImageElement).src = 'https://media.giphy.com/media/3o7TKrEzvLbsVAud8I/giphy.gif';
+            }}
             style={{
               display: 'block',
               width: '100%',
               height: '100%',
               objectFit: objectFitMode,
             }}
-            ref={(el) => {
-              if (el) {
-                el.play().catch(() => {});
-              }
-            }}
           />
         </div>
+      )}
+
+      {/* Layer 4: Blackout (Broken TV Screen) */}
+      {showingEffect && activePopup.mediaType === 'blackout' && (
+        <div
+          className="overlay-layer overlay-fade"
+          style={{
+            backgroundImage: 'url(/uploads/broken-screen.png)',
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+            backgroundColor: '#000000',
+            opacity: 1,
+            zIndex: 999999,
+          }}
+        />
+      )}
+
+      {/* Layer 5: Flashbang */}
+      {showingEffect && activePopup.mediaType === 'flashbang' && (
+        <div
+          className="overlay-layer overlay-fade"
+          style={{
+            backgroundColor: '#ffffff',
+            opacity: 1,
+            zIndex: 999999,
+          }}
+        />
       )}
     </div>
   );
