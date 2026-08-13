@@ -450,7 +450,7 @@ export default function VrmStudioPage() {
                   style={{ display: 'none' }}
                   onChange={(e) => {
                     const f = e.target.files?.[0];
-                    if (f) setDanceUrl(URL.createObjectURL(f));
+                    if (f) setDanceUrl(URL.createObjectURL(f) + '#' + f.name);
                     e.target.value = '';
                   }}
                 />
