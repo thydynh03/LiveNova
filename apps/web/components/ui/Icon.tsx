@@ -56,6 +56,7 @@ import {
   Plus,
   DotsSixVertical,
   Info,
+  MusicNotes,
 } from '@phosphor-icons/react';
 
 export const ICONS = {
@@ -114,6 +115,7 @@ export const ICONS = {
   plus: Plus,
   drag: DotsSixVertical,
   info: Info,
+  music: MusicNotes,
 } as const satisfies Record<string, PhosphorIcon>;
 
 export type IconName = keyof typeof ICONS;

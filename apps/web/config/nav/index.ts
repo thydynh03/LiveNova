@@ -9,6 +9,7 @@ import { battleNav } from './battle.nav';
 import { billingNav } from './billing.nav';
 import { channelsNav } from './channels.nav';
 import { dashboardNav } from './dashboard.nav';
+import { discoNav } from './disco.nav';
 import { overlaysNav } from './overlays.nav';
 import { rulesNav } from './rules.nav';
 import { settingsNav } from './settings.nav';
@@ -20,6 +21,7 @@ const registry: NavItem[] = [
   billingNav,
   channelsNav,
   dashboardNav,
+  discoNav,
   overlaysNav,
   rulesNav,
   settingsNav,
