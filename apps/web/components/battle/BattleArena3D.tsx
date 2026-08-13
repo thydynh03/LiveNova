@@ -423,7 +423,7 @@ export function BattleArena3D({ state, isDark = true }: Props) {
 
         let lunge = 0;
         if (unit.phase === 'fight') {
-          const dps = contested ? 20 : 5.5;
+          const dps = contested ? 8 : 2.5;
           unit.currentHp -= dps * delta;
 
           unit.swingIn -= delta;

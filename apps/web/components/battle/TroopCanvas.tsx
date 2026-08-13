@@ -86,7 +86,7 @@ export interface Troop {
 export const COMBAT = {
   DEFAULT_MAX_HP: 100,
   /** Damage per second taken while enemies are present. */
-  FIGHT_DPS: 20,
+  FIGHT_DPS: 8,
   /**
    * Attrition when a unit reached the centre and found nobody to fight.
    *
@@ -95,7 +95,7 @@ export const COMBAT = {
    * paid for. With it the field drains slowly, and a lone team's soldiers stand
    * around long enough to read as holding the ground.
    */
-  IDLE_DPS: 5.5,
+  IDLE_DPS: 2.5,
   /** Big tiers are tougher, so a dragon is not traded for a footsoldier. */
   BIG_HP_MULTIPLIER: 3.5,
   /** Seconds between swings. Randomised per unit so the line is not a metronome. */
