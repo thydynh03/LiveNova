@@ -21,13 +21,9 @@ export function DiscoThreeStage({ engine, videoUrl, isMuted = true }: DiscoThree
     let width = container.clientWidth || 800;
     let height = container.clientHeight || 600;
 
-    const hasCustomMedia = Boolean(videoUrl && videoUrl.trim().length > 0);
-
     // 1. Scene, Camera, Fog & Renderer
     const scene = new THREE.Scene();
-    if (!hasCustomMedia) {
-      scene.background = new THREE.Color(0x06030c);
-    }
+    scene.background = new THREE.Color(0x06030c);
     scene.fog = new THREE.FogExp2(0x070412, 0.024);
 
     const camera = new THREE.PerspectiveCamera(52, width / height, 0.1, 150);
@@ -35,7 +31,7 @@ export function DiscoThreeStage({ engine, videoUrl, isMuted = true }: DiscoThree
 
     const renderer = new THREE.WebGLRenderer({
       antialias: true,
-      alpha: true,
+      alpha: false,
       powerPreference: 'high-performance',
     });
     renderer.setSize(width, height);
@@ -200,10 +196,10 @@ export function DiscoThreeStage({ engine, videoUrl, isMuted = true }: DiscoThree
     videoTexture.magFilter = THREE.LinearFilter;
 
     // Ultra-Wide Panoramic Curved LED Screen Geometry (Spanning horizontally across the entire club backdrop)
-    const ledRadius = 21;
-    const ledHeight = 9.0;
-    const thetaStart = Math.PI * 0.58;
-    const thetaLength = Math.PI * 0.84;
+    const ledRadius = 23;
+    const ledHeight = 9.8;
+    const thetaStart = Math.PI * 0.52;
+    const thetaLength = Math.PI * 0.96;
 
     const ledScreenGeo = new THREE.CylinderGeometry(ledRadius, ledRadius, ledHeight, 48, 1, true, thetaStart, thetaLength);
     // Flip UVs horizontally
@@ -216,23 +212,19 @@ export function DiscoThreeStage({ engine, videoUrl, isMuted = true }: DiscoThree
     const ledScreenMat = new THREE.MeshBasicMaterial({
       map: videoTexture,
       side: THREE.BackSide,
-      transparent: true,
-      opacity: hasCustomMedia ? 0 : 1,
     });
     const ledScreen = new THREE.Mesh(ledScreenGeo, ledScreenMat);
-    ledScreen.position.set(0, 5.0, -3.2);
-    if (!hasCustomMedia) {
-      scene.add(ledScreen);
-    }
+    ledScreen.position.set(0, 5.2, -2.8);
+    scene.add(ledScreen);
 
     // Glowing Neon Frames on Wide LED Video Wall
     const frameGeo = new THREE.CylinderGeometry(ledRadius + 0.02, ledRadius + 0.02, 0.22, 48, 1, true, thetaStart, thetaLength);
     const frameTop = new THREE.Mesh(frameGeo, new THREE.MeshBasicMaterial({ color: 0x00f0ff, side: THREE.BackSide }));
-    frameTop.position.set(0, 5.0 + ledHeight / 2, -3.2);
+    frameTop.position.set(0, 5.2 + ledHeight / 2, -2.8);
     scene.add(frameTop);
 
     const frameBottom = new THREE.Mesh(frameGeo, new THREE.MeshBasicMaterial({ color: 0x00f0ff, side: THREE.BackSide }));
-    frameBottom.position.set(0, 5.0 - ledHeight / 2, -3.2);
+    frameBottom.position.set(0, 5.2 - ledHeight / 2, -2.8);
     scene.add(frameBottom);
 
     // 10. Grand Circular Ceiling Trusses with Moving Head Spotlights

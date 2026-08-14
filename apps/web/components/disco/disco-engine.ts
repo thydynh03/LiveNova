@@ -220,10 +220,10 @@ export class DiscoEngine {
       name,
       avatarUrl,
       x: Math.random() * 0.76 + 0.12, // Random x across arena
-      y: -0.1, // Start slightly above screen to fall in
+      y: 0.95, // Spawn directly on floor
       z: Math.random() * 0.78 + 0.20, // Random depth row in arena
       vy: 0,
-      vx: (Math.random() - 0.5) * 0.06, // Slight horizontal drift
+      vx: (Math.random() - 0.5) * 0.04, // Slight horizontal drift
       color: randomColor,
       spriteId: randomSprite,
       scale: 1,
