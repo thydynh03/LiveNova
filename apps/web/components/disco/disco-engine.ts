@@ -38,6 +38,11 @@ export const SPRITES = [
   'mushroom_dance_01',
   'mushroom_magic_02',
   'hanhan_video_dance',
+  'char_panda_cry',
+  'char_panda_smug',
+  'char_yaoming_laugh',
+  'char_hoe_fighter',
+  'char_slipper_slap',
   'char_dj_pro',
   'char_disco_king',
   'char_cat_groove',
@@ -71,11 +76,13 @@ export class DiscoEngine {
   addDemoDancers(count = 5) {
     const demoNames = [
       { id: 'bot_dj_pro', name: '🎧 DJ Pro LiveNova', sprite: 'char_dj_pro', isDj: true },
+      { id: 'bot_panda_cry', name: '😭 Gấu Trúc Khóc Nhè', sprite: 'char_panda_cry', isDj: false },
+      { id: 'bot_yaoming', name: '😂 Thánh Cười YaoMing', sprite: 'char_yaoming_laugh', isDj: false },
+      { id: 'bot_hoe_fighter', name: '⛏️ Cuốc Một Phát', sprite: 'char_hoe_fighter', isDj: false },
+      { id: 'bot_slipper_slap', name: '🩴 Thánh Cầm Dép', sprite: 'char_slipper_slap', isDj: false },
+      { id: 'bot_panda_smug', name: '😏 Nụ Cười Đã Tắt', sprite: 'char_panda_smug', isDj: false },
       { id: 'bot_disco_king', name: '👑 King Nấm Quẩy', sprite: 'char_disco_king', isDj: false },
       { id: 'bot_super_duck', name: '🕶️ Vịt ThugLife', sprite: 'char_super_duck', isDj: false },
-      { id: 'bot_cat_groove', name: '🐱 Mèo Twerk', sprite: 'char_cat_groove', isDj: false },
-      { id: 'bot_hanhan', name: '💃 HanHan Múa Dẻo', sprite: 'hanhan_video_dance', isDj: false },
-      { id: 'bot_matrix', name: '⚡ Matrix Cyber', sprite: 'char_matrix_dancer', isDj: false },
     ];
 
     const toAdd = demoNames.slice(0, count);

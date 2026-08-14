@@ -26,11 +26,16 @@ function preloadSprites() {
     }
   };
 
-  // Load all 18 animated character dance sprites
+  // Load all 23 animated character dance sprites
   loadSequence('mushroom_dance_15', '/assets/disco/Characters/mushroom_dance_15/', 11);
   loadSequence('mushroom_dance_01', '/assets/disco/Characters/mushroom_dance_01/', 14);
   loadSequence('mushroom_magic_02', '/assets/disco/Characters/mushroom_magic_02/', 16);
   loadSequence('hanhan_video_dance', '/assets/disco/Characters/hanhan_video_dance/', 40);
+  loadSequence('char_panda_cry', '/assets/disco/Characters/char_panda_cry/', 16);
+  loadSequence('char_panda_smug', '/assets/disco/Characters/char_panda_smug/', 14);
+  loadSequence('char_yaoming_laugh', '/assets/disco/Characters/char_yaoming_laugh/', 12);
+  loadSequence('char_hoe_fighter', '/assets/disco/Characters/char_hoe_fighter/', 11);
+  loadSequence('char_slipper_slap', '/assets/disco/Characters/char_slipper_slap/', 16);
   loadSequence('char_dj_pro', '/assets/disco/Characters/char_dj_pro/', 30);
   loadSequence('char_disco_king', '/assets/disco/Characters/char_disco_king/', 16);
   loadSequence('char_cat_groove', '/assets/disco/Characters/char_cat_groove/', 14);
