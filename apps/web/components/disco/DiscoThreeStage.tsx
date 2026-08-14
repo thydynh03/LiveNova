@@ -92,23 +92,37 @@ export function DiscoThreeStage({ engine, videoUrl, isMuted = true }: DiscoThree
     const floorTexture = new THREE.CanvasTexture(floorCanvas);
     floorTexture.wrapS = THREE.RepeatWrapping;
     floorTexture.wrapT = THREE.RepeatWrapping;
+    floorTexture.repeat.set(3, 3);
 
-    const floorGeo = new THREE.CylinderGeometry(20, 20.5, 0.4, 48);
+    // Massive Extended Arena Dance Floor spanning forward past camera view (fills TikTok Studio / Mobile vertical streams)
+    const floorGeo = new THREE.CylinderGeometry(36, 36.5, 0.4, 64);
     const floorMat = new THREE.MeshStandardMaterial({
       map: floorTexture,
       roughness: 0.15,
       metalness: 0.85,
     });
     const floor = new THREE.Mesh(floorGeo, floorMat);
-    floor.position.set(0, -0.2, -3);
+    floor.position.set(0, -0.2, 4);
     scene.add(floor);
 
+    // Deep Infinite Club Ground Base (Eliminates all empty void in TikTok Studio)
+    const infiniteBaseGeo = new THREE.PlaneGeometry(120, 120);
+    const infiniteBaseMat = new THREE.MeshStandardMaterial({
+      color: 0x06030c,
+      roughness: 0.2,
+      metalness: 0.8,
+    });
+    const infiniteBase = new THREE.Mesh(infiniteBaseGeo, infiniteBaseMat);
+    infiniteBase.rotation.x = -Math.PI / 2;
+    infiniteBase.position.set(0, -0.22, 0);
+    scene.add(infiniteBase);
+
     // Neon Floor Rim Ring
-    const floorRimGeo = new THREE.RingGeometry(19.8, 20.2, 48);
+    const floorRimGeo = new THREE.RingGeometry(35.8, 36.2, 64);
     const floorRimMat = new THREE.MeshBasicMaterial({ color: 0x00f0ff, side: THREE.DoubleSide });
     const floorRim = new THREE.Mesh(floorRimGeo, floorRimMat);
     floorRim.rotation.x = -Math.PI / 2;
-    floorRim.position.set(0, 0.02, -3);
+    floorRim.position.set(0, 0.02, 4);
     scene.add(floorRim);
 
     // 6. DJ Stage Platform & Booth Table (Elevated at Back Center)
