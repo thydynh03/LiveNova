@@ -7,7 +7,7 @@ export interface Dancer {
   vy: number;
   vx: number;
   color: string;
-  spriteId: string; // 'mushroom_dance', 'mushroom_magic', or 'npc-avatar-00'
+  spriteId: string; // 'mushroom_dance_15', 'hanhan_video_dance', 'char_a', etc.
   scale: number;
   targetScale: number;
   state: 'idle' | 'dancing' | 'jumping';
@@ -33,13 +33,20 @@ export interface Camera {
   lockTimeout: number;
 }
 
-const SPRITES = [
+export const SPRITES = [
   'mushroom_dance_15',
+  'mushroom_dance_01',
   'mushroom_magic_02',
-  'npc-avatar-00', 'npc-avatar-01', 'npc-avatar-02', 'npc-avatar-03',
-  'npc-avatar-04', 'npc-avatar-05', 'npc-avatar-06', 'npc-avatar-07',
-  'npc-avatar-08', 'npc-avatar-09', 'npc-avatar-10', 'npc-avatar-11',
-  'npc-avatar-12', 'npc-avatar-13', 'npc-avatar-14', 'npc-avatar-15'
+  'hanhan_video_dance',
+  'char_a',
+  'char_b',
+  'char_c',
+  'char_d',
+  'char_e',
+  'char_g',
+  'char_h',
+  'char_j',
+  'char_k',
 ];
 
 export class DiscoEngine {
@@ -59,11 +66,11 @@ export class DiscoEngine {
   addDemoDancers(count = 4) {
     const demoNames = [
       { id: 'bot_dj_mushroom', name: '🍄 DJ Mushroom', sprite: 'mushroom_dance_15', isDj: true },
-      { id: 'bot_party_cat', name: '🐱 Party Cat', sprite: 'npc-avatar-02', isDj: false },
-      { id: 'bot_capy_dancer', name: '🌿 Capy Dancer', sprite: 'npc-avatar-05', isDj: false },
-      { id: 'bot_magic_star', name: '✨ Star Boy', sprite: 'mushroom_magic_02', isDj: false },
-      { id: 'bot_super_fan', name: '🔥 Super Fan', sprite: 'npc-avatar-08', isDj: false },
-      { id: 'bot_livenova', name: '🚀 LiveNova VIP', sprite: 'npc-avatar-11', isDj: false },
+      { id: 'bot_hanhan', name: '💃 HanHan Quẩy', sprite: 'hanhan_video_dance', isDj: false },
+      { id: 'bot_super_star', name: '✨ Star Boy', sprite: 'mushroom_dance_01', isDj: false },
+      { id: 'bot_party_bro', name: '🔥 Bro Quẩy', sprite: 'char_d', isDj: false },
+      { id: 'bot_magic_star', name: '⚡ Magic Mushroom', sprite: 'mushroom_magic_02', isDj: false },
+      { id: 'bot_cute_dancer', name: '🐱 Cute Dancer', sprite: 'char_b', isDj: false },
     ];
 
     const toAdd = demoNames.slice(0, count);

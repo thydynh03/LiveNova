@@ -26,23 +26,20 @@ function preloadSprites() {
     }
   };
 
-  const loadStatic = (key: string, path: string) => {
-    SPRITE_CACHE[key] = [];
-    const img = new Image();
-    img.src = path;
-    SPRITE_CACHE[key].push(img);
-  };
-
-  // Mushroom dance (11 frames: 000 to 010)
+  // Load all 13 animated character dance sprites
   loadSequence('mushroom_dance_15', '/assets/disco/Characters/mushroom_dance_15/', 11);
-  // Mushroom magic (16 frames: 000 to 015)
+  loadSequence('mushroom_dance_01', '/assets/disco/Characters/mushroom_dance_01/', 14);
   loadSequence('mushroom_magic_02', '/assets/disco/Characters/mushroom_magic_02/', 16);
-  
-  // NPC avatars (static)
-  for (let i = 0; i < 16; i++) {
-    const numStr = i.toString().padStart(2, '0');
-    loadStatic(`npc-avatar-${numStr}`, `/assets/disco/NpcAvatars/npc-avatar-${numStr}.png`);
-  }
+  loadSequence('hanhan_video_dance', '/assets/disco/Characters/hanhan_video_dance/', 40);
+  loadSequence('char_a', '/assets/disco/Characters/a/', 10);
+  loadSequence('char_b', '/assets/disco/Characters/b/', 12);
+  loadSequence('char_c', '/assets/disco/Characters/c/', 8);
+  loadSequence('char_d', '/assets/disco/Characters/d/', 16);
+  loadSequence('char_e', '/assets/disco/Characters/e/', 8);
+  loadSequence('char_g', '/assets/disco/Characters/g/', 15);
+  loadSequence('char_h', '/assets/disco/Characters/h/', 9);
+  loadSequence('char_j', '/assets/disco/Characters/j/', 14);
+  loadSequence('char_k', '/assets/disco/Characters/k/', 9);
 }
 
 export default function DiscoCanvas({ engine }: DiscoCanvasProps) {
