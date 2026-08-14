@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo, useCallback, useEffect, Suspense } from 'react';
+import React, { useState, useMemo, useCallback, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { OverlayAction, LiveEventType } from '@livenova/shared';
 import { useOverlaySocket } from '../../../lib/use-overlay-socket';
@@ -13,6 +13,13 @@ function DiscoOverlayContent() {
   const customVideo = searchParams ? searchParams.get('video') : null;
 
   const engine = useMemo(() => new DiscoEngine(), []);
+  const [activeVideo, setActiveVideo] = useState<string>(customVideo || '');
+
+  useEffect(() => {
+    if (customVideo !== null) {
+      setActiveVideo(customVideo);
+    }
+  }, [customVideo]);
 
   useEffect(() => {
     // OBS / TikTok Live Studio compositing
@@ -21,12 +28,15 @@ function DiscoOverlayContent() {
   }, []);
 
   useEffect(() => {
-    // Listen to BroadcastChannel for instant real-time camera shot switching
+    // Listen to BroadcastChannel for instant real-time camera shot switching and video sync
     if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
       const channel = new BroadcastChannel('livenova_disco_sync');
       channel.onmessage = (event) => {
         const data = event.data;
         if (data && data.type === 'SYNC_DISCO_MEDIA') {
+          if (data.videoUrl !== undefined) {
+            setActiveVideo(data.videoUrl);
+          }
           if (data.cameraShot === 'DJ_POV') {
             engine.triggerDjPov(data.duration || 9000);
           } else if (data.cameraShot === 'SPOTLIGHT_ZOOM') {
@@ -109,7 +119,7 @@ function DiscoOverlayContent() {
       {/* 3D Nightclub Stage View with LED Video Wall, 2D Dancers & Real-Time Sync Music */}
       <DiscoStageView
         engine={engine}
-        videoUrl={customVideo || ''}
+        videoUrl={activeVideo}
         isMuted={true}
         enableAudio={true}
       />

@@ -312,6 +312,169 @@ export default function DiscoDashboardPage() {
     engine.toggleAutoDirector(next);
   };
 
+  // Automated Scenario Runner State & Engine
+  const [activeScenario, setActiveScenario] = useState<'concert' | 'dj_battle' | 'fx_party' | null>(null);
+  const [scenarioStepIndex, setScenarioStepIndex] = useState<number>(0);
+  const [scenarioTotalSteps, setScenarioTotalSteps] = useState<number>(0);
+  const [scenarioLogs, setScenarioLogs] = useState<string[]>([]);
+  const scenarioTimerRefs = useRef<NodeJS.Timeout[]>([]);
+
+  const stopScenario = useCallback(() => {
+    scenarioTimerRefs.current.forEach((t) => clearTimeout(t));
+    scenarioTimerRefs.current = [];
+    setActiveScenario(null);
+    setScenarioStepIndex(0);
+  }, []);
+
+  const addScenarioLog = useCallback((msg: string) => {
+    setScenarioLogs((prev) => [msg, ...prev.slice(0, 15)]);
+  }, []);
+
+  const runScenario = useCallback((type: 'concert' | 'dj_battle' | 'fx_party') => {
+    stopScenario();
+    setActiveScenario(type);
+    setScenarioLogs([]);
+
+    if (type === 'concert') {
+      setScenarioTotalSteps(6);
+      setScenarioStepIndex(1);
+      addScenarioLog('▶️ [Bước 1/6] 🎵 Khởi động nhạc EDM & Sân khấu đại nhạc hội');
+      handleSetMusic('https://cdn.pixabay.com/download/audio/2022/05/27/audio_1808fbf07a.mp3?filename=electronic-future-beats-117997.mp3', '⚡ Vinahouse Future Beat');
+      triggerStrobe();
+
+      // Step 2
+      const t2 = setTimeout(() => {
+        setScenarioStepIndex(2);
+        addScenarioLog('▶️ [Bước 2/6] 🕺 4 Khán giả (@dancer_alex, @bella_cute, @tony_viet, @super_star) vào sàn');
+        engine.join('@dancer_alex', 'Alex Dancer 🔥');
+        engine.join('@bella_cute', 'Bella Cute 💃');
+        engine.join('@tony_viet', 'Tony Việt 🕺');
+        engine.join('@super_star', 'Super Star 🌟');
+      }, 3000);
+
+      // Step 3
+      const t3 = setTimeout(() => {
+        setScenarioStepIndex(3);
+        addScenarioLog('▶️ [Bước 3/6] 💃 Toàn bộ khán giả nhảy bốc lửa & đổi trang phục dạ hội');
+        engine.jump('@dancer_alex');
+        engine.jump('@bella_cute');
+        engine.changeAvatar('@tony_viet');
+        engine.changeAvatar('@super_star');
+        triggerConfetti();
+      }, 6000);
+
+      // Step 4
+      const t4 = setTimeout(() => {
+        setScenarioStepIndex(4);
+        addScenarioLog('▶️ [Bước 4/6] 👑 Khán giả @super_star tặng Quà VIP (+15đ) -> Soán ngôi TOP 1 DJ!');
+        engine.enqueueGift('@super_star', 'Super Star 🌟', 15);
+      }, 9000);
+
+      // Step 5
+      const t5 = setTimeout(() => {
+        setScenarioStepIndex(5);
+        addScenarioLog('▶️ [Bước 5/6] 🎧 Bật góc nhìn 10s DJ POV nhìn xuống toàn cảnh sàn nhảy!');
+        triggerCameraDjPov();
+      }, 12000);
+
+      // Step 6
+      const t6 = setTimeout(() => {
+        setScenarioStepIndex(6);
+        addScenarioLog('▶️ [Bước 6/6] 🎆 Bùng nổ xịt khói CO2 sân khấu & Bắn pháo hoa đại tiệc kết màn!');
+        triggerSmoke();
+        triggerFireworkBurst();
+        triggerLaserShow();
+        const tDone = setTimeout(() => {
+          addScenarioLog('✅ [Hoàn Tất] Kịch bản Đêm Nhạc Hội Bùng Nổ đã diễn ra thành công rực rỡ!');
+          setActiveScenario(null);
+        }, 5000);
+        scenarioTimerRefs.current.push(tDone);
+      }, 15000);
+
+      scenarioTimerRefs.current.push(t2, t3, t4, t5, t6);
+    } else if (type === 'dj_battle') {
+      setScenarioTotalSteps(5);
+      setScenarioStepIndex(1);
+      addScenarioLog('▶️ [Bước 1/5] ⚔️ Bắt đầu cuộc chiến vương quyền DJ giữa @nguyen_nam và @tran_phuong');
+      engine.join('@nguyen_nam', 'Nguyễn Nam 🎧');
+      engine.join('@tran_phuong', 'Trần Phương 👑');
+
+      const t2 = setTimeout(() => {
+        setScenarioStepIndex(2);
+        addScenarioLog('▶️ [Bước 2/5] 🎁 @nguyen_nam tặng 12 điểm -> Thăng hạng lên TOP 1 DJ!');
+        engine.enqueueGift('@nguyen_nam', 'Nguyễn Nam 🎧', 12);
+      }, 3000);
+
+      const t3 = setTimeout(() => {
+        setScenarioStepIndex(3);
+        addScenarioLog('▶️ [Bước 3/5] 🚀 @tran_phuong phản công tặng 25 điểm -> Soán ngôi chiếm vương miện DJ!');
+        engine.enqueueGift('@tran_phuong', 'Trần Phương 👑', 25);
+      }, 7000);
+
+      const t4 = setTimeout(() => {
+        setScenarioStepIndex(4);
+        addScenarioLog('▶️ [Bước 4/5] 🔍 Camera Spotlight Zoom cận cảnh tân vương @tran_phuong');
+        triggerCameraSpotlight();
+      }, 11000);
+
+      const t5 = setTimeout(() => {
+        setScenarioStepIndex(5);
+        addScenarioLog('▶️ [Bước 5/5] 🏆 Vinh danh Tân TOP 1 DJ với pháo hoa mừng chiến thắng!');
+        triggerFireworkBurst();
+        triggerConfetti();
+        const tDone = setTimeout(() => {
+          addScenarioLog('✅ [Hoàn Tất] Kịch bản Tranh Đoạt Ngôi Vị DJ đã kết thúc!');
+          setActiveScenario(null);
+        }, 4000);
+        scenarioTimerRefs.current.push(tDone);
+      }, 14000);
+
+      scenarioTimerRefs.current.push(t2, t3, t4, t5);
+    } else if (type === 'fx_party') {
+      setScenarioTotalSteps(6);
+      setScenarioStepIndex(1);
+      addScenarioLog('▶️ [Bước 1/6] 💨 Kích hoạt Xịt khói CO2 sân khấu (Kèm âm thanh khí nén)');
+      triggerSmoke();
+
+      const t2 = setTimeout(() => {
+        setScenarioStepIndex(2);
+        addScenarioLog('▶️ [Bước 2/6] ⚡ Kích hoạt Strobe nhấp nháy vũ trường cực bốc');
+        triggerStrobe();
+      }, 3000);
+
+      const t3 = setTimeout(() => {
+        setScenarioStepIndex(3);
+        addScenarioLog('▶️ [Bước 3/6] 🔴 Kích hoạt Laser Show đa chùm xoay 360 độ');
+        triggerLaserShow();
+      }, 6000);
+
+      const t4 = setTimeout(() => {
+        setScenarioStepIndex(4);
+        addScenarioLog('▶️ [Bước 4/6] 🎊 Thả mưa Confetti hoa giấy 7 màu lấp lánh');
+        triggerConfetti();
+      }, 9000);
+
+      const t5 = setTimeout(() => {
+        setScenarioStepIndex(5);
+        addScenarioLog('▶️ [Bước 5/6] 🏗️ Cần cẩu lia máy Crane Swoop & Flycam toàn cảnh');
+        triggerCameraCrane();
+      }, 12000);
+
+      const t6 = setTimeout(() => {
+        setScenarioStepIndex(6);
+        addScenarioLog('▶️ [Bước 6/6] 🎆 Bắn pháo hoa liên hoàn 8 phát đại tiệc kết màn!');
+        triggerFireworkBurst();
+        const tDone = setTimeout(() => {
+          addScenarioLog('✅ [Hoàn Tất] Kịch bản Đại Tiệc Hiệu Ứng đã hoàn thành!');
+          setActiveScenario(null);
+        }, 4000);
+        scenarioTimerRefs.current.push(tDone);
+      }, 15000);
+
+      scenarioTimerRefs.current.push(t2, t3, t4, t5, t6);
+    }
+  }, [addScenarioLog, engine, handleSetMusic, stopScenario, triggerCameraCrane, triggerCameraDjPov, triggerCameraSpotlight, triggerConfetti, triggerFireworkBurst, triggerLaserShow, triggerSmoke, triggerStrobe]);
+
   if (!user) {
     return (
       <div style={{ padding: '2rem', color: 'hsl(var(--foreground))' }}>
@@ -790,6 +953,154 @@ export default function DiscoDashboardPage() {
 
         {/* Right Column: Interactive Simulator & Live Commands Cheat Sheet */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+          {/* 🎭 Automated Scenario & Test Runner Card */}
+          <div style={{
+            background: 'hsl(var(--card))',
+            border: '1px solid hsl(var(--border))',
+            borderRadius: 'var(--radius)',
+            padding: '1.25rem',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '1rem',
+            boxShadow: '0 4px 20px rgba(0, 0, 0, 0.15)'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid hsl(var(--border))', paddingBottom: '0.75rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <span style={{ fontSize: '1.25rem' }}>🎭</span>
+                <span style={{ fontWeight: 800, fontSize: '0.9375rem', color: 'hsl(var(--foreground))' }}>
+                  Kịch Bản Trình Diễn Tự Động (Auto Scenario)
+                </span>
+              </div>
+              {activeScenario && (
+                <button
+                  type="button"
+                  onClick={stopScenario}
+                  style={{
+                    padding: '0.2rem 0.6rem',
+                    borderRadius: 'var(--radius-sm)',
+                    fontSize: '0.75rem',
+                    fontWeight: 700,
+                    background: '#ef4444',
+                    color: '#fff',
+                    border: 'none',
+                    cursor: 'pointer'
+                  }}
+                >
+                  ⏹️ Dừng Kịch Bản
+                </button>
+              )}
+            </div>
+
+            {/* Scenario Quick Launcher Buttons */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem' }}>
+              {[
+                {
+                  id: 'concert' as const,
+                  title: '🔥 Kịch Bản 1: Đêm Nhạc Hội Bùng Nổ',
+                  desc: '4 Khán giả vào sàn -> Nhảy & đổi đồ -> Tặng quà VIP -> Soán ngôi Top 1 DJ -> 10s DJ POV -> Xịt khói & Pháo hoa',
+                  color: 'linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%)',
+                },
+                {
+                  id: 'dj_battle' as const,
+                  title: '👑 Kịch Bản 2: Tranh Đoạt Ngôi Vị DJ',
+                  desc: '2 Khán giả thi đấu điểm quà -> Lần lượt soán ngôi nhau -> Thông báo thăng chức DJ -> Spotlight Zoom',
+                  color: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+                },
+                {
+                  id: 'fx_party' as const,
+                  title: '⚡ Kịch Bản 3: Đại Tiệc Hiệu Ứng Sân Khấu',
+                  desc: 'Stress test toàn bộ hiệu ứng: Xịt khói CO2 -> Nhấp nháy Strobe -> Laser Show -> Confetti -> Cần cẩu Crane -> Pháo hoa',
+                  color: 'linear-gradient(135deg, #06b6d4 0%, #3b82f6 100%)',
+                }
+              ].map((sc) => {
+                const isRunning = activeScenario === sc.id;
+                return (
+                  <div
+                    key={sc.id}
+                    style={{
+                      border: isRunning ? '2px solid hsl(var(--primary))' : '1px solid hsl(var(--border))',
+                      borderRadius: 'var(--radius-sm)',
+                      padding: '0.75rem',
+                      background: isRunning ? 'hsl(var(--primary) / 0.08)' : 'hsl(var(--secondary) / 0.35)',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '0.375rem'
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem' }}>
+                      <span style={{ fontWeight: 700, fontSize: '0.8125rem', color: 'hsl(var(--foreground))' }}>
+                        {sc.title}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => runScenario(sc.id)}
+                        disabled={isRunning}
+                        style={{
+                          padding: '0.35rem 0.75rem',
+                          borderRadius: 'var(--radius-sm)',
+                          fontSize: '0.75rem',
+                          fontWeight: 700,
+                          background: isRunning ? 'hsl(var(--muted))' : sc.color,
+                          color: '#fff',
+                          border: 'none',
+                          cursor: isRunning ? 'default' : 'pointer',
+                          boxShadow: isRunning ? 'none' : '0 2px 8px rgba(0,0,0,0.2)'
+                        }}
+                      >
+                        {isRunning ? '⏳ Đang Chạy...' : '▶️ Chạy Ngay'}
+                      </button>
+                    </div>
+                    <span style={{ fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))', lineHeight: 1.4 }}>
+                      {sc.desc}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Scenario Progress & Terminal Log */}
+            {activeScenario && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', fontWeight: 600 }}>
+                  <span style={{ color: 'hsl(var(--primary))' }}>Tiến độ: Bước {scenarioStepIndex} / {scenarioTotalSteps}</span>
+                  <span style={{ color: 'hsl(var(--muted-foreground))' }}>{Math.round((scenarioStepIndex / scenarioTotalSteps) * 100)}%</span>
+                </div>
+                <div style={{ width: '100%', height: '6px', background: 'hsl(var(--secondary))', borderRadius: '3px', overflow: 'hidden' }}>
+                  <div
+                    style={{
+                      height: '100%',
+                      width: `${(scenarioStepIndex / scenarioTotalSteps) * 100}%`,
+                      background: 'linear-gradient(90deg, #00f0ff, #ff007f)',
+                      transition: 'width 0.4s ease'
+                    }}
+                  />
+                </div>
+              </div>
+            )}
+
+            {scenarioLogs.length > 0 && (
+              <div style={{
+                background: '#04020a',
+                border: '1px solid rgba(0, 240, 255, 0.3)',
+                borderRadius: 'var(--radius-sm)',
+                padding: '0.625rem',
+                maxHeight: '120px',
+                overflowY: 'auto',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '0.25rem',
+                fontSize: '0.75rem',
+                fontFamily: 'monospace'
+              }}>
+                {scenarioLogs.map((log, idx) => (
+                  <div key={idx} style={{ color: idx === 0 ? '#00f0ff' : '#8892b0' }}>
+                    {log}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
           {/* Simulator Panel */}
           <div style={{
             background: 'hsl(var(--card))',

@@ -36,8 +36,9 @@ export function DiscoThreeStage({ engine, videoUrl, isMuted = true }: DiscoThree
     }
     scene.fog = new THREE.FogExp2(0x070412, 0.024);
 
-    const camera = new THREE.PerspectiveCamera(52, width / height, 0.1, 150);
-    camera.position.set(0, 5.2, 14);
+    const isPortrait = width < height;
+    const camera = new THREE.PerspectiveCamera(isPortrait ? 65 : 52, width / height, 0.1, 150);
+    camera.position.set(0, isPortrait ? 6.8 : 5.2, isPortrait ? 18.5 : 14);
 
     const renderer = new THREE.WebGLRenderer({
       antialias: true,
@@ -1175,17 +1176,21 @@ export function DiscoThreeStage({ engine, videoUrl, isMuted = true }: DiscoThree
         }
       });
 
-      // 18.10 3D Camera Director & Smooth Movement
+      // 18.10 3D Camera Director & Smooth Movement with Portrait TikTok Adaptivity
+      const isPortraitNow = width < height;
+      const camDistMult = isPortraitNow ? 1.32 : 1.0;
+      const camHeightAdd = isPortraitNow ? 1.2 : 0;
+
       const isManual = Date.now() - lastUserInteract < 5000;
-      const targetCamPos = new THREE.Vector3(0, 5.2, 14);
-      const targetLookAt = new THREE.Vector3(0, 1.6, -3.5);
+      const targetCamPos = new THREE.Vector3(0, 5.2 + camHeightAdd, 14 * camDistMult);
+      const targetLookAt = new THREE.Vector3(0, 1.4, -3.5);
 
       if (isManual) {
         // Manual User Orbit
-        targetCamPos.x = Math.sin(userYaw) * userDist;
-        targetCamPos.z = Math.cos(userYaw) * userDist - 3;
-        targetCamPos.y = Math.max(1.5, 4 + Math.sin(userPitch) * userDist);
-        targetLookAt.set(0, 1.5, -3.5);
+        targetCamPos.x = Math.sin(userYaw) * userDist * camDistMult;
+        targetCamPos.z = (Math.cos(userYaw) * userDist - 3) * camDistMult;
+        targetCamPos.y = Math.max(1.5, 4 + Math.sin(userPitch) * userDist) + camHeightAdd;
+        targetLookAt.set(0, 1.4, -3.5);
       } else {
         // Automated Concert Director Angles
         const shot = engine.currentShotType;
@@ -1198,22 +1203,22 @@ export function DiscoThreeStage({ engine, videoUrl, isMuted = true }: DiscoThree
           const targetEntry = engine.spotlightTargetId ? dancerMeshesMap.get(engine.spotlightTargetId) : null;
           if (targetEntry) {
             const tPos = targetEntry.spriteMesh.position;
-            targetCamPos.set(tPos.x + Math.sin(nowSec * 0.35) * 1.5, tPos.y + 0.85, tPos.z + 4.2);
+            targetCamPos.set(tPos.x + Math.sin(nowSec * 0.35) * 1.5, tPos.y + 0.85 + (isPortraitNow ? 0.3 : 0), tPos.z + 4.2 * (isPortraitNow ? 1.15 : 1.0));
             targetLookAt.set(tPos.x, tPos.y + 0.35, tPos.z);
           } else {
             const targetX = Math.sin(nowSec * 0.6) * 4.2;
-            targetCamPos.set(targetX, 2.8, 4.5);
+            targetCamPos.set(targetX, 2.8 + camHeightAdd, 4.5 * camDistMult);
             targetLookAt.set(targetX * 0.7, 1.8, -3.5);
           }
         } else if (shot === 'CRANE_SWOOP') {
           // High altitude swooping crane camera
-          targetCamPos.set(Math.sin(nowSec * 0.4) * 8.5, 8.5 + Math.cos(nowSec * 0.3) * 2.5, 11);
+          targetCamPos.set(Math.sin(nowSec * 0.4) * 8.5, (8.5 + Math.cos(nowSec * 0.3) * 2.5) + camHeightAdd, 11 * camDistMult);
           targetLookAt.set(0, 1.4, -4);
         } else {
           // WIDE_ORBIT - Smooth wide circular flycam
           const orbitAngle = nowSec * 0.22;
-          targetCamPos.set(Math.sin(orbitAngle) * 15.5, 6.2 + Math.sin(nowSec * 0.3) * 1.5, Math.cos(orbitAngle) * 14.5 - 3);
-          targetLookAt.set(0, 1.6, -3.5);
+          targetCamPos.set(Math.sin(orbitAngle) * 15.5 * camDistMult, (6.2 + Math.sin(nowSec * 0.3) * 1.5) + camHeightAdd, (Math.cos(orbitAngle) * 14.5 - 3) * camDistMult);
+          targetLookAt.set(0, 1.4, -3.5);
         }
       }
 
@@ -1230,6 +1235,8 @@ export function DiscoThreeStage({ engine, videoUrl, isMuted = true }: DiscoThree
       if (!container) return;
       width = container.clientWidth || 800;
       height = container.clientHeight || 600;
+      const isPortrait = width < height;
+      camera.fov = isPortrait ? 65 : 52;
       camera.aspect = width / height;
       camera.updateProjectionMatrix();
       renderer.setSize(width, height);
