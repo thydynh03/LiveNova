@@ -1,16 +1,16 @@
 'use client';
 
 import React, { useMemo, useCallback, useEffect, Suspense } from 'react';
-import Image from 'next/image';
 import { useSearchParams } from 'next/navigation';
 import { OverlayAction, LiveEventType } from '@livenova/shared';
 import { useOverlaySocket } from '../../../lib/use-overlay-socket';
 import { DiscoEngine } from '../../../components/disco/disco-engine';
-import DiscoCanvas from '../../../components/disco/DiscoCanvas';
+import DiscoStageView from '../../../components/disco/DiscoStageView';
 
 function DiscoOverlayContent() {
   const searchParams = useSearchParams();
   const token = searchParams ? searchParams.get('token') : null;
+  const customVideo = searchParams ? searchParams.get('video') : null;
 
   const engine = useMemo(() => new DiscoEngine(), []);
 
@@ -73,17 +73,6 @@ function DiscoOverlayContent() {
 
   return (
     <div style={{ position: 'relative', width: '100vw', height: '100vh', overflow: 'hidden', backgroundColor: 'transparent' }}>
-      {/* Background Stage Image */}
-      <div style={{ position: 'absolute', inset: 0, zIndex: 0 }}>
-        <Image
-          src="/assets/disco/Stage/premium-stage-v2.png"
-          alt="Premium Disco Stage"
-          fill
-          style={{ objectFit: 'cover' }}
-          priority
-        />
-      </div>
-
       {/* Connection Indicator in dev or error */}
       {token && status !== 'connected' && (
         <div style={{
@@ -102,10 +91,13 @@ function DiscoOverlayContent() {
         </div>
       )}
 
-      {/* 2D Dance Canvas */}
-      <div style={{ position: 'absolute', inset: 0, zIndex: 10 }}>
-        <DiscoCanvas engine={engine} />
-      </div>
+      {/* 3D Arena Stage View with Video Screen, Lights & Canvas */}
+      <DiscoStageView
+        engine={engine}
+        videoUrl={customVideo || '/assets/disco/Stage/default-dj-loop.gif'}
+        isMuted={true}
+        showBadges={true}
+      />
     </div>
   );
 }

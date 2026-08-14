@@ -7,9 +7,20 @@ export interface DiscoCanvasProps {
   engine: DiscoEngine;
 }
 
-// Preload sprites
+// Preload sprites & avatars
 const SPRITE_CACHE: Record<string, HTMLImageElement[]> = {};
+const AVATAR_CACHE: Record<string, HTMLImageElement> = {};
 let spritesLoaded = false;
+
+function getAvatarImg(url: string) {
+  if (!AVATAR_CACHE[url]) {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.src = url;
+    AVATAR_CACHE[url] = img;
+  }
+  return AVATAR_CACHE[url];
+}
 
 function preloadSprites() {
   if (spritesLoaded) return;
@@ -93,51 +104,60 @@ export default function DiscoCanvas({ engine }: DiscoCanvasProps) {
 
       const W = canvas.width || 800;
       const H = canvas.height || 600;
-      const floorY = H * 0.90; // Natural floor position on stage
-      const djTableY = H * 0.53; // Perfect alignment right behind the DJ mixer desk
       
       ctx.clearRect(0, 0, W, H);
       
       // ==========================================
-      // 1. STAGE LIGHTING & LASER BEAMS LAYER (Screen Blend)
+      // 1. OVERHEAD CIRCULAR TRUSS & STAGE LIGHTING (Screen Blend)
       // ==========================================
       ctx.save();
       ctx.globalCompositeOperation = 'screen';
 
-      // Laser emitters along the ceiling truss
-      const emitters = [
-        { x: W * 0.12, y: H * 0.05, color: 'rgba(0, 240, 255, 0.4)', speed: 0.0014, phase: 0 },
-        { x: W * 0.28, y: H * 0.03, color: 'rgba(255, 0, 160, 0.4)', speed: 0.0019, phase: 1.2 },
-        { x: W * 0.50, y: H * 0.02, color: 'rgba(0, 255, 140, 0.35)', speed: 0.0023, phase: 2.5 },
-        { x: W * 0.72, y: H * 0.03, color: 'rgba(255, 220, 0, 0.4)', speed: 0.0017, phase: 3.8 },
-        { x: W * 0.88, y: H * 0.05, color: 'rgba(180, 0, 255, 0.4)', speed: 0.0021, phase: 5.0 },
+      // Overhead circular truss center
+      const trussCenterX = W * 0.5;
+      const trussCenterY = H * 0.18;
+      const trussRadiusX = W * 0.28;
+      const trussRadiusY = H * 0.055;
+
+      const lightColors = [
+        'rgba(0, 240, 255, 0.45)', // Cyan
+        'rgba(255, 0, 160, 0.45)', // Magenta
+        'rgba(0, 255, 140, 0.40)', // Lime
+        'rgba(255, 220, 0, 0.45)', // Gold
+        'rgba(180, 0, 255, 0.45)', // Purple
+        'rgba(255, 50, 50, 0.40)',  // Red
       ];
 
-      for (const emitter of emitters) {
-        const sweepAngle = Math.sin(now * emitter.speed + emitter.phase) * 0.55;
-        const targetX = emitter.x + Math.tan(sweepAngle) * H * 1.2;
-        const targetY = H * 1.1;
+      // 6 Rotating Truss Lasers
+      for (let i = 0; i < 6; i++) {
+        const ringAngle = (i / 6) * Math.PI * 2 + now * 0.0008;
+        const emitterX = trussCenterX + Math.cos(ringAngle) * trussRadiusX;
+        const emitterY = trussCenterY + Math.sin(ringAngle) * trussRadiusY;
 
-        // Draw glowing laser cone/beam
-        const beamGrad = ctx.createLinearGradient(emitter.x, emitter.y, targetX, targetY);
-        beamGrad.addColorStop(0, emitter.color.replace('0.4', '0.8').replace('0.35', '0.8'));
-        beamGrad.addColorStop(0.7, emitter.color);
+        const targetSweep = Math.sin(now * 0.0016 + i * 1.1) * 0.65;
+        const targetX = emitterX + Math.tan(targetSweep) * H * 0.85;
+        const targetY = H * 1.05;
+
+        const color = lightColors[i % lightColors.length];
+        const beamGrad = ctx.createLinearGradient(emitterX, emitterY, targetX, targetY);
+        beamGrad.addColorStop(0, color.replace('0.45', '0.9').replace('0.40', '0.9'));
+        beamGrad.addColorStop(0.7, color);
         beamGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
 
-        // Outer glow beam
+        // Outer glow cone
         ctx.beginPath();
-        ctx.moveTo(emitter.x, emitter.y);
-        ctx.lineTo(targetX - 25, targetY);
-        ctx.lineTo(targetX + 25, targetY);
+        ctx.moveTo(emitterX, emitterY);
+        ctx.lineTo(targetX - 28, targetY);
+        ctx.lineTo(targetX + 28, targetY);
         ctx.closePath();
         ctx.fillStyle = beamGrad;
         ctx.fill();
 
-        // Intense central laser line
-        ctx.strokeStyle = emitter.color.replace('0.4', '0.95').replace('0.35', '0.95');
+        // Intense core laser line
+        ctx.strokeStyle = color.replace('0.45', '1.0').replace('0.40', '1.0');
         ctx.lineWidth = 2.5;
         ctx.beginPath();
-        ctx.moveTo(emitter.x, emitter.y);
+        ctx.moveTo(emitterX, emitterY);
         ctx.lineTo(targetX, targetY);
         ctx.stroke();
       }
@@ -145,43 +165,43 @@ export default function DiscoCanvas({ engine }: DiscoCanvasProps) {
       // Sweeping Stage Spotlights (Left & Right wide cones)
       const leftSpotAngle = Math.sin(now * 0.0009) * 0.35 + 0.35;
       const leftTargetX = W * 0.1 + Math.sin(leftSpotAngle) * W * 0.8;
-      const leftGrad = ctx.createRadialGradient(leftTargetX, floorY, 10, leftTargetX, floorY, 180);
+      const leftGrad = ctx.createRadialGradient(leftTargetX, H * 0.85, 10, leftTargetX, H * 0.85, 180);
       leftGrad.addColorStop(0, 'rgba(0, 200, 255, 0.35)');
       leftGrad.addColorStop(0.6, 'rgba(180, 0, 255, 0.15)');
       leftGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
 
       ctx.beginPath();
       ctx.moveTo(W * 0.05, 0);
-      ctx.lineTo(leftTargetX - 140, floorY + 40);
-      ctx.lineTo(leftTargetX + 140, floorY + 40);
+      ctx.lineTo(leftTargetX - 140, H * 0.95);
+      ctx.lineTo(leftTargetX + 140, H * 0.95);
       ctx.closePath();
       ctx.fillStyle = leftGrad;
       ctx.fill();
 
       const rightSpotAngle = -Math.cos(now * 0.0011) * 0.35 - 0.35;
       const rightTargetX = W * 0.9 + Math.sin(rightSpotAngle) * W * 0.8;
-      const rightGrad = ctx.createRadialGradient(rightTargetX, floorY, 10, rightTargetX, floorY, 180);
+      const rightGrad = ctx.createRadialGradient(rightTargetX, H * 0.85, 10, rightTargetX, H * 0.85, 180);
       rightGrad.addColorStop(0, 'rgba(255, 50, 180, 0.35)');
       rightGrad.addColorStop(0.6, 'rgba(255, 200, 0, 0.15)');
       rightGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
 
       ctx.beginPath();
       ctx.moveTo(W * 0.95, 0);
-      ctx.lineTo(rightTargetX - 140, floorY + 40);
-      ctx.lineTo(rightTargetX + 140, floorY + 40);
+      ctx.lineTo(rightTargetX - 140, H * 0.95);
+      ctx.lineTo(rightTargetX + 140, H * 0.95);
       ctx.closePath();
       ctx.fillStyle = rightGrad;
       ctx.fill();
 
-      // Disco Floor Sparkles (moving glints on glossy floor)
-      for (let s = 0; s < 10; s++) {
-        const sx = (W * 0.15) + ((s * 73 + (now * 0.04)) % (W * 0.7));
-        const sy = floorY - 30 + (Math.sin(s + now * 0.002) * 50);
-        const sparkleSize = Math.max(0, Math.sin(now * 0.005 + s * 1.5) * 5);
+      // Disco Floor Sparkles (moving glints on glossy amphitheater floor)
+      for (let s = 0; s < 12; s++) {
+        const sx = (W * 0.12) + ((s * 67 + (now * 0.035)) % (W * 0.76));
+        const sy = H * 0.65 + (Math.sin(s + now * 0.002) * (H * 0.25));
+        const sparkleSize = Math.max(0, Math.sin(now * 0.005 + s * 1.5) * 5.5);
         if (sparkleSize > 0.5) {
           ctx.beginPath();
           ctx.arc(sx, sy, sparkleSize, 0, Math.PI * 2);
-          ctx.fillStyle = `hsla(${s * 36 + now * 0.1}, 100%, 75%, 0.8)`;
+          ctx.fillStyle = `hsla(${s * 32 + now * 0.1}, 100%, 75%, 0.85)`;
           ctx.fill();
         }
       }
@@ -189,13 +209,11 @@ export default function DiscoCanvas({ engine }: DiscoCanvasProps) {
       ctx.restore(); // End Stage Lights Screen Blend
 
       // ==========================================
-      // 2. CAMERA TRANSFORM
+      // 2. 3D CAMERA TRANSFORM & AMPHITHEATER FLOOR
       // ==========================================
       ctx.save();
       const targetPx = engine.camera.x * W;
-      const targetPy = engine.camera.y <= 0.55 
-        ? engine.camera.y * H 
-        : engine.camera.y * floorY;
+      const targetPy = engine.camera.y * H;
       
       ctx.translate(W / 2, H / 2);
       ctx.scale(engine.camera.scale, engine.camera.scale);
@@ -203,16 +221,42 @@ export default function DiscoCanvas({ engine }: DiscoCanvasProps) {
 
       // Identify if there is a focused dancer for Depth of Field Blur
       const focusedId = engine.camera.lockedOnId;
-      const dancersArray = Array.from(engine.dancers.values());
+      const rawDancers = Array.from(engine.dancers.values());
+
+      // Calculate 3D screen position & scale for each dancer
+      const calcDancerScreenPos = (dancer: typeof rawDancers[0]) => {
+        if (dancer.isDj) {
+          return {
+            x: 0.5 * W,
+            y: H * 0.44,
+            renderScale: dancer.scale * 1.35,
+            depth: 0.05,
+          };
+        }
+        const z = Math.max(0.1, Math.min(1.0, dancer.z ?? 0.5));
+        const baseFloorY = H * 0.52 + z * (H * 0.42);
+        const bowlCurv = ((dancer.x - 0.5) ** 2) * (H * 0.08 * (1 - z * 0.4));
+        const curFloorY = baseFloorY + bowlCurv;
+        let y = dancer.y < 1.0 ? dancer.y * curFloorY : curFloorY;
+        if (dancer.state === 'dancing') {
+          y -= Math.abs(Math.sin(dancer.danceOffset)) * (6 + z * 6);
+        }
+        const x = W * (0.5 + (dancer.x - 0.5) * (0.60 + z * 0.40));
+        const renderScale = (0.55 + z * 0.55) * dancer.scale;
+        return { x, y, renderScale, depth: z };
+      };
+
+      // Sort dancers by depth so back dancers are drawn first
+      const dancersWithPos = rawDancers.map((d) => ({
+        dancer: d,
+        pos: calcDancerScreenPos(d),
+      }));
+      dancersWithPos.sort((a, b) => a.pos.depth - b.pos.depth);
 
       // Helper function to render a single dancer
-      const renderDancer = (dancer: typeof dancersArray[0], isFocused: boolean, isBlurred: boolean) => {
-        const x = dancer.x * W;
-        let y = dancer.isDj ? djTableY : dancer.y * floorY;
-        
-        if (dancer.state === 'dancing') {
-          y -= Math.abs(Math.sin(dancer.danceOffset)) * 10;
-        }
+      const renderDancer = (item: typeof dancersWithPos[0], isFocused: boolean, isBlurred: boolean) => {
+        const { dancer, pos } = item;
+        const { x, y, renderScale } = pos;
 
         ctx.save();
 
@@ -227,26 +271,26 @@ export default function DiscoCanvas({ engine }: DiscoCanvasProps) {
         // Draw Focus Aura & Floor Spotlight for the focused dancer
         if (isFocused) {
           // Floor Spotlight Glow
-          const spotY = dancer.isDj ? djTableY + 40 : floorY + 40;
-          const spotGrad = ctx.createRadialGradient(x, spotY, 5, x, spotY, 120);
+          const spotY = y + 20;
+          const spotGrad = ctx.createRadialGradient(x, spotY, 5, x, spotY, 110 * renderScale);
           spotGrad.addColorStop(0, 'rgba(255, 230, 80, 0.7)');
           spotGrad.addColorStop(0.5, 'rgba(255, 0, 160, 0.35)');
           spotGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
 
           ctx.fillStyle = spotGrad;
           ctx.beginPath();
-          ctx.ellipse(x, spotY, 110, 32, 0, 0, Math.PI * 2);
+          ctx.ellipse(x, spotY, 100 * renderScale, 30 * renderScale, 0, 0, Math.PI * 2);
           ctx.fill();
 
           // Rotating Neon Aura Ring
           ctx.save();
-          ctx.translate(x, y - 40);
+          ctx.translate(x, y - 35 * renderScale);
           ctx.strokeStyle = `hsl(${(now * 0.15) % 360}, 100%, 65%)`;
           ctx.lineWidth = 3;
           ctx.shadowColor = '#00ffff';
           ctx.shadowBlur = 16;
           ctx.beginPath();
-          ctx.ellipse(0, 0, 75 * dancer.scale, 24 * dancer.scale, Math.sin(now * 0.003) * 0.4, 0, Math.PI * 2);
+          ctx.ellipse(0, 0, 65 * renderScale, 22 * renderScale, Math.sin(now * 0.003) * 0.4, 0, Math.PI * 2);
           ctx.stroke();
           ctx.restore();
         }
@@ -255,9 +299,9 @@ export default function DiscoCanvas({ engine }: DiscoCanvasProps) {
         if (!dancer.isDj) {
           ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
           ctx.beginPath();
-          const shadowScale = (1 - Math.max(0, floorY - y) / 300) * dancer.scale;
+          const shadowScale = (1 - Math.max(0, 1.0 - dancer.y) / 2) * renderScale;
           if (shadowScale > 0) {
-            ctx.ellipse(x, floorY + 40, Math.max(10, 42 * shadowScale), Math.max(3, 13 * shadowScale), 0, 0, Math.PI * 2);
+            ctx.ellipse(x, y + 20, Math.max(8, 38 * shadowScale), Math.max(3, 11 * shadowScale), 0, 0, Math.PI * 2);
             ctx.fill();
           }
         }
@@ -273,11 +317,9 @@ export default function DiscoCanvas({ engine }: DiscoCanvasProps) {
 
         // Bobbing rotation
         if (dancer.state === 'dancing') {
-          ctx.rotate(Math.sin(dancer.danceOffset) * 0.1);
+          ctx.rotate(Math.sin(dancer.danceOffset) * 0.08);
         }
 
-        // Scale (DJ is naturally 1.35x bigger behind mixer table)
-        const renderScale = dancer.scale * (dancer.isDj ? 1.35 : 1.0);
         ctx.scale(renderScale, renderScale);
 
         // Get frames for sprite
@@ -297,34 +339,110 @@ export default function DiscoCanvas({ engine }: DiscoCanvasProps) {
         }
         ctx.restore();
 
-        // Draw Nameplate
-        ctx.textAlign = 'center';
-        const nameY = y - (95 * renderScale);
+        // ==========================================
+        // Floating Circular Avatar Badge & Nameplate above Head
+        // ==========================================
+        const headTopY = y - (115 * renderScale);
+        const avatarRadius = Math.max(13, Math.round(17 * renderScale));
+        const avatarCenterY = headTopY - avatarRadius - 4;
+        const nameCenterY = avatarCenterY - avatarRadius - 10;
+
+        // 1. Draw Floating Circular Avatar Badge
+        ctx.save();
         
-        if (dancer.isDj) {
-          // Special DJ Crown & Golden Nameplate
-          ctx.font = 'bold 24px sans-serif';
-          ctx.fillStyle = '#FFD700';
-          ctx.strokeStyle = 'rgba(0,0,0,0.9)';
-          ctx.lineWidth = 5;
-          ctx.shadowColor = '#ffb700';
-          ctx.shadowBlur = 10;
-          const djText = `👑 TOP DJ: ${dancer.name}`;
-          ctx.strokeText(djText, x, nameY - 15);
-          ctx.fillText(djText, x, nameY - 15);
-        } else {
-          // Normal / Focused Nameplate
-          ctx.font = isFocused ? 'bold 19px sans-serif' : 'bold 16px sans-serif';
-          ctx.fillStyle = isFocused ? '#ffffff' : dancer.color;
-          ctx.strokeStyle = 'rgba(0,0,0,0.85)';
-          ctx.lineWidth = isFocused ? 4 : 3;
-          if (isFocused) {
-            ctx.shadowColor = dancer.color;
-            ctx.shadowBlur = 12;
+        // Draw Avatar Image (clipped to circle)
+        let hasCustomAvatar = false;
+        if (dancer.avatarUrl) {
+          const avImg = getAvatarImg(dancer.avatarUrl);
+          if (avImg && avImg.complete && avImg.naturalWidth > 0) {
+            ctx.save();
+            ctx.beginPath();
+            ctx.arc(x, avatarCenterY, avatarRadius, 0, Math.PI * 2);
+            ctx.clip();
+            ctx.drawImage(avImg, x - avatarRadius, avatarCenterY - avatarRadius, avatarRadius * 2, avatarRadius * 2);
+            ctx.restore();
+            hasCustomAvatar = true;
           }
-          ctx.strokeText(dancer.name, x, nameY);
-          ctx.fillText(dancer.name, x, nameY);
         }
+
+        // Fallback colored avatar with initial letter if no image
+        if (!hasCustomAvatar) {
+          ctx.beginPath();
+          ctx.arc(x, avatarCenterY, avatarRadius, 0, Math.PI * 2);
+          ctx.fillStyle = dancer.color || '#ff007f';
+          ctx.fill();
+
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillStyle = '#ffffff';
+          ctx.font = `bold ${Math.max(11, Math.round(avatarRadius * 1.05))}px sans-serif`;
+          ctx.fillText(dancer.name.charAt(0).toUpperCase() || '★', x, avatarCenterY + 1);
+        }
+
+        // Avatar Circular Border Ring
+        ctx.beginPath();
+        ctx.arc(x, avatarCenterY, avatarRadius, 0, Math.PI * 2);
+        if (dancer.isDj) {
+          ctx.strokeStyle = '#ffd700';
+          ctx.lineWidth = 3;
+          ctx.shadowColor = '#ffd700';
+          ctx.shadowBlur = 10;
+        } else if (isFocused) {
+          ctx.strokeStyle = '#00f0ff';
+          ctx.lineWidth = 3;
+          ctx.shadowColor = '#00f0ff';
+          ctx.shadowBlur = 10;
+        } else {
+          ctx.strokeStyle = 'rgba(255, 255, 255, 0.9)';
+          ctx.lineWidth = 2;
+          ctx.shadowColor = 'rgba(0,0,0,0.5)';
+          ctx.shadowBlur = 4;
+        }
+        ctx.stroke();
+
+        // If DJ, draw floating crown on top of avatar
+        if (dancer.isDj) {
+          ctx.font = `${Math.max(14, Math.round(20 * renderScale))}px sans-serif`;
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'bottom';
+          ctx.shadowColor = '#ffd700';
+          ctx.shadowBlur = 8;
+          ctx.fillText('👑', x, avatarCenterY - avatarRadius + 2);
+        }
+        ctx.restore();
+
+        // 2. Draw Nameplate Badge with background pill
+        ctx.save();
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+
+        const fontSize = Math.max(11, Math.round(13 * renderScale));
+        ctx.font = isFocused ? `bold ${fontSize + 2}px sans-serif` : `bold ${fontSize}px sans-serif`;
+
+        const displayName = dancer.isDj ? `TOP DJ: ${dancer.name}` : dancer.name;
+        const textMetrics = ctx.measureText(displayName);
+        const pillWidth = textMetrics.width + 14;
+        const pillHeight = fontSize + 8;
+
+        // Pill background
+        ctx.fillStyle = dancer.isDj ? 'rgba(30, 20, 0, 0.85)' : 'rgba(0, 0, 0, 0.75)';
+        ctx.beginPath();
+        if (typeof ctx.roundRect === 'function') {
+          ctx.roundRect(x - pillWidth / 2, nameCenterY - pillHeight / 2, pillWidth, pillHeight, pillHeight / 2);
+        } else {
+          ctx.rect(x - pillWidth / 2, nameCenterY - pillHeight / 2, pillWidth, pillHeight);
+        }
+        ctx.fill();
+
+        // Pill border
+        ctx.strokeStyle = dancer.isDj ? '#ffd700' : isFocused ? '#00f0ff' : 'rgba(255, 255, 255, 0.35)';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+
+        // Text
+        ctx.fillStyle = dancer.isDj ? '#ffd700' : isFocused ? '#ffffff' : dancer.color;
+        ctx.fillText(displayName, x, nameCenterY);
+        ctx.restore();
 
         ctx.restore();
       };
@@ -332,20 +450,20 @@ export default function DiscoCanvas({ engine }: DiscoCanvasProps) {
       // If camera is focused on a specific dancer, render background dancers blurred first
       if (focusedId) {
         // Render non-focused dancers with Depth-of-field blur
-        for (const dancer of dancersArray) {
-          if (dancer.id !== focusedId) {
-            renderDancer(dancer, false, true);
+        for (const item of dancersWithPos) {
+          if (item.dancer.id !== focusedId) {
+            renderDancer(item, false, true);
           }
         }
         // Render the focused dancer in sharp focus on top
-        const focusedDancer = engine.dancers.get(focusedId);
-        if (focusedDancer) {
-          renderDancer(focusedDancer, true, false);
+        const focusedItem = dancersWithPos.find((i) => i.dancer.id === focusedId);
+        if (focusedItem) {
+          renderDancer(focusedItem, true, false);
         }
       } else {
-        // Normal mode: render all dancers sharp
-        for (const dancer of dancersArray) {
-          renderDancer(dancer, false, false);
+        // Normal mode: render all dancers sharp according to depth
+        for (const item of dancersWithPos) {
+          renderDancer(item, false, false);
         }
       }
 

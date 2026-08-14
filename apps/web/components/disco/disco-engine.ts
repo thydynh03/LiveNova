@@ -4,6 +4,7 @@ export interface Dancer {
   avatarUrl?: string;
   x: number; // 0 to 1 (percent of screen width)
   y: number; // 0 to 1 (percent of screen height, 1 is floor)
+  z: number; // 0.05 (back near DJ booth) to 1.0 (front near audience)
   vy: number;
   vx: number;
   color: string;
@@ -77,33 +78,36 @@ export class DiscoEngine {
   private colors = ['#ff4b4b', '#ff7a4b', '#ffb54b', '#e2ff4b', '#62ff4b', '#4bff9a', '#4be2ff', '#4b7aff', '#9a4bff', '#ff4be2'];
 
   constructor() {
-    this.addDemoDancers(6);
+    this.addDemoDancers(8);
   }
 
-  addDemoDancers(count = 6) {
+  addDemoDancers(count = 8) {
     const demoNames = [
-      { id: 'bot_dj_pro', name: '🎧 DJ Pro LiveNova', sprite: 'char_dj_pro', isDj: true },
-      { id: 'bot_anya_heh', name: '😏 Anya Waku Waku', sprite: 'char_anya_heh', isDj: false },
-      { id: 'bot_gojo', name: '🤞 Thầy Gojo Vô Cực', sprite: 'char_gojo_sensei', isDj: false },
-      { id: 'bot_bocchi', name: '🎸 Bocchi Hoảng Loạn', sprite: 'char_bocchi_panic', isDj: false },
-      { id: 'bot_umaru', name: '🐹 Umaru Trùm Mũ', sprite: 'char_umaru_chan', isDj: false },
-      { id: 'bot_zoro', name: '⚔️ Zoro Lạc Đường', sprite: 'char_zoro_lost', isDj: false },
-      { id: 'bot_panda_cry', name: '😭 Gấu Trúc Khóc Nhè', sprite: 'char_panda_cry', isDj: false },
-      { id: 'bot_yaoming', name: '😂 Thánh Cười YaoMing', sprite: 'char_yaoming_laugh', isDj: false },
-      { id: 'bot_tanjiro', name: '🎴 Tanjiro Hoang Mang', sprite: 'char_tanjiro_derp', isDj: false },
+      { id: 'bot_dj_pro', name: '🎧 DJ Pro LiveNova', sprite: 'char_dj_pro', isDj: true, z: 0.05 },
+      { id: 'bot_anya_heh', name: '😏 Anya Waku Waku', sprite: 'char_anya_heh', isDj: false, z: 0.85 },
+      { id: 'bot_gojo', name: '🤞 Thầy Gojo Vô Cực', sprite: 'char_gojo_sensei', isDj: false, z: 0.35 },
+      { id: 'bot_bocchi', name: '🎸 Bocchi Hoảng Loạn', sprite: 'char_bocchi_panic', isDj: false, z: 0.65 },
+      { id: 'bot_umaru', name: '🐹 Umaru Trùm Mũ', sprite: 'char_umaru_chan', isDj: false, z: 0.95 },
+      { id: 'bot_zoro', name: '⚔️ Zoro Lạc Đường', sprite: 'char_zoro_lost', isDj: false, z: 0.25 },
+      { id: 'bot_panda_cry', name: '😭 Gấu Trúc Khóc Nhè', sprite: 'char_panda_cry', isDj: false, z: 0.55 },
+      { id: 'bot_yaoming', name: '😂 Thánh Cười YaoMing', sprite: 'char_yaoming_laugh', isDj: false, z: 0.75 },
+      { id: 'bot_tanjiro', name: '🎴 Tanjiro Hoang Mang', sprite: 'char_tanjiro_derp', isDj: false, z: 0.45 },
     ];
 
     const toAdd = demoNames.slice(0, count);
-    for (const item of toAdd) {
+    for (let i = 0; i < toAdd.length; i++) {
+      const item = toAdd[i];
       if (!this.dancers.has(item.id)) {
         const randomColor = this.colors[Math.floor(Math.random() * this.colors.length)];
+        const spreadX = item.isDj ? 0.5 : 0.15 + (i / (toAdd.length - 1 || 1)) * 0.7;
         this.dancers.set(item.id, {
           id: item.id,
           name: item.name,
-          x: item.isDj ? 0.5 : Math.random() * 0.7 + 0.15,
-          y: item.isDj ? 0.53 : 0.95,
+          x: spreadX,
+          y: item.isDj ? 0.48 : 0.95,
+          z: item.z || 0.5,
           vy: 0,
-          vx: (Math.random() - 0.5) * 0.05,
+          vx: (Math.random() - 0.5) * 0.04,
           color: randomColor,
           spriteId: item.sprite,
           scale: 1,
@@ -144,10 +148,11 @@ export class DiscoEngine {
       id,
       name,
       avatarUrl,
-      x: Math.random() * 0.7 + 0.15, // Random x between 15% and 85%
+      x: Math.random() * 0.76 + 0.12, // Random x across arena
       y: -0.1, // Start slightly above screen to fall in
+      z: Math.random() * 0.78 + 0.20, // Random depth row in arena
       vy: 0,
-      vx: (Math.random() - 0.5) * 0.08, // Slight horizontal drift
+      vx: (Math.random() - 0.5) * 0.06, // Slight horizontal drift
       color: randomColor,
       spriteId: randomSprite,
       scale: 1,
@@ -262,9 +267,10 @@ export class DiscoEngine {
     const dancersArray = Array.from(this.dancers.values());
     for (const dancer of dancersArray) {
       // DJ Physics override (Standing right at DJ mixer booth)
+      // DJ Physics override (Standing right behind the mixer desk)
       if (dancer.isDj) {
         const targetX = 0.5;
-        const targetY = 0.53;
+        const targetY = 0.44;
         
         // Lerp to DJ position behind the mixer table
         dancer.x += (targetX - dancer.x) * 3 * dt;
@@ -321,23 +327,23 @@ export class DiscoEngine {
       }
     }
 
-    // Camera logic: Focus on specific user or gentle ambient patrol sweep
+    // Camera logic: Focus on specific user or 3D Cinematic Orbital Sweep
     if (this.camera.lockedOnId && now < this.camera.lockTimeout) {
       const lockedDancer = this.dancers.get(this.camera.lockedOnId);
       if (lockedDancer) {
         this.camera.targetX = lockedDancer.x;
-        this.camera.targetY = lockedDancer.isDj ? 0.50 : lockedDancer.y * 0.90;
+        this.camera.targetY = lockedDancer.isDj ? 0.44 : 0.55 + lockedDancer.z * 0.35;
         this.camera.targetScale = 1.70; // Zoom in close & focus
       } else {
         this.camera.lockedOnId = null;
       }
     } else {
       this.camera.lockedOnId = null;
-      // Ambient cinematic camera pan: smoothly sweeps from left to right across the wide stage
-      const panPhase = now * 0.00035; // gentle slow sweep
-      this.camera.targetX = 0.5 + Math.sin(panPhase) * 0.20; // sweeps smoothly between 0.30 and 0.70
-      this.camera.targetY = 0.62 + Math.cos(panPhase * 0.5) * 0.03;
-      this.camera.targetScale = 1.15; // wide cinematic framing
+      // 3D Cinematic Orbital sweeping rotation around the arena amphitheater
+      const orbitPhase = now * 0.00032; // smooth slow orbit
+      this.camera.targetX = 0.5 + Math.sin(orbitPhase) * 0.22; // sweeps from left to right
+      this.camera.targetY = 0.64 + Math.cos(orbitPhase * 0.7) * 0.04; // smooth height sway
+      this.camera.targetScale = 1.15 + Math.sin(orbitPhase * 1.4) * 0.05; // cinematic breathing zoom
     }
 
     // Smooth Lerp Camera

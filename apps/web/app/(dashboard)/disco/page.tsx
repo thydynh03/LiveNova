@@ -1,14 +1,13 @@
 'use client';
 
 import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react';
-import Image from 'next/image';
 import { useAuth } from '../../../context/AuthContext';
 import { useEventsSocket } from '../../../lib/use-events-socket';
 import { LiveEvent, LiveEventType } from '@livenova/shared';
 import { useApi } from '../../../lib/use-api';
 import { api } from '../../../lib/api-client';
 import { DiscoEngine } from '../../../components/disco/disco-engine';
-import DiscoCanvas from '../../../components/disco/DiscoCanvas';
+import DiscoStageView from '../../../components/disco/DiscoStageView';
 import { Icon } from '../../../components/ui/Icon';
 
 interface Channel {
@@ -29,18 +28,35 @@ export default function DiscoDashboardPage() {
   const engine = useMemo(() => new DiscoEngine(), []);
 
   // Music Player State
-  const [musicUrl, setMusicUrl] = useState<string>('');
-  const audioRef = useRef<HTMLAudioElement>(null);
-
-  // Test Simulator State
-  const [testUsername, setTestUsername] = useState('@khangia_vip');
-  const [testDisplayName, setTestDisplayName] = useState('Khán Giả Cute');
-  const [copied, setCopied] = useState(false);
   const [publicToken, setPublicToken] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+  const [musicUrl, setMusicUrl] = useState<string | null>(null);
+  const [djVideoUrl, setDjVideoUrl] = useState<string>('/assets/disco/Stage/default-dj-loop.gif');
+  const [isDjVideoMuted, setIsDjVideoMuted] = useState<boolean>(true);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  // Test Simulator state
+  const [testUsername, setTestUsername] = useState('@streamer_pro');
+  const [testDisplayName, setTestDisplayName] = useState('Khán Giả 999');
 
   // Fetch channels to listen to live events
   const channels = useApi<Channel[]>('/channels');
   const channelIds = useMemo(() => (channels.data ?? []).map((c) => c.id), [channels.data]);
+
+  // Load saved video URL from localStorage
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('livenova_disco_video_url');
+      if (saved) setDjVideoUrl(saved);
+    }
+  }, []);
+
+  const handleSetVideoUrl = (url: string) => {
+    setDjVideoUrl(url);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('livenova_disco_video_url', url);
+    }
+  };
 
   // Fetch user's public token for OBS / TikTok Live Studio overlay
   useEffect(() => {
@@ -64,8 +80,14 @@ export default function DiscoDashboardPage() {
     if (process.env.NEXT_PUBLIC_OVERLAY_URL) {
       origin = process.env.NEXT_PUBLIC_OVERLAY_URL.replace(/\/$/, '');
     }
-    return publicToken ? `${origin}/overlays/disco?token=${publicToken}` : `${origin}/overlays/disco`;
-  }, [publicToken]);
+    const params = new URLSearchParams();
+    if (publicToken) params.set('token', publicToken);
+    if (djVideoUrl && djVideoUrl !== '/assets/disco/Stage/default-dj-loop.gif') {
+      params.set('video', djVideoUrl);
+    }
+    const query = params.toString();
+    return query ? `${origin}/overlays/disco?${query}` : `${origin}/overlays/disco`;
+  }, [publicToken, djVideoUrl]);
 
   const handleCopyUrl = async () => {
     if (!overlayUrl) return;
@@ -361,24 +383,13 @@ export default function DiscoDashboardPage() {
             position: 'relative',
             width: '100%',
             aspectRatio: '16 / 9',
-            minHeight: '440px',
+            minHeight: '460px',
             backgroundColor: '#0a0a0f',
             borderRadius: 'var(--radius)',
             border: '1px solid hsl(var(--border))',
             overflow: 'hidden',
             boxShadow: '0 8px 24px rgba(0,0,0,0.3)',
           }}>
-            {/* Stage Background */}
-            <div style={{ position: 'absolute', inset: 0, zIndex: 0 }}>
-              <Image 
-                src="/assets/disco/Stage/premium-stage-v2.png" 
-                alt="Premium Stage" 
-                fill
-                style={{ objectFit: 'cover' }}
-                priority
-              />
-            </div>
-
             {/* Socket Status Badge */}
             <div style={{
               position: 'absolute',
@@ -390,7 +401,7 @@ export default function DiscoDashboardPage() {
               border: '1px solid rgba(255,255,255,0.15)',
               color: status === 'connected' ? '#4ade80' : '#f87171',
               borderRadius: 20,
-              zIndex: 30,
+              zIndex: 35,
               fontSize: '0.75rem',
               fontWeight: 600,
               display: 'flex',
@@ -406,9 +417,111 @@ export default function DiscoDashboardPage() {
               {status === 'connected' ? 'Sẵn sàng nhận sự kiện Live' : `Đang kết nối: ${status}`}
             </div>
 
-            {/* Canvas */}
-            <div style={{ position: 'absolute', inset: 0, zIndex: 10 }}>
-              <DiscoCanvas engine={engine} />
+            {/* 3D Arena Stage View Component with DJ Video Screen */}
+            <DiscoStageView
+              engine={engine}
+              videoUrl={djVideoUrl}
+              isMuted={isDjVideoMuted}
+              showBadges={true}
+            />
+          </div>
+
+          {/* DJ Video Screen Config Card */}
+          <div style={{
+            background: 'hsl(var(--card))',
+            border: '1px solid hsl(var(--border))',
+            borderRadius: 'var(--radius)',
+            padding: '1rem 1.25rem',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '0.75rem'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <Icon name="preview" size={18} />
+                <span style={{ fontWeight: 700, fontSize: '0.875rem', color: 'hsl(var(--foreground))' }}>
+                  📺 Màn Hình Video DJ Sân Khấu
+                </span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <button
+                  type="button"
+                  onClick={() => setIsDjVideoMuted(!isDjVideoMuted)}
+                  style={{
+                    padding: '0.3rem 0.6rem',
+                    fontSize: '0.75rem',
+                    fontWeight: 600,
+                    borderRadius: 'var(--radius-sm)',
+                    background: isDjVideoMuted ? 'hsl(var(--secondary))' : 'hsl(var(--primary) / 0.15)',
+                    color: isDjVideoMuted ? 'hsl(var(--secondary-foreground))' : 'hsl(var(--primary))',
+                    border: '1px solid hsl(var(--border))',
+                    cursor: 'pointer'
+                  }}
+                >
+                  {isDjVideoMuted ? '🔇 Tắt tiếng Video' : '🔊 Bật tiếng Video'}
+                </button>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+              <input
+                type="text"
+                value={djVideoUrl}
+                onChange={(e) => handleSetVideoUrl(e.target.value)}
+                placeholder="Dán link Video (MP4, WebM, GIF, YouTube...)"
+                style={{
+                  flex: 1,
+                  minWidth: '240px',
+                  padding: '0.45rem 0.75rem',
+                  fontSize: '0.8125rem',
+                  borderRadius: 'var(--radius-sm)',
+                  border: '1px solid hsl(var(--border))',
+                  background: 'hsl(var(--background))',
+                  color: 'hsl(var(--foreground))'
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => handleSetVideoUrl('/assets/disco/Stage/default-dj-loop.gif')}
+                style={{
+                  padding: '0.45rem 0.75rem',
+                  fontSize: '0.75rem',
+                  fontWeight: 600,
+                  borderRadius: 'var(--radius-sm)',
+                  background: 'hsl(var(--secondary))',
+                  color: 'hsl(var(--secondary-foreground))',
+                  border: '1px solid hsl(var(--border))',
+                  cursor: 'pointer'
+                }}
+              >
+                Mặc định
+              </button>
+            </div>
+
+            {/* Quick Presets */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+              <span style={{ fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))' }}>Gợi ý mẫu:</span>
+              {[
+                { label: '💃 DJ Girl Anime Loop', url: '/assets/disco/Stage/default-dj-loop.gif' },
+                { label: '⚡ Cyber EDM Video', url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' },
+              ].map((p, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={() => handleSetVideoUrl(p.url)}
+                  style={{
+                    padding: '0.25rem 0.5rem',
+                    fontSize: '0.75rem',
+                    borderRadius: 'var(--radius-sm)',
+                    background: djVideoUrl === p.url ? 'hsl(var(--primary) / 0.15)' : 'hsl(var(--secondary) / 0.6)',
+                    color: djVideoUrl === p.url ? 'hsl(var(--primary))' : 'hsl(var(--foreground))',
+                    border: djVideoUrl === p.url ? '1px solid hsl(var(--primary))' : '1px solid hsl(var(--border))',
+                    cursor: 'pointer'
+                  }}
+                >
+                  {p.label}
+                </button>
+              ))}
             </div>
           </div>
 
