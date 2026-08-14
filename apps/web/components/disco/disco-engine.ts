@@ -69,8 +69,9 @@ export class DiscoEngine {
   dancers: Map<string, Dancer> = new Map();
   fireworks: Firework[] = [];
   camera: Camera = {
-    x: 0, y: 0, scale: 1, targetX: 0, targetY: 0, targetScale: 1, lockedOnId: null, lockTimeout: 0
+    x: 0.5, y: 0.6, scale: 1.15, targetX: 0.5, targetY: 0.6, targetScale: 1.15, lockedOnId: null, lockTimeout: 0
   };
+  flashIntensity: number = 0;
   lastTick: number = 0;
   
   private colors = ['#ff4b4b', '#ff7a4b', '#ffb54b', '#e2ff4b', '#62ff4b', '#4bff9a', '#4be2ff', '#4b7aff', '#9a4bff', '#ff4be2'];
@@ -100,7 +101,7 @@ export class DiscoEngine {
           id: item.id,
           name: item.name,
           x: item.isDj ? 0.5 : Math.random() * 0.7 + 0.15,
-          y: item.isDj ? 0.25 : 0.95,
+          y: item.isDj ? 0.53 : 0.95,
           vy: 0,
           vx: (Math.random() - 0.5) * 0.05,
           color: randomColor,
@@ -119,14 +120,20 @@ export class DiscoEngine {
     this.dancers.clear();
     this.fireworks = [];
     this.camera.lockedOnId = null;
-    this.camera.targetScale = 1;
+    this.camera.targetScale = 1.15;
     this.camera.targetX = 0.5;
-    this.camera.targetY = 0.5;
+    this.camera.targetY = 0.6;
+    this.flashIntensity = 0;
+  }
+
+  triggerFlash(amount = 0.7) {
+    this.flashIntensity = Math.min(1.0, this.flashIntensity + amount);
   }
 
   join(id: string, name: string, avatarUrl?: string) {
     if (this.dancers.has(id)) {
       this.jump(id);
+      this.zoomOn(id, 2500);
       return;
     }
 
@@ -137,10 +144,10 @@ export class DiscoEngine {
       id,
       name,
       avatarUrl,
-      x: Math.random() * 0.8 + 0.1, // Random x between 10% and 90%
+      x: Math.random() * 0.7 + 0.15, // Random x between 15% and 85%
       y: -0.1, // Start slightly above screen to fall in
       vy: 0,
-      vx: (Math.random() - 0.5) * 0.1, // Slight horizontal drift
+      vx: (Math.random() - 0.5) * 0.08, // Slight horizontal drift
       color: randomColor,
       spriteId: randomSprite,
       scale: 1,
@@ -149,14 +156,18 @@ export class DiscoEngine {
       danceOffset: Math.random() * Math.PI * 2,
       isDj: false,
     });
+
+    // Camera zooms/pans to welcome new dancer for 3.5 seconds
+    this.zoomOn(id, 3500);
+    this.triggerFlash(0.3);
   }
 
   jump(id: string) {
     const dancer = this.dancers.get(id);
     if (!dancer) return;
     
-    // Only jump if near the floor (DJs are floating, so they can jump anytime)
-    if (dancer.y >= 0.95 || dancer.isDj) {
+    // Only jump if near the floor (DJs are at the booth, so they can jump anytime)
+    if (dancer.y >= 0.92 || dancer.isDj) {
       dancer.vy = -1.2; // Upward velocity
       dancer.state = 'jumping';
     }
@@ -173,6 +184,8 @@ export class DiscoEngine {
     dancer.spriteId = newSprite;
     
     this.jump(id);
+    this.zoomOn(id, 2500);
+    this.triggerFlash(0.4);
   }
 
   walk(id: string) {
@@ -188,6 +201,8 @@ export class DiscoEngine {
     dancer.targetScale = 2.5;
     dancer.vy = -1.5;
     dancer.state = 'jumping';
+    this.zoomOn(id, 4000);
+    this.triggerFlash(0.6);
   }
 
   setDj(id: string) {
@@ -206,16 +221,19 @@ export class DiscoEngine {
     const newDj = this.dancers.get(id);
     if (newDj) {
       newDj.isDj = true;
-      // Spawn some fireworks for the new DJ
+      newDj.targetScale = 1.6;
+      // Spawn fireworks for the new DJ
       this.triggerFirework(0.3, 0.3);
       this.triggerFirework(0.5, 0.2);
       this.triggerFirework(0.7, 0.3);
+      this.zoomOn(id, 5000);
+      this.triggerFlash(1.0);
     }
   }
 
-  zoomOn(id: string) {
+  zoomOn(id: string, durationMs = 3500) {
     this.camera.lockedOnId = id;
-    this.camera.lockTimeout = Date.now() + 3500; // Lock for 3.5 seconds
+    this.camera.lockTimeout = Date.now() + durationMs;
   }
 
   triggerFirework(x?: number, y?: number) {
@@ -236,22 +254,26 @@ export class DiscoEngine {
     const FLOOR = 1.0;
     const BOUNCE = -0.4;
 
+    // Decay flash intensity
+    if (this.flashIntensity > 0) {
+      this.flashIntensity = Math.max(0, this.flashIntensity - dt * 2.5);
+    }
+
     const dancersArray = Array.from(this.dancers.values());
     for (const dancer of dancersArray) {
-      // DJ Physics override
+      // DJ Physics override (Standing right at DJ mixer booth)
       if (dancer.isDj) {
-        // DJs float at the top center
         const targetX = 0.5;
-        const targetY = 0.25;
+        const targetY = 0.53;
         
-        // Lerp to DJ position
-        dancer.x += (targetX - dancer.x) * 2 * dt;
-        dancer.y += (targetY - dancer.y) * 2 * dt;
+        // Lerp to DJ position behind the mixer table
+        dancer.x += (targetX - dancer.x) * 3 * dt;
+        dancer.y += (targetY - dancer.y) * 3 * dt;
         dancer.vx = 0;
         dancer.vy = 0;
 
       } else {
-        // Normal Physics
+        // Normal Physics on floor
         dancer.vy += GRAVITY * dt;
         dancer.y += dancer.vy * dt;
         dancer.x += dancer.vx * dt;
@@ -268,58 +290,63 @@ export class DiscoEngine {
         }
 
         // Wall collision
-        if (dancer.x < 0.05) {
-          dancer.x = 0.05;
+        if (dancer.x < 0.08) {
+          dancer.x = 0.08;
           dancer.vx *= -1;
-        } else if (dancer.x > 0.95) {
-          dancer.x = 0.95;
+        } else if (dancer.x > 0.92) {
+          dancer.x = 0.92;
           dancer.vx *= -1;
         }
       }
 
       // Smooth scaling (shrink back to 1 over time)
       if (dancer.targetScale > 1) {
-        dancer.targetScale -= dt * 0.5; // Shrink speed
+        dancer.targetScale -= dt * 0.4;
         if (dancer.targetScale < 1) dancer.targetScale = 1;
       }
       // Lerp scale
-      dancer.scale += (dancer.targetScale - dancer.scale) * 10 * dt;
+      dancer.scale += (dancer.targetScale - dancer.scale) * 8 * dt;
 
       // Dance bobbing
       if (dancer.state === 'dancing' && dancer.vy === 0) {
         dancer.danceOffset += dt * Math.PI * 5; 
         // Random autonomous hops for energetic club atmosphere
-        if (Math.random() < 0.004) {
-          dancer.vy = -(0.6 + Math.random() * 0.6);
+        if (Math.random() < 0.005) {
+          dancer.vy = -(0.5 + Math.random() * 0.5);
           dancer.state = 'jumping';
         }
-        if (Math.random() < 0.008) {
+        if (Math.random() < 0.01) {
           dancer.vx = (Math.random() - 0.5) * 0.12;
         }
       }
     }
 
-    // Camera logic
+    // Camera logic: Focus on specific user or gentle ambient patrol sweep
     if (this.camera.lockedOnId && now < this.camera.lockTimeout) {
       const lockedDancer = this.dancers.get(this.camera.lockedOnId);
       if (lockedDancer) {
         this.camera.targetX = lockedDancer.x;
-        this.camera.targetY = lockedDancer.y;
-        this.camera.targetScale = 1.6; // Zoom in 1.6x
+        this.camera.targetY = lockedDancer.isDj ? 0.50 : lockedDancer.y * 0.90;
+        this.camera.targetScale = 1.70; // Zoom in close & focus
+      } else {
+        this.camera.lockedOnId = null;
       }
     } else {
       this.camera.lockedOnId = null;
-      this.camera.targetX = 0.5; // Center
-      this.camera.targetY = 0.5;
-      this.camera.targetScale = 1.0;
+      // Ambient cinematic camera pan: smoothly sweeps from left to right across the wide stage
+      const panPhase = now * 0.00035; // gentle slow sweep
+      this.camera.targetX = 0.5 + Math.sin(panPhase) * 0.20; // sweeps smoothly between 0.30 and 0.70
+      this.camera.targetY = 0.62 + Math.cos(panPhase * 0.5) * 0.03;
+      this.camera.targetScale = 1.15; // wide cinematic framing
     }
 
-    // Lerp Camera
-    this.camera.x += (this.camera.targetX - this.camera.x) * 5 * dt;
-    this.camera.y += (this.camera.targetY - this.camera.y) * 5 * dt;
-    this.camera.scale += (this.camera.targetScale - this.camera.scale) * 5 * dt;
+    // Smooth Lerp Camera
+    const camSpeed = this.camera.lockedOnId ? 4.5 : 1.8;
+    this.camera.x += (this.camera.targetX - this.camera.x) * camSpeed * dt;
+    this.camera.y += (this.camera.targetY - this.camera.y) * camSpeed * dt;
+    this.camera.scale += (this.camera.targetScale - this.camera.scale) * camSpeed * dt;
 
     // Clean up old fireworks
-    this.fireworks = this.fireworks.filter(f => now - f.createdAt < 2000); // 2 seconds
+    this.fireworks = this.fireworks.filter(f => now - f.createdAt < 2000);
   }
 }
