@@ -69,6 +69,7 @@ export default function DiscoDashboardPage() {
     targetId?: string;
     speechText?: string;
     isMuted?: boolean;
+    liveAction?: { type: string; senderId: string; senderName: string; avatarUrl?: string };
   }) => {
     if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
       try {
@@ -201,18 +202,23 @@ export default function DiscoDashboardPage() {
 
       if (isJoin) {
         engine.join(senderId, senderName, avatarUrl);
+        broadcastSync({ liveAction: { type: 'join', senderId, senderName, avatarUrl } });
       } else if (isJump) {
         if (!engine.dancers.has(senderId)) engine.join(senderId, senderName, avatarUrl);
         engine.jump(senderId);
+        broadcastSync({ liveAction: { type: 'jump', senderId, senderName, avatarUrl } });
       } else if (isChange) {
         if (!engine.dancers.has(senderId)) engine.join(senderId, senderName, avatarUrl);
         engine.changeAvatar(senderId);
+        broadcastSync({ liveAction: { type: 'change', senderId, senderName, avatarUrl } });
       } else if (isWalk) {
         if (!engine.dancers.has(senderId)) engine.join(senderId, senderName, avatarUrl);
         engine.walk(senderId);
+        broadcastSync({ liveAction: { type: 'walk', senderId, senderName, avatarUrl } });
       } else {
         if (!engine.dancers.has(senderId)) {
           engine.join(senderId, senderName, avatarUrl);
+          broadcastSync({ liveAction: { type: 'join', senderId, senderName, avatarUrl } });
         }
       }
     } else if (event.type === LiveEventType.GIFT) {

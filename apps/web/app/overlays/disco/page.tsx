@@ -62,6 +62,22 @@ function DiscoOverlayContent() {
           if (data.speechText) {
             speakMessage(data.speechText);
           }
+
+          if (data.liveAction) {
+            const { type, senderId, senderName, avatarUrl } = data.liveAction;
+            if (type === 'join') {
+              engine.join(senderId, senderName, avatarUrl);
+            } else if (type === 'jump') {
+              if (!engine.dancers.has(senderId)) engine.join(senderId, senderName, avatarUrl);
+              engine.jump(senderId);
+            } else if (type === 'change') {
+              if (!engine.dancers.has(senderId)) engine.join(senderId, senderName, avatarUrl);
+              engine.changeAvatar(senderId);
+            } else if (type === 'walk') {
+              if (!engine.dancers.has(senderId)) engine.join(senderId, senderName, avatarUrl);
+              engine.walk(senderId);
+            }
+          }
         }
       };
       return () => channel.close();

@@ -114,30 +114,6 @@ export class RuleEngineService {
       const userId = await this.resolveOwner(event.channelId);
       if (!userId) return;
 
-      // Broadcast raw live event directly to user's overlay room (Disco, Stage, Chat, PK)
-      const rawAction: OverlayAction = {
-        id: uuidv4(),
-        ruleId: 'live_event_stream',
-        ruleName: 'Live Event Stream',
-        type: RuleActionType.EFFECT,
-        createdAt: new Date().toISOString(),
-        payload: {
-          kind: 'live_event',
-        },
-        event: {
-          type: event.type,
-          senderDisplayName: event.senderDisplayName,
-          senderAvatar: event.senderAvatar,
-          content: event.content,
-          giftName: event.giftName,
-          giftCoinValue: event.giftCoinValue,
-        },
-      };
-      this.eventEmitter.emit(OVERLAY_DISPATCH_EVENT, {
-        userId,
-        action: rawAction,
-      });
-
       const rules = await this.loadRules(userId);
       if (rules.length === 0) return;
 
