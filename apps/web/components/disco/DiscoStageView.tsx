@@ -282,8 +282,8 @@ export default function DiscoStageView({
         </div>
       </div>
 
-      {/* 3. 2D/3D Dance Canvas (Dancers + Lights + Sparks + Camera Orbit) */}
-      <div style={{ position: 'absolute', inset: 0, zIndex: 10, pointerEvents: 'none' }}>
+      {/* 3. 2D/3D Dance Canvas (Dancers + Lights + Sparks + 3D Camera Orbit) */}
+      <div style={{ position: 'absolute', inset: 0, zIndex: 10, pointerEvents: 'auto' }}>
         <DiscoCanvas engine={engine} />
       </div>
     </div>

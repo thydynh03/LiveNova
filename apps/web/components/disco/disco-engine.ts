@@ -30,6 +30,12 @@ export interface Camera {
   targetX: number;
   targetY: number;
   targetScale: number;
+  yaw: number;
+  pitch: number;
+  targetYaw: number;
+  targetPitch: number;
+  isUserDragging: boolean;
+  lastUserInteraction: number;
   lockedOnId: string | null;
   lockTimeout: number;
 }
@@ -70,7 +76,20 @@ export class DiscoEngine {
   dancers: Map<string, Dancer> = new Map();
   fireworks: Firework[] = [];
   camera: Camera = {
-    x: 0.5, y: 0.6, scale: 1.15, targetX: 0.5, targetY: 0.6, targetScale: 1.15, lockedOnId: null, lockTimeout: 0
+    x: 0.5,
+    y: 0.52,
+    scale: 1.10,
+    targetX: 0.5,
+    targetY: 0.52,
+    targetScale: 1.10,
+    yaw: 0,
+    pitch: 0.12,
+    targetYaw: 0,
+    targetPitch: 0.12,
+    isUserDragging: false,
+    lastUserInteraction: 0,
+    lockedOnId: null,
+    lockTimeout: 0,
   };
   flashIntensity: number = 0;
   lastTick: number = 0;
@@ -242,6 +261,30 @@ export class DiscoEngine {
     this.camera.lockTimeout = Date.now() + durationMs;
   }
 
+  rotateCamera(deltaYaw: number, deltaPitch: number) {
+    this.camera.isUserDragging = true;
+    this.camera.lastUserInteraction = Date.now();
+    this.camera.targetYaw += deltaYaw;
+    this.camera.targetPitch = Math.max(-0.25, Math.min(0.45, this.camera.targetPitch + deltaPitch));
+    this.camera.targetX = 0.5 + Math.sin(this.camera.targetYaw) * 0.32;
+    this.camera.targetY = 0.52 + this.camera.targetPitch * 0.15;
+  }
+
+  zoomCamera(deltaZoom: number) {
+    this.camera.targetScale = Math.max(0.85, Math.min(2.5, this.camera.targetScale + deltaZoom));
+    this.camera.lastUserInteraction = Date.now();
+  }
+
+  startCameraDrag() {
+    this.camera.isUserDragging = true;
+    this.camera.lastUserInteraction = Date.now();
+  }
+
+  endCameraDrag() {
+    this.camera.isUserDragging = false;
+    this.camera.lastUserInteraction = Date.now();
+  }
+
   triggerFirework(x?: number, y?: number) {
     this.fireworks.push({
       id: Math.random().toString(36).substr(2, 9),
@@ -326,7 +369,7 @@ export class DiscoEngine {
       }
     }
 
-    // Camera logic: Focus on specific user or Top-Down Sweeping View
+    // Camera logic: Focus on specific user, manual drag, or Smooth 3D Orbital Panning
     if (this.camera.lockedOnId && now < this.camera.lockTimeout) {
       const lockedDancer = this.dancers.get(this.camera.lockedOnId);
       if (lockedDancer) {
@@ -336,19 +379,22 @@ export class DiscoEngine {
       } else {
         this.camera.lockedOnId = null;
       }
-    } else {
+    } else if (!this.camera.isUserDragging && (now - this.camera.lastUserInteraction > 2500)) {
       this.camera.lockedOnId = null;
-      // 3D Top-Down camera sweeping smoothly across left & right flanks of the massive club floor
-      const orbitPhase = now * 0.00035; // smooth slow sway
-      this.camera.targetX = 0.5 + Math.sin(orbitPhase) * 0.26; // sweeping wide across both sides
-      this.camera.targetY = 0.52 + Math.cos(orbitPhase * 0.6) * 0.025; // elevated top-down perspective
-      this.camera.targetScale = 1.10; // panoramic view of the massive dance floor
+      // 3D Orbital sweep: smooth continuous 360 degree slow panning
+      this.camera.targetYaw += dt * 0.18;
+      this.camera.targetPitch = 0.12 + Math.sin(now * 0.0004) * 0.05;
+      this.camera.targetX = 0.5 + Math.sin(this.camera.targetYaw) * 0.28;
+      this.camera.targetY = 0.52 + Math.cos(this.camera.targetYaw * 0.6) * 0.025;
+      this.camera.targetScale = 1.10 + Math.sin(now * 0.0006) * 0.02;
     }
 
     // Smooth Lerp Camera
-    const camSpeed = this.camera.lockedOnId ? 4.5 : 1.8;
+    const camSpeed = this.camera.isUserDragging ? 12 : this.camera.lockedOnId ? 4.5 : 1.8;
     this.camera.x += (this.camera.targetX - this.camera.x) * camSpeed * dt;
     this.camera.y += (this.camera.targetY - this.camera.y) * camSpeed * dt;
+    this.camera.yaw += (this.camera.targetYaw - this.camera.yaw) * camSpeed * dt;
+    this.camera.pitch += (this.camera.targetPitch - this.camera.pitch) * camSpeed * dt;
     this.camera.scale += (this.camera.targetScale - this.camera.scale) * camSpeed * dt;
 
     // Clean up old fireworks

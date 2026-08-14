@@ -73,6 +73,8 @@ export default function DiscoCanvas({ engine }: DiscoCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState({ width: 0, height: 0 });
+  const [isDragging, setIsDragging] = useState(false);
+  const dragStartRef = useRef<{ x: number; y: number } | null>(null);
 
   useEffect(() => {
     preloadSprites();
@@ -89,6 +91,53 @@ export default function DiscoCanvas({ engine }: DiscoCanvasProps) {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
+  // Mouse & Touch 3D Camera Controls
+  const handleMouseDown = (e: React.MouseEvent) => {
+    setIsDragging(true);
+    dragStartRef.current = { x: e.clientX, y: e.clientY };
+    engine.startCameraDrag();
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!dragStartRef.current) return;
+    const dx = e.clientX - dragStartRef.current.x;
+    const dy = e.clientY - dragStartRef.current.y;
+    dragStartRef.current = { x: e.clientX, y: e.clientY };
+    engine.rotateCamera(dx * 0.005, dy * 0.003);
+  };
+
+  const handleMouseUp = () => {
+    setIsDragging(false);
+    dragStartRef.current = null;
+    engine.endCameraDrag();
+  };
+
+  const handleWheel = (e: React.WheelEvent) => {
+    engine.zoomCamera(e.deltaY * -0.001);
+  };
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (e.touches.length === 1) {
+      setIsDragging(true);
+      dragStartRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+      engine.startCameraDrag();
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!dragStartRef.current || e.touches.length !== 1) return;
+    const dx = e.touches[0].clientX - dragStartRef.current.x;
+    const dy = e.touches[0].clientY - dragStartRef.current.y;
+    dragStartRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+    engine.rotateCamera(dx * 0.006, dy * 0.004);
+  };
+
+  const handleTouchEnd = () => {
+    setIsDragging(false);
+    dragStartRef.current = null;
+    engine.endCameraDrag();
+  };
+
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -104,18 +153,20 @@ export default function DiscoCanvas({ engine }: DiscoCanvasProps) {
 
       const W = canvas.width || 800;
       const H = canvas.height || 600;
+      const yaw = engine.camera.yaw || 0;
+      const pitch = engine.camera.pitch || 0.12;
       
       ctx.clearRect(0, 0, W, H);
       
       // ==========================================
-      // 1. OVERHEAD CIRCULAR TRUSS & STAGE LIGHTING (Screen Blend)
+      // 1. OVERHEAD CIRCULAR TRUSS & 3D STAGE LIGHTING (Screen Blend)
       // ==========================================
       ctx.save();
       ctx.globalCompositeOperation = 'screen';
 
-      // Overhead circular truss center
-      const trussCenterX = W * 0.5;
-      const trussCenterY = H * 0.18;
+      // Overhead circular truss center with 3D parallax
+      const trussCenterX = W * (0.5 - Math.sin(yaw) * 0.04);
+      const trussCenterY = H * 0.18 + (pitch - 0.12) * H * 0.1;
       const trussRadiusX = W * 0.28;
       const trussRadiusY = H * 0.055;
 
@@ -128,82 +179,34 @@ export default function DiscoCanvas({ engine }: DiscoCanvasProps) {
         'rgba(255, 50, 50, 0.40)',  // Red
       ];
 
-      // 6 Rotating Truss Lasers
+      // 6 Rotating 3D Truss Lasers
       for (let i = 0; i < 6; i++) {
-        const ringAngle = (i / 6) * Math.PI * 2 + now * 0.0008;
+        const ringAngle = (i / 6) * Math.PI * 2 + now * 0.0008 + yaw * 0.5;
         const emitterX = trussCenterX + Math.cos(ringAngle) * trussRadiusX;
         const emitterY = trussCenterY + Math.sin(ringAngle) * trussRadiusY;
 
-        const targetSweep = Math.sin(now * 0.0016 + i * 1.1) * 0.65;
+        const targetSweep = Math.sin(now * 0.0016 + i * 1.1 + yaw) * 0.65;
         const targetX = emitterX + Math.tan(targetSweep) * H * 0.85;
         const targetY = H * 1.05;
 
-        const color = lightColors[i % lightColors.length];
+        const col = lightColors[i % lightColors.length];
         const beamGrad = ctx.createLinearGradient(emitterX, emitterY, targetX, targetY);
-        beamGrad.addColorStop(0, color.replace('0.45', '0.9').replace('0.40', '0.9'));
-        beamGrad.addColorStop(0.7, color);
-        beamGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+        beamGrad.addColorStop(0, '#ffffff');
+        beamGrad.addColorStop(0.2, col);
+        beamGrad.addColorStop(1, 'rgba(0,0,0,0)');
 
-        // Outer glow cone
-        ctx.beginPath();
-        ctx.moveTo(emitterX, emitterY);
-        ctx.lineTo(targetX - 28, targetY);
-        ctx.lineTo(targetX + 28, targetY);
-        ctx.closePath();
-        ctx.fillStyle = beamGrad;
-        ctx.fill();
-
-        // Intense core laser line
-        ctx.strokeStyle = color.replace('0.45', '1.0').replace('0.40', '1.0');
-        ctx.lineWidth = 2.5;
+        ctx.strokeStyle = beamGrad;
+        ctx.lineWidth = 3.5;
         ctx.beginPath();
         ctx.moveTo(emitterX, emitterY);
         ctx.lineTo(targetX, targetY);
         ctx.stroke();
-      }
 
-      // Sweeping Stage Spotlights (Left & Right wide cones)
-      const leftSpotAngle = Math.sin(now * 0.0009) * 0.35 + 0.35;
-      const leftTargetX = W * 0.1 + Math.sin(leftSpotAngle) * W * 0.8;
-      const leftGrad = ctx.createRadialGradient(leftTargetX, H * 0.85, 10, leftTargetX, H * 0.85, 180);
-      leftGrad.addColorStop(0, 'rgba(0, 200, 255, 0.35)');
-      leftGrad.addColorStop(0.6, 'rgba(180, 0, 255, 0.15)');
-      leftGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
-
-      ctx.beginPath();
-      ctx.moveTo(W * 0.05, 0);
-      ctx.lineTo(leftTargetX - 140, H * 0.95);
-      ctx.lineTo(leftTargetX + 140, H * 0.95);
-      ctx.closePath();
-      ctx.fillStyle = leftGrad;
-      ctx.fill();
-
-      const rightSpotAngle = -Math.cos(now * 0.0011) * 0.35 - 0.35;
-      const rightTargetX = W * 0.9 + Math.sin(rightSpotAngle) * W * 0.8;
-      const rightGrad = ctx.createRadialGradient(rightTargetX, H * 0.85, 10, rightTargetX, H * 0.85, 180);
-      rightGrad.addColorStop(0, 'rgba(255, 50, 180, 0.35)');
-      rightGrad.addColorStop(0.6, 'rgba(255, 200, 0, 0.15)');
-      rightGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
-
-      ctx.beginPath();
-      ctx.moveTo(W * 0.95, 0);
-      ctx.lineTo(rightTargetX - 140, H * 0.95);
-      ctx.lineTo(rightTargetX + 140, H * 0.95);
-      ctx.closePath();
-      ctx.fillStyle = rightGrad;
-      ctx.fill();
-
-      // Disco Floor Sparkles (moving glints on glossy amphitheater floor)
-      for (let s = 0; s < 12; s++) {
-        const sx = (W * 0.12) + ((s * 67 + (now * 0.035)) % (W * 0.76));
-        const sy = H * 0.65 + (Math.sin(s + now * 0.002) * (H * 0.25));
-        const sparkleSize = Math.max(0, Math.sin(now * 0.005 + s * 1.5) * 5.5);
-        if (sparkleSize > 0.5) {
-          ctx.beginPath();
-          ctx.arc(sx, sy, sparkleSize, 0, Math.PI * 2);
-          ctx.fillStyle = `hsla(${s * 32 + now * 0.1}, 100%, 75%, 0.85)`;
-          ctx.fill();
-        }
+        // Floor Impact Laser Spot
+        ctx.fillStyle = col;
+        ctx.beginPath();
+        ctx.ellipse(targetX, targetY * 0.95, 30, 10, 0, 0, Math.PI * 2);
+        ctx.fill();
       }
 
       ctx.restore(); // End Stage Lights Screen Blend
@@ -223,28 +226,44 @@ export default function DiscoCanvas({ engine }: DiscoCanvasProps) {
       const focusedId = engine.camera.lockedOnId;
       const rawDancers = Array.from(engine.dancers.values());
 
-      // Calculate 3D screen position & scale for each dancer (Distant DJ & Massive Top-Down Dance Floor)
+      // Calculate 3D screen position & scale for each dancer (3D Orbital Arena Perspective)
       const calcDancerScreenPos = (dancer: typeof rawDancers[0]) => {
         const isVertical = H > W;
+
         if (dancer.isDj) {
+          const djX = W * (0.5 - Math.sin(yaw) * 0.05);
+          const djY = (isVertical ? H * 0.435 : H * 0.38) + (pitch - 0.12) * H * 0.15;
           return {
-            x: 0.5 * W,
-            y: isVertical ? H * 0.435 : H * 0.38,
+            x: djX,
+            y: djY,
             renderScale: dancer.scale * (isVertical ? 1.05 : 0.95),
             depth: 0.05,
           };
         }
-        const z = Math.max(0.1, Math.min(1.0, dancer.z ?? 0.5));
-        // Massive dance floor starting from 0.50 down to 0.96
-        const baseFloorY = isVertical ? (H * 0.50 + z * (H * 0.46)) : (H * 0.44 + z * (H * 0.52));
-        let y = dancer.y < 1.0 ? dancer.y * baseFloorY : baseFloorY;
+
+        // Relative polar coordinates in 3D arena
+        const zNorm = Math.max(0.08, Math.min(0.98, dancer.z ?? 0.5));
+        const cx = (dancer.x - 0.5) * 1.8;
+        const cz = (zNorm - 0.5) * 1.8;
+
+        // 3D Yaw Rotation Matrix around center
+        const rotX = cx * Math.cos(yaw) - cz * Math.sin(yaw);
+        const rotZ = cx * Math.sin(yaw) + cz * Math.cos(yaw);
+
+        // Normalized depth from camera (0.05 far -> 0.98 close)
+        const depthZ = Math.max(0.05, Math.min(1.0, 0.5 + rotZ * 0.45));
+
+        // Screen projection with wide spread and top-down pitch perspective
+        const x = W * (0.5 + rotX * (0.44 + depthZ * 0.35));
+        const baseFloorY = isVertical ? (H * 0.50 + depthZ * (H * 0.46)) : (H * 0.44 + depthZ * (H * 0.52));
+        let y = (dancer.y < 1.0 ? dancer.y * baseFloorY : baseFloorY) + (pitch - 0.12) * H * 0.35;
+
         if (dancer.state === 'dancing') {
-          y -= Math.abs(Math.sin(dancer.danceOffset)) * (4 + z * 5);
+          y -= Math.abs(Math.sin(dancer.danceOffset)) * (4 + depthZ * 5);
         }
-        // Wide horizontal spread reaching both left and right flanks across the massive floor
-        const x = W * (0.5 + (dancer.x - 0.5) * (0.86 + z * 0.22));
-        const renderScale = (0.44 + z * 0.60) * dancer.scale;
-        return { x, y, renderScale, depth: z };
+
+        const renderScale = (0.42 + depthZ * 0.62) * dancer.scale;
+        return { x, y, renderScale, depth: depthZ };
       };
 
       // Sort dancers by depth so back dancers are drawn first
@@ -528,7 +547,27 @@ export default function DiscoCanvas({ engine }: DiscoCanvasProps) {
   }, [engine, size]);
 
   return (
-    <div ref={wrapperRef} style={{ width: '100%', height: '100%', position: 'absolute', top: 0, left: 0, pointerEvents: 'none' }}>
+    <div
+      ref={wrapperRef}
+      onMouseDown={handleMouseDown}
+      onMouseMove={handleMouseMove}
+      onMouseUp={handleMouseUp}
+      onMouseLeave={handleMouseUp}
+      onWheel={handleWheel}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+      style={{
+        width: '100%',
+        height: '100%',
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        cursor: isDragging ? 'grabbing' : 'grab',
+        touchAction: 'none',
+        userSelect: 'none',
+      }}
+    >
       <canvas
         ref={canvasRef}
         width={size.width}
@@ -540,9 +579,35 @@ export default function DiscoCanvas({ engine }: DiscoCanvasProps) {
           position: 'absolute',
           top: 0,
           left: 0,
-          pointerEvents: 'none'
+          pointerEvents: 'none',
         }}
       />
+
+      {/* Floating 3D Orbital Camera Control Pill */}
+      <div
+        style={{
+          position: 'absolute',
+          bottom: '12px',
+          right: '12px',
+          zIndex: 30,
+          background: 'rgba(5, 5, 12, 0.75)',
+          backdropFilter: 'blur(10px)',
+          border: '1px solid rgba(0, 240, 255, 0.35)',
+          boxShadow: '0 4px 15px rgba(0,0,0,0.5)',
+          borderRadius: '20px',
+          padding: '4px 10px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '6px',
+          fontSize: '11px',
+          fontWeight: 600,
+          color: '#00f0ff',
+          pointerEvents: 'none',
+        }}
+      >
+        <span style={{ fontSize: '12px' }}>🔄</span>
+        <span>Kéo chuột / vuốt để xoay 3D • Cuộn phóng to</span>
+      </div>
     </div>
   );
 }
