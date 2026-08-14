@@ -23,10 +23,16 @@ const LIVE_RENDERERS: Record<string, string> = {
   PK_BAR: '/overlays/pk',
   GAME_BATTLE: '/overlays/battle',
   STAGE: '/overlays/stage',
+  DISCO: '/overlays/disco',
 };
 
 /** Type codes are database values. Nobody streaming has to see PK_BAR. */
 const DISPLAY: Record<string, { name: string; blurb: string; icon: IconName }> = {
+  DISCO: {
+    name: 'Sàn nhảy tương tác (Disco Club)',
+    blurb: 'Sàn nhảy hoạt hình meme/anime vui nhộn cho người xem vào quẩy, đổi diện mạo (gõ 3), tặng quà phóng to và VIP 199 xu lên làm DJ.',
+    icon: 'spark',
+  },
   GAME_BATTLE: {
     name: 'Sàn đấu tương tác (Game Battle)',
     blurb: 'Màn hình chiến trường chia phe (Mèo vs Chó, Kingdom War) đấu điểm quà tặng, thả lính, bắn bom và rồng bay.',
@@ -68,6 +74,7 @@ const AWAITING_PRODUCER: Record<string, string> = {
   PK_BAR: 'Hiện lên khi bạn vào trận PK.',
   GAME_BATTLE: 'Có thể mở Trình mô phỏng hoặc vào trận live để kích hoạt.',
   STAGE: 'Cần một kịch bản có hành động "Hiệu ứng sân khấu" thì mới chạy.',
+  DISCO: 'Khán giả gõ lệnh chat (1, 2, 3, 4) hoặc tặng quà sẽ tự động tham gia nhảy.',
 };
 
 function ObsGuide() {

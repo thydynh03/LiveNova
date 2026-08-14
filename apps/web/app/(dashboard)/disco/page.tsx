@@ -60,8 +60,10 @@ export default function DiscoDashboardPage() {
   }, []);
 
   const overlayUrl = useMemo(() => {
-    if (typeof window === 'undefined') return '';
-    const origin = window.location.origin;
+    let origin = typeof window === 'undefined' ? '' : window.location.origin;
+    if (process.env.NEXT_PUBLIC_OVERLAY_URL) {
+      origin = process.env.NEXT_PUBLIC_OVERLAY_URL.replace(/\/$/, '');
+    }
     return publicToken ? `${origin}/overlays/disco?token=${publicToken}` : `${origin}/overlays/disco`;
   }, [publicToken]);
 
