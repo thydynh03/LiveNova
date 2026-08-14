@@ -166,7 +166,7 @@ function BattleOverlayContent() {
 
   const handleAction = useCallback((action: OverlayAction) => {
     if (action.type !== RuleActionType.GAME_BATTLE_ACTION) return;
-    const p = action.payload as GameBattleActionPayload;
+    const p = action.payload as unknown as GameBattleActionPayload;
     if (!p.character) return;
     addBricks(p.character, Math.max(1, Math.min(20, p.bricks ?? 1)));
   }, [addBricks]);
