@@ -30,7 +30,6 @@ export default function DiscoStageView({
   const [activeVideoUrl, setActiveVideoUrl] = useState(videoUrl);
   const [activeMusicUrl, setActiveMusicUrl] = useState(musicUrl);
   const [activeTrackTitle, setActiveTrackTitle] = useState(trackTitle);
-  const [showTrackToast, setShowTrackToast] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const trimmedVideoUrl = (activeVideoUrl || '').trim();
@@ -65,8 +64,6 @@ export default function DiscoStageView({
           }
           if (data.trackTitle !== undefined) {
             setActiveTrackTitle(data.trackTitle);
-            setShowTrackToast(true);
-            setTimeout(() => setShowTrackToast(false), 5000);
           }
           if (data.videoUrl !== undefined) {
             setActiveVideoUrl(data.videoUrl);
@@ -130,99 +127,80 @@ export default function DiscoStageView({
         />
       )}
 
-      {/* Floating Now Playing Track Toast */}
-      {(showTrackToast || activeTrackTitle) && (
-        <div
-          style={{
-            position: 'absolute',
-            top: '16px',
-            left: '50%',
-            transform: 'translateX(-50%)',
-            zIndex: 40,
-            background: 'rgba(5, 5, 12, 0.85)',
-            backdropFilter: 'blur(12px)',
-            border: '1px solid rgba(0, 240, 255, 0.4)',
-            boxShadow: '0 0 25px rgba(0, 240, 255, 0.25)',
-            borderRadius: '24px',
-            padding: '6px 16px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            color: '#fff',
-            fontSize: '13px',
-            fontWeight: 700,
-            pointerEvents: 'none',
-          }}
-        >
-          <span style={{ fontSize: '16px' }}>🎵</span>
-          <span style={{ color: '#00f0ff' }}>ĐANG PHÁT:</span>
-          <span style={{ color: '#fff', maxWidth: '280px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {activeTrackTitle || 'EDM Club Mix'}
-          </span>
-        </div>
-      )}
-
-      {/* Floating Top DJ & VIP Podium Leaderboard Badge */}
+      {/* Ultra-Compact Minimalist Broadcast HUD (Top Bar - Non-intrusive, 0 obstruction) */}
       <div
         style={{
           position: 'absolute',
-          top: '16px',
-          right: '16px',
+          top: '10px',
+          left: '12px',
+          right: '12px',
           zIndex: 40,
-          background: 'rgba(10, 8, 20, 0.88)',
-          backdropFilter: 'blur(14px)',
-          border: '1px solid rgba(255, 215, 0, 0.45)',
-          boxShadow: '0 0 25px rgba(255, 215, 0, 0.3)',
-          borderRadius: '14px',
-          padding: '10px 14px',
           display: 'flex',
-          flexDirection: 'column',
-          gap: '6px',
-          color: '#fff',
-          fontSize: '11px',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          gap: '8px',
           pointerEvents: 'none',
-          minWidth: '170px',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 14px', borderRadius: '999px', background: 'rgba(5, 5, 15, 0.75)', border: '1px solid rgba(0, 240, 255, 0.4)', backdropFilter: 'blur(10px)', color: '#fff', fontSize: '12px', fontWeight: 700 }}>
-          <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#00ff88', boxShadow: '0 0 8px #00ff88' }} />
-          Sẵn sàng
-        </div>
-
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 20px', borderRadius: '999px', background: 'linear-gradient(90deg, rgba(20,10,40,0.85), rgba(40,10,60,0.85))', border: '1px solid rgba(255, 0, 127, 0.5)', backdropFilter: 'blur(12px)', color: '#fff', fontSize: '13px', fontWeight: 800 }}>
-          <span>🎵 ĐANG PHÁT:</span>
-          <span style={{ color: '#00f0ff' }}>{activeTrackTitle || 'EDM Club Mix'}</span>
-        </div>
-
+        {/* Left: Stream Ready & Now Playing Track Pill */}
         <div
           style={{
             display: 'flex',
-            flexDirection: 'column',
-            gap: '4px',
-            padding: '10px 14px',
-            borderRadius: '12px',
-            background: 'rgba(10, 5, 25, 0.85)',
-            border: '1px solid rgba(255, 215, 0, 0.4)',
-            backdropFilter: 'blur(12px)',
-            minWidth: isPortrait ? '140px' : '170px',
-            boxShadow: '0 0 20px rgba(255, 215, 0, 0.2)'
+            alignItems: 'center',
+            gap: '6px',
+            padding: '4px 10px',
+            borderRadius: '20px',
+            background: 'rgba(5, 5, 15, 0.75)',
+            border: '1px solid rgba(0, 240, 255, 0.35)',
+            backdropFilter: 'blur(10px)',
+            color: '#fff',
+            fontSize: '11px',
+            fontWeight: 600,
+            boxShadow: '0 2px 10px rgba(0,0,0,0.4)',
           }}
         >
-          <div style={{ color: '#ffd700', fontSize: '11px', fontWeight: 900, textTransform: 'uppercase', marginBottom: '2px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-            <span>👑</span> BẢNG TOP VIP & DJ
-          </div>
-          {topDancers.map((dancer, idx) => {
-            const colors = ['#ffd700', '#00f0ff', '#ff007f', '#b026ff', '#00ff88'];
-            const prefixes = ['👑 TOP 1: ', '🥈 TOP 2: ', '🥉 TOP 3: ', '🌟 TOP 4: ', '✨ TOP 5: '];
-            return (
-              <div key={dancer.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '11px', gap: '8px' }}>
-                <span style={{ color: colors[idx] || '#fff', fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: isPortrait ? '95px' : '130px' }}>
-                  {prefixes[idx] || `#${idx + 1}: `}{dancer.name}
-                </span>
-                <span style={{ color: '#fff', fontWeight: 800, fontSize: '10px' }}>{dancer.points || 0}đ</span>
-              </div>
-            );
-          })}
+          <span style={{ width: '7px', height: '7px', borderRadius: '50%', backgroundColor: '#00ff88', boxShadow: '0 0 6px #00ff88' }} />
+          <span>Sẵn sàng</span>
+          <span style={{ color: 'rgba(255,255,255,0.4)' }}>|</span>
+          <span style={{ color: '#00f0ff' }}>🎵 {activeTrackTitle || 'EDM Club Mix'}</span>
+        </div>
+
+        {/* Right: Slim Compact VIP & DJ Leaderboard Pill */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            padding: '4px 12px',
+            borderRadius: '20px',
+            background: 'rgba(10, 8, 22, 0.78)',
+            border: '1px solid rgba(255, 215, 0, 0.4)',
+            backdropFilter: 'blur(10px)',
+            color: '#fff',
+            fontSize: '11px',
+            fontWeight: 700,
+            boxShadow: '0 2px 12px rgba(255, 215, 0, 0.2)',
+          }}
+        >
+          <span style={{ color: '#ffd700', display: 'flex', alignItems: 'center', gap: '4px' }}>
+            👑 {topDancers[0] ? topDancers[0].name : 'DJ LiveNova'} ({topDancers[0]?.points || 10}đ)
+          </span>
+          {topDancers[1] && (
+            <>
+              <span style={{ color: 'rgba(255,255,255,0.3)' }}>|</span>
+              <span style={{ color: '#00f0ff', maxWidth: '80px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                🥈 {topDancers[1].name}
+              </span>
+            </>
+          )}
+          {topDancers[2] && (
+            <>
+              <span style={{ color: 'rgba(255,255,255,0.3)' }}>|</span>
+              <span style={{ color: '#ff007f', maxWidth: '80px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                🥉 {topDancers[2].name}
+              </span>
+            </>
+          )}
         </div>
       </div>
 

@@ -489,13 +489,13 @@ export class DiscoEngine {
     this.nextCinematicShotTime = Date.now() + durationMs + 6000;
   }
 
-  triggerSpotlightZoom(durationMs = 6000, targetId?: string) {
+  triggerSpotlightZoom(durationMs = 7000, targetId?: string) {
     this.currentShotType = 'SPOTLIGHT_ZOOM';
     this.isDjPovFirstPerson = false;
     const dancersArray = Array.from(this.dancers.values());
     this.spotlightTargetId = targetId || (dancersArray.length > 0 ? dancersArray[Math.floor(Math.random() * dancersArray.length)].id : null);
     this.shotEndTime = Date.now() + durationMs;
-    this.nextCinematicShotTime = Date.now() + durationMs + 4000;
+    this.nextCinematicShotTime = Date.now() + durationMs + 30000; // 30 seconds interval per random focus
   }
 
   triggerCraneSwoop(durationMs = 6000) {
@@ -643,18 +643,12 @@ export class DiscoEngine {
     } else {
       this.camera.lockedOnId = null;
 
-      // Cycle cinematic shots automatically like real concert broadcast
+      // Cycle cinematic shots automatically: Focus random dancer once every 30 seconds
       if (this.isAutoDirectorEnabled && now > this.nextCinematicShotTime) {
-        const shotRoll = Math.random();
-        if (shotRoll < 0.28 && dancersArray.length > 0) {
-          this.triggerSpotlightZoom(4500);
-        } else if (shotRoll < 0.52) {
-          // View góc nhìn của DJ nhìn xuống khán giả
-          this.triggerDjPov(7000);
-        } else if (shotRoll < 0.76) {
-          this.triggerCraneSwoop(5000);
+        if (dancersArray.length > 0) {
+          this.triggerSpotlightZoom(7000);
         } else {
-          this.triggerWideOrbit(8000);
+          this.nextCinematicShotTime = now + 30000;
         }
       }
 

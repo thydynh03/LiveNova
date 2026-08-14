@@ -95,19 +95,19 @@ export function DiscoThreeStage({ engine, videoUrl, isMuted = true }: DiscoThree
     floorTexture.wrapT = THREE.RepeatWrapping;
     floorTexture.repeat.set(3, 3);
 
-    // Massive Extended Arena Dance Floor spanning forward past camera view (fills TikTok Studio / Mobile vertical streams)
-    const floorGeo = new THREE.CylinderGeometry(36, 36.5, 0.4, 64);
+    // Massive Extended Arena Dance Floor spanning forward past camera view (fills 75%-80% of TikTok Studio / Mobile vertical streams)
+    const floorGeo = new THREE.CylinderGeometry(48, 48.5, 0.4, 64);
     const floorMat = new THREE.MeshStandardMaterial({
       map: floorTexture,
       roughness: 0.15,
       metalness: 0.85,
     });
     const floor = new THREE.Mesh(floorGeo, floorMat);
-    floor.position.set(0, -0.2, 4);
+    floor.position.set(0, -0.2, 8);
     scene.add(floor);
 
     // Deep Infinite Club Ground Base (Eliminates all empty void in TikTok Studio)
-    const infiniteBaseGeo = new THREE.PlaneGeometry(120, 120);
+    const infiniteBaseGeo = new THREE.PlaneGeometry(180, 180);
     const infiniteBaseMat = new THREE.MeshStandardMaterial({
       color: 0x06030c,
       roughness: 0.2,
@@ -119,11 +119,11 @@ export function DiscoThreeStage({ engine, videoUrl, isMuted = true }: DiscoThree
     scene.add(infiniteBase);
 
     // Neon Floor Rim Ring
-    const floorRimGeo = new THREE.RingGeometry(35.8, 36.2, 64);
+    const floorRimGeo = new THREE.RingGeometry(47.8, 48.2, 64);
     const floorRimMat = new THREE.MeshBasicMaterial({ color: 0x00f0ff, side: THREE.DoubleSide });
     const floorRim = new THREE.Mesh(floorRimGeo, floorRimMat);
     floorRim.rotation.x = -Math.PI / 2;
-    floorRim.position.set(0, 0.02, 4);
+    floorRim.position.set(0, 0.02, 8);
     scene.add(floorRim);
 
     // 6. DJ Stage Platform & Booth Table (Elevated at Back Center)
@@ -1262,9 +1262,11 @@ export function DiscoThreeStage({ engine, videoUrl, isMuted = true }: DiscoThree
           targetCamPos.set(Math.sin(nowSec * 0.4) * 4.5, (7.5 + Math.cos(nowSec * 0.3) * 1.5) + camHeightAdd, 12 * camDistMult);
           targetLookAt.set(0, 1.4, -3.5);
         } else {
-          // FRONT_STAGE - Rock-Solid, Centered Front-Row Stage View (Aligned 100% with Backdrop Video)
-          targetCamPos.set(0, (isPortraitNow ? 6.2 : 4.8), (isPortraitNow ? 15.8 : 13.8));
-          targetLookAt.set(0, (isPortraitNow ? 2.2 : 1.4), -3.0);
+          // FRONT_STAGE - Wide Grand Panoramic View with Gentle Subtle Lateral Sway (75%-80% Vertical TikTok Coverage)
+          const swayX = Math.sin(nowSec * 0.22) * (isPortraitNow ? 1.4 : 2.0);
+          const swayY = Math.cos(nowSec * 0.18) * 0.25;
+          targetCamPos.set(swayX, (isPortraitNow ? 6.6 : 5.2) + swayY, (isPortraitNow ? 17.2 : 14.8));
+          targetLookAt.set(swayX * 0.35, (isPortraitNow ? 1.8 : 1.2), -3.2);
         }
       }
 
@@ -1282,7 +1284,7 @@ export function DiscoThreeStage({ engine, videoUrl, isMuted = true }: DiscoThree
       width = container.clientWidth || 800;
       height = container.clientHeight || 600;
       const isPortrait = width < height;
-      camera.fov = isPortrait ? 72 : 52;
+      camera.fov = isPortrait ? 78 : 56;
       camera.aspect = width / height;
       camera.updateProjectionMatrix();
       renderer.setSize(width, height);
