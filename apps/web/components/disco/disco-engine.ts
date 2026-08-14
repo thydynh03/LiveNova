@@ -103,15 +103,15 @@ export class DiscoEngine {
 
   addDemoDancers(count = 8) {
     const demoNames = [
-      { id: 'bot_dj_pro', name: '🎧 DJ Pro LiveNova', sprite: 'char_dj_pro', isDj: true, z: 0.05 },
-      { id: 'bot_anya_heh', name: '😏 Anya Waku Waku', sprite: 'char_anya_heh', isDj: false, z: 0.85 },
-      { id: 'bot_gojo', name: '🤞 Thầy Gojo Vô Cực', sprite: 'char_gojo_sensei', isDj: false, z: 0.35 },
-      { id: 'bot_bocchi', name: '🎸 Bocchi Hoảng Loạn', sprite: 'char_bocchi_panic', isDj: false, z: 0.65 },
-      { id: 'bot_umaru', name: '🐹 Umaru Trùm Mũ', sprite: 'char_umaru_chan', isDj: false, z: 0.95 },
-      { id: 'bot_zoro', name: '⚔️ Zoro Lạc Đường', sprite: 'char_zoro_lost', isDj: false, z: 0.25 },
-      { id: 'bot_panda_cry', name: '😭 Gấu Trúc Khóc Nhè', sprite: 'char_panda_cry', isDj: false, z: 0.55 },
-      { id: 'bot_yaoming', name: '😂 Thánh Cười YaoMing', sprite: 'char_yaoming_laugh', isDj: false, z: 0.75 },
-      { id: 'bot_tanjiro', name: '🎴 Tanjiro Hoang Mang', sprite: 'char_tanjiro_derp', isDj: false, z: 0.45 },
+      { id: 'bot_dj_pro', name: '🎧 DJ Pro LiveNova', sprite: 'char_dj_pro', isDj: true, z: 0.05, points: 15 },
+      { id: 'bot_sexy_dancer_1', name: '💃 Hot Girl Bella', sprite: 'hanhan_video_dance', isDj: false, z: 0.45, points: 8 },
+      { id: 'bot_sexy_dancer_2', name: '💃 Mỹ Nhân Kimmy', sprite: 'hanhan_video_dance', isDj: false, z: 0.45, points: 5 },
+      { id: 'bot_anya_heh', name: '😏 Anya Waku Waku', sprite: 'char_anya_heh', isDj: false, z: 0.85, points: 0 },
+      { id: 'bot_gojo', name: '🤞 Thầy Gojo Vô Cực', sprite: 'char_gojo_sensei', isDj: false, z: 0.35, points: 0 },
+      { id: 'bot_bocchi', name: '🎸 Bocchi Hoảng Loạn', sprite: 'char_bocchi_panic', isDj: false, z: 0.65, points: 0 },
+      { id: 'bot_umaru', name: '🐹 Umaru Trùm Mũ', sprite: 'char_umaru_chan', isDj: false, z: 0.95, points: 0 },
+      { id: 'bot_zoro', name: '⚔️ Zoro Lạc Đường', sprite: 'char_zoro_lost', isDj: false, z: 0.25, points: 0 },
+      { id: 'bot_yaoming', name: '😂 Thánh Cười YaoMing', sprite: 'char_yaoming_laugh', isDj: false, z: 0.75, points: 0 },
     ];
 
     const toAdd = demoNames.slice(0, count);
@@ -136,7 +136,7 @@ export class DiscoEngine {
           state: 'dancing',
           danceOffset: Math.random() * Math.PI * 2,
           isDj: item.isDj,
-          points: item.isDj ? 10 : 0,
+          points: item.points || 0,
         });
       }
     }
