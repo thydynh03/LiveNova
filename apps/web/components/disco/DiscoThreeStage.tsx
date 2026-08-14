@@ -1263,8 +1263,8 @@ export function DiscoThreeStage({ engine, videoUrl, isMuted = true }: DiscoThree
           targetLookAt.set(0, 1.4, -3.5);
         } else {
           // FRONT_STAGE - Rock-Solid, Centered Front-Row Stage View (Aligned 100% with Backdrop Video)
-          targetCamPos.set(0, 4.8 + camHeightAdd, 13.8 * camDistMult);
-          targetLookAt.set(0, 1.4, -3.0);
+          targetCamPos.set(0, (isPortraitNow ? 6.2 : 4.8), (isPortraitNow ? 15.8 : 13.8));
+          targetLookAt.set(0, (isPortraitNow ? 2.2 : 1.4), -3.0);
         }
       }
 
@@ -1282,7 +1282,7 @@ export function DiscoThreeStage({ engine, videoUrl, isMuted = true }: DiscoThree
       width = container.clientWidth || 800;
       height = container.clientHeight || 600;
       const isPortrait = width < height;
-      camera.fov = isPortrait ? 65 : 52;
+      camera.fov = isPortrait ? 72 : 52;
       camera.aspect = width / height;
       camera.updateProjectionMatrix();
       renderer.setSize(width, height);
