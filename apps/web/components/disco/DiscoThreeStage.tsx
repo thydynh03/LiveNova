@@ -22,17 +22,8 @@ export function DiscoThreeStage({ engine, videoUrl, isMuted = true }: DiscoThree
     let height = container.clientHeight || 600;
 
     // 1. Scene, Camera, Fog & Renderer
-    const isYouTube = Boolean(
-      videoUrl && (
-        videoUrl.includes('youtube.com') ||
-        videoUrl.includes('youtu.be')
-      )
-    );
-
     const scene = new THREE.Scene();
-    if (!isYouTube) {
-      scene.background = new THREE.Color(0x06030c);
-    }
+    scene.background = new THREE.Color(0x06030c);
     scene.fog = new THREE.FogExp2(0x070412, 0.024);
 
     const camera = new THREE.PerspectiveCamera(52, width / height, 0.1, 150);
@@ -40,7 +31,7 @@ export function DiscoThreeStage({ engine, videoUrl, isMuted = true }: DiscoThree
 
     const renderer = new THREE.WebGLRenderer({
       antialias: true,
-      alpha: true,
+      alpha: false,
       powerPreference: 'high-performance',
     });
     renderer.setSize(width, height);
@@ -194,7 +185,7 @@ export function DiscoThreeStage({ engine, videoUrl, isMuted = true }: DiscoThree
     rightPodiumRing.position.set(4.2, 0.96, -3.5);
     scene.add(rightPodiumRing);
 
-    // 9. Massive 3D Curved LED Video Wall at the Back (Orientation Fixed - Not Mirrored)
+    // 9. Massive Wide Panoramic 3D Curved LED Video Wall at the Back
     const videoCanvas = document.createElement('canvas');
     videoCanvas.width = 1024;
     videoCanvas.height = 512;
@@ -204,8 +195,13 @@ export function DiscoThreeStage({ engine, videoUrl, isMuted = true }: DiscoThree
     videoTexture.minFilter = THREE.LinearFilter;
     videoTexture.magFilter = THREE.LinearFilter;
 
-    // Curved LED Screen Geometry
-    const ledScreenGeo = new THREE.CylinderGeometry(15, 15, 7.2, 40, 1, true, Math.PI * 0.78, Math.PI * 0.44);
+    // Wide Panoramic Curved LED Screen Geometry (Spanning horizontally across the entire club backdrop)
+    const ledRadius = 19;
+    const ledHeight = 8.5;
+    const thetaStart = Math.PI * 0.62;
+    const thetaLength = Math.PI * 0.76;
+
+    const ledScreenGeo = new THREE.CylinderGeometry(ledRadius, ledRadius, ledHeight, 48, 1, true, thetaStart, thetaLength);
     // Flip UVs horizontally
     const uvs = ledScreenGeo.attributes.uv;
     for (let u = 0; u < uvs.count; u++) {
@@ -216,23 +212,19 @@ export function DiscoThreeStage({ engine, videoUrl, isMuted = true }: DiscoThree
     const ledScreenMat = new THREE.MeshBasicMaterial({
       map: videoTexture,
       side: THREE.BackSide,
-      transparent: true,
-      opacity: isYouTube ? 0 : 1,
     });
     const ledScreen = new THREE.Mesh(ledScreenGeo, ledScreenMat);
-    ledScreen.position.set(0, 4.8, -2.5);
-    if (!isYouTube) {
-      scene.add(ledScreen);
-    }
+    ledScreen.position.set(0, 5.0, -3.2);
+    scene.add(ledScreen);
 
-    // Glowing Neon Frames on LED Video Wall
-    const frameGeo = new THREE.CylinderGeometry(15.02, 15.02, 0.16, 40, 1, true, Math.PI * 0.78, Math.PI * 0.44);
+    // Glowing Neon Frames on Wide LED Video Wall
+    const frameGeo = new THREE.CylinderGeometry(ledRadius + 0.02, ledRadius + 0.02, 0.2, 48, 1, true, thetaStart, thetaLength);
     const frameTop = new THREE.Mesh(frameGeo, new THREE.MeshBasicMaterial({ color: 0x00f0ff, side: THREE.BackSide }));
-    frameTop.position.set(0, 8.4, -2.5);
+    frameTop.position.set(0, 5.0 + ledHeight / 2, -3.2);
     scene.add(frameTop);
 
     const frameBottom = new THREE.Mesh(frameGeo, new THREE.MeshBasicMaterial({ color: 0x00f0ff, side: THREE.BackSide }));
-    frameBottom.position.set(0, 1.2, -2.5);
+    frameBottom.position.set(0, 5.0 - ledHeight / 2, -3.2);
     scene.add(frameBottom);
 
     // 10. Grand Circular Ceiling Trusses with Moving Head Spotlights
