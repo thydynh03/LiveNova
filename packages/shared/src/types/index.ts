@@ -710,6 +710,13 @@ export interface GameBattleActionPayload {
   actionKey: 'soldier' | 'castle' | 'bomb' | 'dragon' | 'cannon' | 'meteor';
   /** Optional team key to target. If omitted, the game engine resolves it based on the user's gift history. */
   teamKey?: string;
+  /**
+   * Target character for the brick-stack battle overlay.
+   * Admin configures this in the Rule Engine per gift type.
+   */
+  character?: 'ronaldo' | 'messi';
+  /** Number of bricks to add for this action (default 1). */
+  bricks?: number;
 }
 
 /** Internal bus event carrying a GameBattleAction to the battle service. */
