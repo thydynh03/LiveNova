@@ -91,11 +91,12 @@ function DiscoOverlayContent() {
         </div>
       )}
 
-      {/* 3D Nightclub Stage View with LED Video Wall & Canvas */}
+      {/* 3D Nightclub Stage View with LED Video Wall, 2D Dancers & Real-Time Sync Music */}
       <DiscoStageView
         engine={engine}
         videoUrl={customVideo || ''}
         isMuted={true}
+        enableAudio={true}
       />
     </div>
   );

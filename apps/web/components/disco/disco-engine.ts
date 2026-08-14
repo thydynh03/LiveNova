@@ -294,6 +294,11 @@ export class DiscoEngine {
     });
   }
 
+  private nextCinematicShotTime: number = 0;
+  private currentShotType: 'WIDE_ORBIT' | 'SPOTLIGHT_ZOOM' | 'CRANE_SWOOP' = 'WIDE_ORBIT';
+  private spotlightTargetId: string | null = null;
+  private shotEndTime: number = 0;
+
   tick(now: number) {
     if (!this.lastTick) this.lastTick = now;
     const dt = (now - this.lastTick) / 1000;
@@ -369,28 +374,76 @@ export class DiscoEngine {
       }
     }
 
-    // Camera logic: Focus on specific user, manual drag, or Smooth 3D Orbital Panning
+    // -------------------------------------------------------------
+    // AUTOMATIC REAL-LIFE CINEMATIC CONCERT CAMERA DIRECTOR
+    // -------------------------------------------------------------
     if (this.camera.lockedOnId && now < this.camera.lockTimeout) {
+      // Priority event lock (e.g. Gift / Top DJ)
       const lockedDancer = this.dancers.get(this.camera.lockedOnId);
       if (lockedDancer) {
         this.camera.targetX = lockedDancer.x;
         this.camera.targetY = lockedDancer.isDj ? 0.435 : 0.50 + lockedDancer.z * 0.44;
-        this.camera.targetScale = 1.70; // Zoom in close & focus
+        this.camera.targetScale = 1.75; // Zoom in close & focus
       } else {
         this.camera.lockedOnId = null;
       }
-    } else if (!this.camera.isUserDragging && (now - this.camera.lastUserInteraction > 2500)) {
+    } else {
       this.camera.lockedOnId = null;
-      // 3D Orbital sweep: smooth continuous 360 degree slow panning
-      this.camera.targetYaw += dt * 0.18;
-      this.camera.targetPitch = 0.12 + Math.sin(now * 0.0004) * 0.05;
-      this.camera.targetX = 0.5 + Math.sin(this.camera.targetYaw) * 0.28;
-      this.camera.targetY = 0.52 + Math.cos(this.camera.targetYaw * 0.6) * 0.025;
-      this.camera.targetScale = 1.10 + Math.sin(now * 0.0006) * 0.02;
+
+      // Cycle cinematic shots automatically like real concert broadcast
+      if (now > this.nextCinematicShotTime) {
+        const shotRoll = Math.random();
+        if (shotRoll < 0.40 && dancersArray.length > 0) {
+          // Spotlight zoom on a random dancer or DJ
+          this.currentShotType = 'SPOTLIGHT_ZOOM';
+          const randomDancer = dancersArray[Math.floor(Math.random() * dancersArray.length)];
+          this.spotlightTargetId = randomDancer.id;
+          this.shotEndTime = now + 4000;
+          this.nextCinematicShotTime = now + 13000;
+        } else if (shotRoll < 0.70) {
+          // Dynamic Crane swoop shot
+          this.currentShotType = 'CRANE_SWOOP';
+          this.shotEndTime = now + 5000;
+          this.nextCinematicShotTime = now + 14000;
+        } else {
+          // Smooth wide 3D orbital sweep
+          this.currentShotType = 'WIDE_ORBIT';
+          this.shotEndTime = now + 7000;
+          this.nextCinematicShotTime = now + 15000;
+        }
+      }
+
+      if (this.currentShotType === 'SPOTLIGHT_ZOOM' && now < this.shotEndTime && this.spotlightTargetId) {
+        const targetDancer = this.dancers.get(this.spotlightTargetId);
+        if (targetDancer) {
+          this.camera.targetX = targetDancer.x;
+          this.camera.targetY = targetDancer.isDj ? 0.435 : 0.50 + targetDancer.z * 0.44;
+          this.camera.targetScale = 1.70;
+          this.camera.targetYaw += dt * 0.08;
+          this.camera.targetPitch = 0.10;
+        } else {
+          this.currentShotType = 'WIDE_ORBIT';
+        }
+      } else if (this.currentShotType === 'CRANE_SWOOP' && now < this.shotEndTime) {
+        const cranePhase = (this.shotEndTime - now) / 5000;
+        this.camera.targetYaw += dt * 0.14;
+        this.camera.targetPitch = 0.06 + Math.sin(cranePhase * Math.PI) * 0.18;
+        this.camera.targetX = 0.5 + Math.sin(this.camera.targetYaw) * 0.20;
+        this.camera.targetY = 0.48 + Math.sin(cranePhase * Math.PI) * 0.08;
+        this.camera.targetScale = 1.25 + Math.sin(cranePhase * Math.PI) * 0.15;
+      } else {
+        // Continuous smooth 3D slow orbital sweep (like a real concert broadcast)
+        this.currentShotType = 'WIDE_ORBIT';
+        this.camera.targetYaw += dt * 0.12; // slow, gentle continuous orbit
+        this.camera.targetPitch = 0.12 + Math.sin(now * 0.0003) * 0.04;
+        this.camera.targetX = 0.5 + Math.sin(this.camera.targetYaw) * 0.24;
+        this.camera.targetY = 0.52 + Math.cos(this.camera.targetYaw * 0.6) * 0.02;
+        this.camera.targetScale = 1.10 + Math.sin(now * 0.0005) * 0.02;
+      }
     }
 
     // Smooth Lerp Camera
-    const camSpeed = this.camera.isUserDragging ? 12 : this.camera.lockedOnId ? 4.5 : 1.8;
+    const camSpeed = this.camera.isUserDragging ? 12 : this.camera.lockedOnId ? 4.5 : 2.2;
     this.camera.x += (this.camera.targetX - this.camera.x) * camSpeed * dt;
     this.camera.y += (this.camera.targetY - this.camera.y) * camSpeed * dt;
     this.camera.yaw += (this.camera.targetYaw - this.camera.yaw) * camSpeed * dt;

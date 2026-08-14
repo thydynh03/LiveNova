@@ -8,7 +8,10 @@ import DiscoCanvas from './DiscoCanvas';
 export interface DiscoStageViewProps {
   engine: DiscoEngine;
   videoUrl?: string;
+  musicUrl?: string;
+  trackTitle?: string;
   isMuted?: boolean;
+  enableAudio?: boolean;
 }
 
 function CyberLedVisualizer() {
@@ -122,11 +125,84 @@ function CyberLedVisualizer() {
 
 export default function DiscoStageView({
   engine,
-  videoUrl = '',
+  videoUrl: initialVideoUrl = '',
+  musicUrl: initialMusicUrl = '',
+  trackTitle: initialTrackTitle = '',
   isMuted = true,
+  enableAudio = false,
 }: DiscoStageViewProps) {
   const [aspect, setAspect] = useState<'vertical' | 'horizontal'>('vertical');
   const [eqHeights, setEqHeights] = useState<number[]>([15, 25, 40, 30, 50, 60, 45, 35, 20, 55, 65, 35, 45, 25, 15]);
+  const [activeVideoUrl, setActiveVideoUrl] = useState<string>(initialVideoUrl);
+  const [activeMusicUrl, setActiveMusicUrl] = useState<string>(initialMusicUrl);
+  const [activeTrackTitle, setActiveTrackTitle] = useState<string>(initialTrackTitle);
+  const [showTrackToast, setShowTrackToast] = useState<boolean>(false);
+  const audioRef = React.useRef<HTMLAudioElement | null>(null);
+
+  // Sync props when parent updates
+  useEffect(() => {
+    if (initialVideoUrl !== undefined) setActiveVideoUrl(initialVideoUrl);
+  }, [initialVideoUrl]);
+
+  useEffect(() => {
+    if (initialMusicUrl) {
+      setActiveMusicUrl(initialMusicUrl);
+      if (initialTrackTitle) setActiveTrackTitle(initialTrackTitle);
+    }
+  }, [initialMusicUrl, initialTrackTitle]);
+
+  // Real-Time Cross-Window / OBS Overlay Sync via BroadcastChannel & LocalStorage
+  useEffect(() => {
+    // 1. Check saved track in localStorage on mount
+    if (typeof window !== 'undefined') {
+      try {
+        const savedMusic = localStorage.getItem('livenova_disco_current_music');
+        const savedTitle = localStorage.getItem('livenova_disco_current_title');
+        const savedVideo = localStorage.getItem('livenova_disco_video_url');
+        if (savedMusic && !activeMusicUrl) setActiveMusicUrl(savedMusic);
+        if (savedTitle && !activeTrackTitle) setActiveTrackTitle(savedTitle);
+        if (savedVideo && !activeVideoUrl) setActiveVideoUrl(savedVideo);
+      } catch {
+        // storage disabled
+      }
+    }
+
+    // 2. Listen to BroadcastChannel for instant real-time updates
+    if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+      const channel = new BroadcastChannel('livenova_disco_sync');
+      channel.onmessage = (event) => {
+        const data = event.data;
+        if (data && data.type === 'SYNC_DISCO_MEDIA') {
+          if (data.musicUrl !== undefined) {
+            setActiveMusicUrl(data.musicUrl);
+            if (audioRef.current) {
+              audioRef.current.src = data.musicUrl;
+              audioRef.current.play().catch(() => {});
+            }
+          }
+          if (data.trackTitle !== undefined) {
+            setActiveTrackTitle(data.trackTitle);
+            setShowTrackToast(true);
+            setTimeout(() => setShowTrackToast(false), 5000);
+          }
+          if (data.videoUrl !== undefined) {
+            setActiveVideoUrl(data.videoUrl);
+          }
+        }
+      };
+      return () => {
+        channel.close();
+      };
+    }
+  }, []);
+
+  // Play audio when activeMusicUrl changes and audio is enabled
+  useEffect(() => {
+    if (enableAudio && activeMusicUrl && audioRef.current) {
+      audioRef.current.src = activeMusicUrl;
+      audioRef.current.play().catch(() => {});
+    }
+  }, [activeMusicUrl, enableAudio]);
 
   useEffect(() => {
     const handleResize = () => {
@@ -152,29 +228,29 @@ export default function DiscoStageView({
 
   // Format YouTube Embed if user enters a YouTube URL
   const ytEmbedUrl = useMemo(() => {
-    if (!videoUrl) return null;
-    if (videoUrl.includes('youtube.com/watch?v=')) {
-      const vidId = videoUrl.split('watch?v=')[1]?.split('&')[0];
+    if (!activeVideoUrl) return null;
+    if (activeVideoUrl.includes('youtube.com/watch?v=')) {
+      const vidId = activeVideoUrl.split('watch?v=')[1]?.split('&')[0];
       return `https://www.youtube.com/embed/${vidId}?autoplay=1&mute=${isMuted ? 1 : 0}&loop=1&playlist=${vidId}&controls=0&showinfo=0`;
     }
-    if (videoUrl.includes('youtu.be/')) {
-      const vidId = videoUrl.split('youtu.be/')[1]?.split('?')[0];
+    if (activeVideoUrl.includes('youtu.be/')) {
+      const vidId = activeVideoUrl.split('youtu.be/')[1]?.split('?')[0];
       return `https://www.youtube.com/embed/${vidId}?autoplay=1&mute=${isMuted ? 1 : 0}&loop=1&playlist=${vidId}&controls=0&showinfo=0`;
     }
     return null;
-  }, [videoUrl, isMuted]);
+  }, [activeVideoUrl, isMuted]);
 
-  const hasCustomVideo = Boolean(videoUrl && videoUrl.trim() !== '' && !videoUrl.includes('default-dj-loop'));
+  const hasCustomVideo = Boolean(activeVideoUrl && activeVideoUrl.trim() !== '' && !activeVideoUrl.includes('default-dj-loop'));
 
   const isImageOrGif = useMemo(() => {
-    if (!videoUrl) return false;
+    if (!activeVideoUrl) return false;
     return (
-      videoUrl.endsWith('.gif') ||
-      videoUrl.endsWith('.png') ||
-      videoUrl.endsWith('.jpg') ||
-      videoUrl.endsWith('.webp')
+      activeVideoUrl.endsWith('.gif') ||
+      activeVideoUrl.endsWith('.png') ||
+      activeVideoUrl.endsWith('.jpg') ||
+      activeVideoUrl.endsWith('.webp')
     );
-  }, [videoUrl]);
+  }, [activeVideoUrl]);
 
   return (
     <div
@@ -187,6 +263,49 @@ export default function DiscoStageView({
         userSelect: 'none',
       }}
     >
+      {/* Hidden Audio element for background music playback */}
+      {enableAudio && (
+        <audio
+          ref={audioRef}
+          src={activeMusicUrl || undefined}
+          autoPlay
+          loop
+          style={{ display: 'none' }}
+        />
+      )}
+
+      {/* Floating Now Playing Track Toast */}
+      {(showTrackToast || activeTrackTitle) && (
+        <div
+          style={{
+            position: 'absolute',
+            top: '16px',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            zIndex: 40,
+            background: 'rgba(5, 5, 15, 0.85)',
+            backdropFilter: 'blur(12px)',
+            border: '1px solid rgba(0, 240, 255, 0.5)',
+            boxShadow: '0 0 20px rgba(0, 240, 255, 0.4)',
+            borderRadius: '24px',
+            padding: '6px 16px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            color: '#fff',
+            fontSize: '13px',
+            fontWeight: 700,
+            animation: 'fadeIn 0.3s ease-out',
+            pointerEvents: 'none',
+          }}
+        >
+          <span style={{ fontSize: '16px', animation: 'spin 3s linear infinite' }}>🎵</span>
+          <span style={{ color: '#00f0ff' }}>ĐANG PHÁT:</span>
+          <span style={{ color: '#fff', maxWidth: '280px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {activeTrackTitle || 'EDM Club Mix'}
+          </span>
+        </div>
+      )}
       {/* 1. Background Nightclub Bar Stage Image */}
       <div style={{ position: 'absolute', inset: 0, zIndex: 0 }}>
         <Image
@@ -225,13 +344,13 @@ export default function DiscoStageView({
             />
           ) : isImageOrGif ? (
             <img
-              src={videoUrl}
+              src={activeVideoUrl}
               alt="DJ Custom Screen"
               style={{ width: '100%', height: '100%', objectFit: 'cover' }}
             />
           ) : (
             <video
-              src={videoUrl}
+              src={activeVideoUrl}
               autoPlay
               loop
               muted={isMuted}

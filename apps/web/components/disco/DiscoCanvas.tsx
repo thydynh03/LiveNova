@@ -226,7 +226,7 @@ export default function DiscoCanvas({ engine }: DiscoCanvasProps) {
       const focusedId = engine.camera.lockedOnId;
       const rawDancers = Array.from(engine.dancers.values());
 
-      // Calculate 3D screen position & scale for each dancer (3D Orbital Arena Perspective)
+      // Calculate 3D screen position & scale for each 2D dancer (3D Orbital Arena Perspective)
       const calcDancerScreenPos = (dancer: typeof rawDancers[0]) => {
         const isVertical = H > W;
 
@@ -236,7 +236,7 @@ export default function DiscoCanvas({ engine }: DiscoCanvasProps) {
           return {
             x: djX,
             y: djY,
-            renderScale: dancer.scale * (isVertical ? 1.05 : 0.95),
+            renderScale: dancer.scale * (isVertical ? 0.72 : 0.65),
             depth: 0.05,
           };
         }
@@ -259,10 +259,11 @@ export default function DiscoCanvas({ engine }: DiscoCanvasProps) {
         let y = (dancer.y < 1.0 ? dancer.y * baseFloorY : baseFloorY) + (pitch - 0.12) * H * 0.35;
 
         if (dancer.state === 'dancing') {
-          y -= Math.abs(Math.sin(dancer.danceOffset)) * (4 + depthZ * 5);
+          y -= Math.abs(Math.sin(dancer.danceOffset)) * (3 + depthZ * 4);
         }
 
-        const renderScale = (0.42 + depthZ * 0.62) * dancer.scale;
+        // 2D Character sprite scale (compact and proportional on the vast 3D floor)
+        const renderScale = (0.24 + depthZ * 0.36) * dancer.scale;
         return { x, y, renderScale, depth: depthZ };
       };
 

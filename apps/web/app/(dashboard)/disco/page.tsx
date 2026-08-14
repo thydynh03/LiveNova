@@ -30,7 +30,9 @@ export default function DiscoDashboardPage() {
   // Music Player State
   const [publicToken, setPublicToken] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
-  const [musicUrl, setMusicUrl] = useState<string | null>(null);
+  const [musicUrl, setMusicUrl] = useState<string>('');
+  const [trackTitle, setTrackTitle] = useState<string>('EDM Nightclub Mix');
+  const [customMusicInput, setCustomMusicInput] = useState<string>('');
   const [djVideoUrl, setDjVideoUrl] = useState<string>('');
   const [isDjVideoMuted, setIsDjVideoMuted] = useState<boolean>(true);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -43,18 +45,54 @@ export default function DiscoDashboardPage() {
   const channels = useApi<Channel[]>('/channels');
   const channelIds = useMemo(() => (channels.data ?? []).map((c) => c.id), [channels.data]);
 
-  // Load saved video URL from localStorage
+  // Load saved video and music from localStorage
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('livenova_disco_video_url');
-      if (saved && !saved.includes('default-dj-loop')) setDjVideoUrl(saved);
+      const savedVideo = localStorage.getItem('livenova_disco_video_url');
+      if (savedVideo && !savedVideo.includes('default-dj-loop')) setDjVideoUrl(savedVideo);
+
+      const savedMusic = localStorage.getItem('livenova_disco_current_music');
+      const savedTitle = localStorage.getItem('livenova_disco_current_title');
+      if (savedMusic) setMusicUrl(savedMusic);
+      if (savedTitle) setTrackTitle(savedTitle);
     }
   }, []);
+
+  const broadcastSync = (data: { musicUrl?: string; trackTitle?: string; videoUrl?: string }) => {
+    if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+      try {
+        const channel = new BroadcastChannel('livenova_disco_sync');
+        channel.postMessage({
+          type: 'SYNC_DISCO_MEDIA',
+          ...data,
+          timestamp: Date.now(),
+        });
+        channel.close();
+      } catch (err) {
+        console.error('BroadcastChannel sync failed:', err);
+      }
+    }
+  };
 
   const handleSetVideoUrl = (url: string) => {
     setDjVideoUrl(url);
     if (typeof window !== 'undefined') {
       localStorage.setItem('livenova_disco_video_url', url);
+    }
+    broadcastSync({ videoUrl: url });
+  };
+
+  const handleSetMusic = (url: string, title: string) => {
+    setMusicUrl(url);
+    setTrackTitle(title);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('livenova_disco_current_music', url);
+      localStorage.setItem('livenova_disco_current_title', title);
+    }
+    broadcastSync({ musicUrl: url, trackTitle: title });
+    if (audioRef.current && url) {
+      audioRef.current.src = url;
+      audioRef.current.play().catch(() => {});
     }
   };
 
@@ -158,11 +196,15 @@ export default function DiscoDashboardPage() {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const url = URL.createObjectURL(file);
-      setMusicUrl(url);
-      setTimeout(() => {
-        if (audioRef.current) audioRef.current.play();
-      }, 100);
+      const fileName = file.name.replace(/\.[^/.]+$/, '');
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const dataUrl = event.target?.result as string;
+        if (dataUrl) {
+          handleSetMusic(dataUrl, fileName);
+        }
+      };
+      reader.readAsDataURL(file);
     }
   };
 
@@ -421,7 +463,10 @@ export default function DiscoDashboardPage() {
             <DiscoStageView
               engine={engine}
               videoUrl={djVideoUrl}
+              musicUrl={musicUrl}
+              trackTitle={trackTitle}
               isMuted={isDjVideoMuted}
+              enableAudio={false}
             />
           </div>
 
@@ -524,73 +569,146 @@ export default function DiscoDashboardPage() {
             </div>
           </div>
 
-          {/* Music Player & Audio Control Bar */}
+          {/* Real-Time Live Music & Audio Controller */}
           <div style={{
             background: 'hsl(var(--card))',
             border: '1px solid hsl(var(--border))',
             borderRadius: 'var(--radius)',
             padding: '1rem 1.25rem',
             display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            flexWrap: 'wrap',
-            gap: '1rem'
+            flexDirection: 'column',
+            gap: '0.875rem'
           }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-              <div style={{
-                width: 36,
-                height: 36,
-                borderRadius: 'var(--radius-sm)',
-                background: 'hsl(var(--primary) / 0.15)',
-                color: 'hsl(var(--primary))',
-                display: 'grid',
-                placeItems: 'center'
-              }}>
-                <Icon name="audio" size={20} />
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <Icon name="audio" size={18} />
+                <span style={{ fontWeight: 700, fontSize: '0.875rem', color: 'hsl(var(--foreground))' }}>
+                  🎵 Âm Nhạc Sàn Nhảy (Tự Động Đồng Bộ Lên Live Ngay Lập Tức)
+                </span>
               </div>
-              <div>
-                <div style={{ fontWeight: 600, fontSize: '0.875rem', color: 'hsl(var(--foreground))' }}>
-                  Âm nhạc Sàn Nhảy
+              {trackTitle && (
+                <div style={{
+                  fontSize: '0.75rem',
+                  padding: '2px 8px',
+                  borderRadius: '12px',
+                  background: 'hsl(var(--primary) / 0.15)',
+                  color: 'hsl(var(--primary))',
+                  fontWeight: 600,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px'
+                }}>
+                  <span>⚡ Đang phát:</span>
+                  <span style={{ maxWidth: '160px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {trackTitle}
+                  </span>
                 </div>
-                <div style={{ fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))' }}>
-                  {musicUrl ? 'Đang phát nhạc MP3 từ máy của bạn' : 'Chọn bài nhạc MP3 sôi động để quẩy'}
-                </div>
-              </div>
+              )}
             </div>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-              <label style={{
-                cursor: 'pointer',
-                padding: '0.4rem 0.8rem',
-                borderRadius: 'var(--radius-sm)',
-                background: 'hsl(var(--secondary))',
-                color: 'hsl(var(--secondary-foreground))',
-                border: '1px solid hsl(var(--border))',
-                fontSize: '0.8125rem',
-                fontWeight: 600,
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.375rem'
-              }}>
-                <Icon name="music" size={16} />
-                <span>{musicUrl ? 'Đổi bài MP3' : 'Tải lên bài MP3'}</span>
-                <input 
-                  type="file" 
-                  accept="audio/mp3,audio/*" 
-                  onChange={handleFileChange} 
-                  style={{ display: 'none' }} 
-                />
-              </label>
+            {/* URL Input Form */}
+            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+              <input
+                type="text"
+                value={customMusicInput}
+                onChange={(e) => setCustomMusicInput(e.target.value)}
+                placeholder="Dán link nhạc MP3 trực tiếp (https://.../music.mp3)"
+                style={{
+                  flex: 1,
+                  minWidth: '240px',
+                  padding: '0.45rem 0.75rem',
+                  fontSize: '0.8125rem',
+                  borderRadius: 'var(--radius-sm)',
+                  border: '1px solid hsl(var(--border))',
+                  background: 'hsl(var(--background))',
+                  color: 'hsl(var(--foreground))'
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  if (customMusicInput.trim()) {
+                    handleSetMusic(customMusicInput.trim(), 'Bài Hát Trực Tuyến');
+                    setCustomMusicInput('');
+                  }
+                }}
+                style={{
+                  padding: '0.45rem 0.75rem',
+                  fontSize: '0.75rem',
+                  fontWeight: 600,
+                  borderRadius: 'var(--radius-sm)',
+                  background: 'hsl(var(--primary))',
+                  color: 'hsl(var(--primary-foreground))',
+                  border: 'none',
+                  cursor: 'pointer'
+                }}
+              >
+                ▶️ Đổi Nhạc Lên Live
+              </button>
+            </div>
 
-              {musicUrl && (
-                <audio 
-                  ref={audioRef} 
-                  src={musicUrl} 
-                  loop 
-                  controls 
-                  style={{ height: '32px', maxWidth: '240px' }} 
-                />
-              )}
+            {/* Quick EDM Presets & Upload button */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', flexWrap: 'wrap' }}>
+                <span style={{ fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))' }}>Nhạc mẫu:</span>
+                {[
+                  { title: '⚡ Vinahouse Future Beat', url: 'https://cdn.pixabay.com/download/audio/2022/05/27/audio_1808fbf07a.mp3?filename=electronic-future-beats-117997.mp3' },
+                  { title: '🔥 Cyberpunk Rave 2099', url: 'https://cdn.pixabay.com/download/audio/2022/03/15/audio_c8c8a73467.mp3?filename=cyberpunk-2099-10701.mp3' },
+                  { title: '💃 Festival Bass Drop', url: 'https://cdn.pixabay.com/download/audio/2022/10/14/audio_9939f792cb.mp3?filename=drop-it-124014.mp3' },
+                ].map((p, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => handleSetMusic(p.url, p.title)}
+                    style={{
+                      padding: '0.25rem 0.5rem',
+                      fontSize: '0.75rem',
+                      borderRadius: 'var(--radius-sm)',
+                      background: musicUrl === p.url ? 'hsl(var(--primary) / 0.15)' : 'hsl(var(--secondary) / 0.6)',
+                      color: musicUrl === p.url ? 'hsl(var(--primary))' : 'hsl(var(--foreground))',
+                      border: musicUrl === p.url ? '1px solid hsl(var(--primary))' : '1px solid hsl(var(--border))',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    {p.title}
+                  </button>
+                ))}
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <label style={{
+                  cursor: 'pointer',
+                  padding: '0.35rem 0.65rem',
+                  borderRadius: 'var(--radius-sm)',
+                  background: 'hsl(var(--secondary))',
+                  color: 'hsl(var(--secondary-foreground))',
+                  border: '1px solid hsl(var(--border))',
+                  fontSize: '0.75rem',
+                  fontWeight: 600,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.375rem'
+                }}>
+                  <Icon name="music" size={14} />
+                  <span>{musicUrl ? '📁 Tải Lên MP3 Khác' : '📁 Tải Lên MP3'}</span>
+                  <input 
+                    type="file" 
+                    accept="audio/mp3,audio/*" 
+                    onChange={handleFileChange} 
+                    style={{ display: 'none' }} 
+                  />
+                </label>
+
+                {musicUrl && (
+                  <audio 
+                    ref={audioRef} 
+                    src={musicUrl} 
+                    loop 
+                    controls 
+                    style={{ height: '28px', maxWidth: '200px' }} 
+                  />
+                )}
+              </div>
             </div>
           </div>
         </div>
