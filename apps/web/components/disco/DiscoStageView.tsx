@@ -13,6 +13,12 @@ export interface DiscoStageViewProps {
   enableAudio?: boolean;
 }
 
+function getYouTubeId(url: string): string | null {
+  if (!url) return null;
+  const match = url.match(/(?:youtube\.com\/(?:[^/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?/\s]{11})/i);
+  return match ? match[1] : null;
+}
+
 export default function DiscoStageView({
   engine,
   videoUrl = '',
@@ -26,6 +32,16 @@ export default function DiscoStageView({
   const [activeTrackTitle, setActiveTrackTitle] = useState(trackTitle);
   const [showTrackToast, setShowTrackToast] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  const trimmedVideoUrl = (activeVideoUrl || '').trim();
+  const ytId = getYouTubeId(trimmedVideoUrl);
+  const hasCustomMedia = Boolean(trimmedVideoUrl.length > 0);
+  const isImage = Boolean(
+    hasCustomMedia && (
+      trimmedVideoUrl.match(/\.(png|jpe?g|gif|webp)(\?.*)?$/i) ||
+      trimmedVideoUrl.startsWith('data:image/')
+    )
+  );
 
   // Sync prop updates
   useEffect(() => {
@@ -182,6 +198,64 @@ export default function DiscoStageView({
           })}
         </div>
       </div>
+
+      {/* Fixed Ultra-Wide Panoramic Stage Backdrop Video / YouTube Screen */}
+      {hasCustomMedia && (
+        <div
+          style={{
+            position: 'absolute',
+            top: '4%',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            width: '90%',
+            height: '58%',
+            zIndex: 2,
+            borderRadius: '24px',
+            overflow: 'hidden',
+            boxShadow: '0 0 60px rgba(0, 240, 255, 0.45)',
+            border: '2px solid rgba(0, 240, 255, 0.7)',
+            backgroundColor: '#020108',
+            pointerEvents: 'none',
+          }}
+        >
+          {ytId ? (
+            <iframe
+              src={`https://www.youtube-nocookie.com/embed/${ytId}?autoplay=1&mute=${isMuted ? 1 : 0}&loop=1&playlist=${ytId}&controls=0&showinfo=0&rel=0&modestbranding=1&enablejsapi=1`}
+              title="Stage Backdrop Video"
+              style={{
+                width: '100%',
+                height: '100%',
+                border: 'none',
+                pointerEvents: 'none',
+              }}
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            />
+          ) : isImage ? (
+            <img
+              src={trimmedVideoUrl}
+              alt="Stage Backdrop"
+              style={{
+                width: '100%',
+                height: '100%',
+                objectFit: 'cover',
+              }}
+            />
+          ) : (
+            <video
+              src={trimmedVideoUrl}
+              autoPlay
+              loop
+              muted={isMuted}
+              playsInline
+              style={{
+                width: '100%',
+                height: '100%',
+                objectFit: 'cover',
+              }}
+            />
+          )}
+        </div>
+      )}
 
       {/* Full 3D Nightclub Scene via Three.js (Arena Floor, Top 2/3 VIP Podiums, DJ Booth, Moving Light Trusses & Curved 3D Video Wall) */}
       <div style={{ position: 'absolute', inset: 0, zIndex: 10 }}>
