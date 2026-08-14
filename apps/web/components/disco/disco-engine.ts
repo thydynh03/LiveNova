@@ -38,6 +38,12 @@ export const SPRITES = [
   'mushroom_dance_01',
   'mushroom_magic_02',
   'hanhan_video_dance',
+  'char_anya_heh',
+  'char_bocchi_panic',
+  'char_gojo_sensei',
+  'char_umaru_chan',
+  'char_tanjiro_derp',
+  'char_zoro_lost',
   'char_panda_cry',
   'char_panda_smug',
   'char_yaoming_laugh',
@@ -70,19 +76,20 @@ export class DiscoEngine {
   private colors = ['#ff4b4b', '#ff7a4b', '#ffb54b', '#e2ff4b', '#62ff4b', '#4bff9a', '#4be2ff', '#4b7aff', '#9a4bff', '#ff4be2'];
 
   constructor() {
-    this.addDemoDancers(5);
+    this.addDemoDancers(6);
   }
 
-  addDemoDancers(count = 5) {
+  addDemoDancers(count = 6) {
     const demoNames = [
       { id: 'bot_dj_pro', name: '🎧 DJ Pro LiveNova', sprite: 'char_dj_pro', isDj: true },
+      { id: 'bot_anya_heh', name: '😏 Anya Waku Waku', sprite: 'char_anya_heh', isDj: false },
+      { id: 'bot_gojo', name: '🤞 Thầy Gojo Vô Cực', sprite: 'char_gojo_sensei', isDj: false },
+      { id: 'bot_bocchi', name: '🎸 Bocchi Hoảng Loạn', sprite: 'char_bocchi_panic', isDj: false },
+      { id: 'bot_umaru', name: '🐹 Umaru Trùm Mũ', sprite: 'char_umaru_chan', isDj: false },
+      { id: 'bot_zoro', name: '⚔️ Zoro Lạc Đường', sprite: 'char_zoro_lost', isDj: false },
       { id: 'bot_panda_cry', name: '😭 Gấu Trúc Khóc Nhè', sprite: 'char_panda_cry', isDj: false },
       { id: 'bot_yaoming', name: '😂 Thánh Cười YaoMing', sprite: 'char_yaoming_laugh', isDj: false },
-      { id: 'bot_hoe_fighter', name: '⛏️ Cuốc Một Phát', sprite: 'char_hoe_fighter', isDj: false },
-      { id: 'bot_slipper_slap', name: '🩴 Thánh Cầm Dép', sprite: 'char_slipper_slap', isDj: false },
-      { id: 'bot_panda_smug', name: '😏 Nụ Cười Đã Tắt', sprite: 'char_panda_smug', isDj: false },
-      { id: 'bot_disco_king', name: '👑 King Nấm Quẩy', sprite: 'char_disco_king', isDj: false },
-      { id: 'bot_super_duck', name: '🕶️ Vịt ThugLife', sprite: 'char_super_duck', isDj: false },
+      { id: 'bot_tanjiro', name: '🎴 Tanjiro Hoang Mang', sprite: 'char_tanjiro_derp', isDj: false },
     ];
 
     const toAdd = demoNames.slice(0, count);

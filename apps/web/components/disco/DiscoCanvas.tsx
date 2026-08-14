@@ -26,11 +26,17 @@ function preloadSprites() {
     }
   };
 
-  // Load all 23 animated character dance sprites
+  // Load all 29 animated character dance sprites
   loadSequence('mushroom_dance_15', '/assets/disco/Characters/mushroom_dance_15/', 11);
   loadSequence('mushroom_dance_01', '/assets/disco/Characters/mushroom_dance_01/', 14);
   loadSequence('mushroom_magic_02', '/assets/disco/Characters/mushroom_magic_02/', 16);
   loadSequence('hanhan_video_dance', '/assets/disco/Characters/hanhan_video_dance/', 40);
+  loadSequence('char_anya_heh', '/assets/disco/Characters/char_anya_heh/', 16);
+  loadSequence('char_bocchi_panic', '/assets/disco/Characters/char_bocchi_panic/', 16);
+  loadSequence('char_gojo_sensei', '/assets/disco/Characters/char_gojo_sensei/', 16);
+  loadSequence('char_umaru_chan', '/assets/disco/Characters/char_umaru_chan/', 14);
+  loadSequence('char_tanjiro_derp', '/assets/disco/Characters/char_tanjiro_derp/', 14);
+  loadSequence('char_zoro_lost', '/assets/disco/Characters/char_zoro_lost/', 16);
   loadSequence('char_panda_cry', '/assets/disco/Characters/char_panda_cry/', 16);
   loadSequence('char_panda_smug', '/assets/disco/Characters/char_panda_smug/', 14);
   loadSequence('char_yaoming_laugh', '/assets/disco/Characters/char_yaoming_laugh/', 12);
