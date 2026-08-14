@@ -60,31 +60,10 @@ function DiscoOverlayContent() {
         engine.changeAvatar(senderId);
       } else if (['4', 'đi', 'đi vòng', 'walk'].includes(comment)) {
         engine.walk(senderId);
-      } else if (['!dj', '!pov', '!gocdj', 'pov', 'dj', 'goc dj', 'góc dj', 'view dj'].includes(comment)) {
-        engine.triggerDjPov(9000);
-      } else if (['!zoom', 'zoom', 'spotlight'].includes(comment)) {
-        engine.triggerSpotlightZoom(5000, senderId);
-      } else if (['!crane', 'crane'].includes(comment)) {
-        engine.triggerCraneSwoop(6000);
-      } else if (['!orbit', 'orbit', 'wide'].includes(comment)) {
-        engine.triggerWideOrbit(8000);
       }
     } else if (event.type === LiveEventType.GIFT) {
-      const diamondCount = event.giftCoinValue || 1;
-      engine.join(senderId, senderName, avatarUrl);
-      engine.zoomOn(senderId);
-      engine.grow(senderId);
-
-      if (diamondCount >= 199) {
-        engine.setDj(senderId);
-      }
-
-      const numFireworks = Math.min(10, Math.max(3, Math.floor(diamondCount / 10)));
-      for (let i = 0; i < numFireworks; i++) {
-        setTimeout(() => {
-          engine.triggerFirework();
-        }, i * 250);
-      }
+      const giftPoints = Math.max(1, event.giftCoinValue || 1);
+      engine.addGiftPoints(senderId, senderName, giftPoints, avatarUrl);
     } else if (
       event.type === LiveEventType.JOIN ||
       event.type === LiveEventType.FOLLOW ||

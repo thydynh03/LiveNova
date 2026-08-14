@@ -14,6 +14,7 @@ export interface Dancer {
   state: 'idle' | 'dancing' | 'jumping';
   danceOffset: number; // For bobbing up and down
   isDj?: boolean; // DJ flag
+  points: number; // Gift score points
 }
 
 export interface Firework {
@@ -135,6 +136,7 @@ export class DiscoEngine {
           state: 'dancing',
           danceOffset: Math.random() * Math.PI * 2,
           isDj: item.isDj,
+          points: item.isDj ? 10 : 0,
         });
       }
     }
@@ -149,6 +151,10 @@ export class DiscoEngine {
     this.camera.targetY = 0.6;
     this.flashIntensity = 0;
   }
+
+  public currentDjId: string | null = 'bot_dj_pro';
+  public djPromotionToast: { oldDjName: string; newDjName: string; points: number; time: number } | null = null;
+  public lastGiftInfo: { senderName: string; giftPoints: number; time: number } | null = null;
 
   triggerFlash(amount = 0.7) {
     this.flashIntensity = Math.min(1.0, this.flashIntensity + amount);
@@ -180,11 +186,79 @@ export class DiscoEngine {
       state: 'dancing',
       danceOffset: Math.random() * Math.PI * 2,
       isDj: false,
+      points: 0,
     });
 
     // Camera zooms/pans to welcome new dancer for 3.5 seconds
     this.zoomOn(id, 3500);
     this.triggerFlash(0.3);
+  }
+
+  addGiftPoints(id: string, name: string, points: number, avatarUrl?: string) {
+    if (!this.dancers.has(id)) {
+      this.join(id, name, avatarUrl);
+    }
+    const dancer = this.dancers.get(id);
+    if (dancer) {
+      dancer.points = (dancer.points || 0) + points;
+      dancer.targetScale = Math.min(2.6, dancer.targetScale + 0.4);
+      dancer.vy = -1.6;
+      dancer.state = 'jumping';
+    }
+
+    this.lastGiftInfo = { senderName: name, giftPoints: points, time: Date.now() };
+
+    // Check for DJ Promotion: Highest points AND at least 10 points becomes TOP DJ
+    let topScorer: Dancer | null = null;
+    for (const d of Array.from(this.dancers.values())) {
+      if ((d.points || 0) >= 10) {
+        if (!topScorer || (d.points || 0) > (topScorer.points || 0)) {
+          topScorer = d;
+        }
+      }
+    }
+
+    if (topScorer && topScorer.id !== this.currentDjId) {
+      // PROMOTION: New TOP DJ replaces the previous DJ
+      const oldDj = this.getCurrentDj();
+      const oldDjName = oldDj ? oldDj.name : 'DJ Pro';
+      this.setDj(topScorer.id);
+      this.currentDjId = topScorer.id;
+      this.djPromotionToast = {
+        oldDjName,
+        newDjName: topScorer.name,
+        points: topScorer.points,
+        time: Date.now(),
+      };
+      // Celebration fireworks & light show
+      for (let i = 0; i < 6; i++) {
+        setTimeout(() => this.triggerFirework(), i * 200);
+      }
+    } else {
+      // Normal gift fireworks
+      this.triggerFirework();
+      setTimeout(() => this.triggerFirework(), 250);
+    }
+
+    // TẶNG QUÀ -> KÍCH HOẠT GÓC NHÌN DJ POV NHÌN XUỐNG TOÀN CẢNH SÀN NHẢY
+    this.triggerDjPov(10000);
+    this.triggerFlash(0.75);
+  }
+
+  getTopDancers(limit = 5): Dancer[] {
+    return Array.from(this.dancers.values())
+      .sort((a, b) => (b.points || 0) - (a.points || 0))
+      .slice(0, limit);
+  }
+
+  getCurrentDj(): Dancer | null {
+    if (this.currentDjId && this.dancers.has(this.currentDjId)) {
+      return this.dancers.get(this.currentDjId) || null;
+    }
+    for (const d of Array.from(this.dancers.values())) {
+      if (d.isDj) return d;
+    }
+    return null;
   }
 
   jump(id: string) {
@@ -246,6 +320,7 @@ export class DiscoEngine {
     const newDj = this.dancers.get(id);
     if (newDj) {
       newDj.isDj = true;
+      this.currentDjId = newDj.id;
       newDj.targetScale = 1.6;
       // Spawn fireworks for the new DJ
       this.triggerFirework(0.3, 0.3);

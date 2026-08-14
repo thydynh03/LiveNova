@@ -440,7 +440,11 @@ export default function DiscoCanvas({ engine }: DiscoCanvasProps) {
         const fontSize = Math.max(11, Math.round(13 * renderScale));
         ctx.font = isFocused ? `bold ${fontSize + 2}px sans-serif` : `bold ${fontSize}px sans-serif`;
 
-        const displayName = dancer.isDj ? `TOP DJ: ${dancer.name}` : dancer.name;
+        const displayName = dancer.isDj
+          ? `👑 TOP DJ: ${dancer.name} (${dancer.points || 10}đ)`
+          : (dancer.points || 0) > 0
+          ? `${dancer.name} (${dancer.points}đ)`
+          : dancer.name;
         const textMetrics = ctx.measureText(displayName);
         const pillWidth = textMetrics.width + 14;
         const pillHeight = fontSize + 8;
@@ -595,13 +599,57 @@ export default function DiscoCanvas({ engine }: DiscoCanvasProps) {
         }
 
         // Live DJ POV Banner Text
+        const currentDj = engine.getCurrentDj();
+        const djName = currentDj ? currentDj.name : 'DJ Pro';
+        const djPoints = currentDj ? (currentDj.points || 10) : 10;
+
         ctx.textAlign = 'center';
-        ctx.font = 'bold 10px sans-serif';
-        ctx.fillStyle = '#00ffff';
+        ctx.font = 'bold 11px sans-serif';
+        ctx.fillStyle = '#ffd700';
         ctx.shadowColor = '#00f0ff';
         ctx.shadowBlur = 8;
-        ctx.fillText('🎧 LIVE DJ POV • 138.0 BPM', midX, deckY + 20);
+        ctx.fillText(`👑 TOP 1 DJ: ${djName.toUpperCase()} (${djPoints} ĐIỂM) • POV NHÌN XUỐNG SÀN BAR`, midX, deckY + 18);
 
+        if (engine.lastGiftInfo && now - engine.lastGiftInfo.time < 6000) {
+          ctx.font = 'bold 10px sans-serif';
+          ctx.fillStyle = '#00ffff';
+          ctx.fillText(`🎁 ${engine.lastGiftInfo.senderName} vừa tặng quà (+${engine.lastGiftInfo.giftPoints}đ)`, midX, deckY + deckH - 6);
+        }
+
+        ctx.restore();
+      }
+
+      // DJ Promotion Big Banner Toast
+      if (engine.djPromotionToast && now - engine.djPromotionToast.time < 5000) {
+        const toast = engine.djPromotionToast;
+        const alpha = Math.min(1.0, (5000 - (now - toast.time)) / 600);
+        ctx.save();
+        ctx.globalAlpha = alpha;
+        const bannerW = Math.min(W * 0.88, 380);
+        const bannerH = 58;
+        const bx = (W - bannerW) / 2;
+        const by = H * 0.12;
+
+        ctx.fillStyle = 'rgba(20, 15, 5, 0.92)';
+        ctx.strokeStyle = '#ffd700';
+        ctx.lineWidth = 2;
+        ctx.shadowColor = '#ffd700';
+        ctx.shadowBlur = 18;
+        if (typeof ctx.roundRect === 'function') {
+          ctx.roundRect(bx, by, bannerW, bannerH, 12);
+        } else {
+          ctx.rect(bx, by, bannerW, bannerH);
+        }
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.textAlign = 'center';
+        ctx.font = '900 13px sans-serif';
+        ctx.fillStyle = '#ffd700';
+        ctx.fillText('👑 CHÚC MỪNG TÂN TOP 1 DJ SÂN KHẤU! 👑', W / 2, by + 22);
+        ctx.font = 'bold 11px sans-serif';
+        ctx.fillStyle = '#ffffff';
+        ctx.fillText(`🎉 ${toast.newDjName} đạt ${toast.points} điểm (Thay thế ${toast.oldDjName})`, W / 2, by + 42);
         ctx.restore();
       }
 

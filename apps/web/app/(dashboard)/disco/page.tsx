@@ -154,39 +154,14 @@ export default function DiscoDashboardPage() {
         engine.changeAvatar(senderId);
       } else if (['4', 'đi', 'đi vòng', 'walk'].includes(comment)) {
         engine.walk(senderId);
-      } else if (['!dj', '!pov', '!gocdj', 'pov', 'dj', 'goc dj', 'góc dj', 'view dj'].includes(comment)) {
-        engine.triggerDjPov(9000);
-        broadcastSync({ cameraShot: 'DJ_POV', duration: 9000 });
-      } else if (['!zoom', 'zoom', 'spotlight'].includes(comment)) {
-        engine.triggerSpotlightZoom(5000, senderId);
-        broadcastSync({ cameraShot: 'SPOTLIGHT_ZOOM', duration: 5000 });
-      } else if (['!crane', 'crane'].includes(comment)) {
-        engine.triggerCraneSwoop(6000);
-        broadcastSync({ cameraShot: 'CRANE_SWOOP', duration: 6000 });
-      } else if (['!orbit', 'orbit', 'wide'].includes(comment)) {
-        engine.triggerWideOrbit(8000);
-        broadcastSync({ cameraShot: 'WIDE_ORBIT', duration: 8000 });
       }
     } else if (event.type === LiveEventType.GIFT) {
       const senderId = event.senderUsername || 'unknown';
       const senderName = event.senderDisplayName || senderId;
       const avatarUrl = event.senderAvatar;
-      const diamondCount = event.giftCoinValue || 1;
-      
-      engine.join(senderId, senderName, avatarUrl);
-      engine.zoomOn(senderId);
-      engine.grow(senderId);
-      
-      if (diamondCount >= 199) {
-        engine.setDj(senderId);
-      }
-      
-      const numFireworks = Math.min(10, Math.max(3, Math.floor(diamondCount / 10)));
-      for (let i = 0; i < numFireworks; i++) {
-        setTimeout(() => {
-          engine.triggerFirework();
-        }, i * 250);
-      }
+      const giftPoints = Math.max(1, event.giftCoinValue || 1);
+      engine.addGiftPoints(senderId, senderName, giftPoints, avatarUrl);
+      broadcastSync({ cameraShot: 'DJ_POV', duration: 10000 });
     } else if (
       event.type === LiveEventType.JOIN || 
       event.type === LiveEventType.FOLLOW || 
@@ -244,24 +219,15 @@ export default function DiscoDashboardPage() {
   const triggerTestGiftNormal = () => {
     const id = testUsername.trim() || '@khangia';
     const name = testDisplayName.trim() || 'Khán Giả';
-    engine.join(id, name);
-    engine.zoomOn(id);
-    engine.grow(id);
-    engine.triggerFirework();
-    setTimeout(() => engine.triggerFirework(), 200);
-    setTimeout(() => engine.triggerFirework(), 400);
+    engine.addGiftPoints(id, name, 3);
+    broadcastSync({ cameraShot: 'DJ_POV', duration: 10000 });
   };
 
   const triggerTestGiftDJ = () => {
     const id = testUsername.trim() || '@khangia';
     const name = testDisplayName.trim() || 'Khán Giả';
-    engine.join(id, name);
-    engine.setDj(id);
-    engine.zoomOn(id);
-    engine.grow(id);
-    for (let i = 0; i < 8; i++) {
-      setTimeout(() => engine.triggerFirework(), i * 200);
-    }
+    engine.addGiftPoints(id, name, 15);
+    broadcastSync({ cameraShot: 'DJ_POV', duration: 10000 });
   };
 
   const triggerAddRandomDancers = () => {
@@ -927,7 +893,7 @@ export default function DiscoDashboardPage() {
                     gap: '0.375rem'
                   }}
                 >
-                  <Icon name="gift" size={16} /> Tặng Quà Thường (Zoom + Pháo Hoa)
+                  <Icon name="gift" size={16} /> 🎁 Tặng Quà (+3 Điểm → Kích Hoạt POV)
                 </button>
 
                 <button
@@ -948,7 +914,7 @@ export default function DiscoDashboardPage() {
                     boxShadow: '0 4px 12px rgba(245, 158, 11, 0.3)'
                   }}
                 >
-                  👑 Tặng Quà 199 Xu (Lên làm TOP DJ Sân Khấu)
+                  👑 Tặng Quà VIP (+15 Điểm → Soán Ngôi TOP 1 DJ)
                 </button>
               </div>
             </div>
@@ -1089,11 +1055,9 @@ export default function DiscoDashboardPage() {
               <li><b>Gõ &quot;1&quot;, &quot;join&quot;, &quot;vào&quot;:</b> Tham gia xuất hiện trên sàn nhảy.</li>
               <li><b>Gõ &quot;2&quot;, &quot;jump&quot;, &quot;nhảy&quot;:</b> Bật nhảy lên không trung.</li>
               <li><b>Gõ &quot;3&quot;, &quot;change&quot;, &quot;đổi&quot;:</b> Thay đổi diện mạo/avatar khác.</li>
-              <li><b>Gõ &quot;4&quot;, &quot;walk&quot;, &quot;đi&quot;:</b> Đi bộ khám phá sân khấu.</li>
-              <li><b>Gõ &quot;!dj&quot;, &quot;!pov&quot;, &quot;goc dj&quot;:</b> Kích hoạt góc nhìn từ bàn DJ nhìn xuống biển khán giả!</li>
-              <li><b>Gõ &quot;!zoom&quot;, &quot;!crane&quot;, &quot;!orbit&quot;:</b> Đổi góc lia camera tự động.</li>
-              <li><b>Tặng bất kỳ quà:</b> Phóng to, camera zoom cận cảnh 3.5s + pháo hoa.</li>
-              <li><b>Tặng từ 199 xu:</b> Vinh danh TOP DJ bay lên bục trung tâm!</li>
+              <li><b>Gõ &quot;4&quot;, &quot;walk&quot;, &quot;đi&quot;:</b> Đi bộ khám phá sàn nhảy.</li>
+              <li><b>🎁 Tặng bất kỳ quà:</b> Tích lũy điểm + Kích hoạt góc nhìn DJ POV nhìn xuống toàn bộ vũ trường!</li>
+              <li><b>👑 Điểm cao nhất (≥ 10 điểm):</b> Soán ngôi làm TOP 1 DJ trên bục trung tâm, thay thế DJ cũ!</li>
             </ul>
           </div>
         </div>

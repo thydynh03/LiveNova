@@ -306,6 +306,46 @@ export default function DiscoStageView({
           </span>
         </div>
       )}
+
+      {/* Floating Top DJ Leaderboard Badge */}
+      <div
+        style={{
+          position: 'absolute',
+          top: '16px',
+          right: '16px',
+          zIndex: 40,
+          background: 'rgba(10, 8, 20, 0.85)',
+          backdropFilter: 'blur(12px)',
+          border: '1px solid rgba(255, 215, 0, 0.4)',
+          boxShadow: '0 0 20px rgba(255, 215, 0, 0.25)',
+          borderRadius: '12px',
+          padding: '8px 12px',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '4px',
+          color: '#fff',
+          fontSize: '11px',
+          pointerEvents: 'none',
+          minWidth: '150px',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '5px', fontWeight: 800, color: '#ffd700', fontSize: '11px' }}>
+          <span>👑</span>
+          <span>BẢNG TOP DJ (≥10đ)</span>
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+          {engine.getTopDancers(3).map((dancer, idx) => (
+            <div key={dancer.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px' }}>
+              <span style={{ color: idx === 0 ? '#ffd700' : '#e2e8f0', fontWeight: idx === 0 ? 700 : 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '110px' }}>
+                {idx === 0 ? '🎧 ' : `${idx + 1}. `}{dancer.name}
+              </span>
+              <span style={{ color: idx === 0 ? '#00f0ff' : '#94a3b8', fontWeight: 700, fontSize: '10px' }}>
+                {dancer.points || (dancer.isDj ? 10 : 0)}đ
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
       {/* 1. Background Nightclub Bar Stage Image */}
       <div style={{ position: 'absolute', inset: 0, zIndex: 0 }}>
         <Image
