@@ -166,17 +166,17 @@ function BattleOverlayContent() {
 
   const handleAction = useCallback((action: OverlayAction) => {
     if (action.type !== RuleActionType.GAME_BATTLE_ACTION) return;
-    const p = action.payload as GameBattleActionPayload;
+    const p = action.payload as unknown as GameBattleActionPayload;
     if (!p.character) return;
     addBricks(p.character, Math.max(1, Math.min(20, p.bricks ?? 1)));
   }, [addBricks]);
 
   const { status, rejectionCode } = useOverlaySocket(token, { onAction: handleAction });
 
-  const statusMessage = !token ? 'Thiếu ?token=' :
-    status === 'connecting' ? 'Đang kết nối…' :
-    status === 'reconnecting' ? 'Mất kết nối — thử lại…' :
-    status === 'rejected' ? `Token lỗi (${rejectionCode ?? 'unknown'})` : null;
+  const statusMessage = !token ? 'Thi?u ?token=' :
+    status === 'connecting' ? 'Đang k?t n?i…' :
+    status === 'reconnecting' ? 'M?t k?t n?i — th? l?i…' :
+    status === 'rejected' ? `Token l?i (${rejectionCode ?? 'unknown'})` : null;
 
   const hasWinner = phase !== 'playing';
   const winnerIsRonaldo = phase === 'ronaldo_wins';
@@ -204,7 +204,7 @@ function BattleOverlayContent() {
         .plbl.m { color:#44aaff; text-align:right; }
         .arena { flex:1; display:grid; grid-template-columns:1fr 4px 1fr; position:relative; z-index:5; min-height:0; }
         .divider { background:linear-gradient(180deg,transparent,rgba(255,255,255,.3) 20%,rgba(255,255,255,.5) 50%,rgba(255,255,255,.3) 80%,transparent); position:relative; }
-        .divider::before { content:'⚡'; position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); font-size:1.2rem; background:#0a0a1a; padding:4px; border-radius:50%; border:2px solid rgba(255,255,255,.4); }
+        .divider::before { content:'?'; position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); font-size:1.2rem; background:#0a0a1a; padding:4px; border-radius:50%; border:2px solid rgba(255,255,255,.4); }
         .panel { display:flex; flex-direction:column; align-items:center; justify-content:flex-end; position:relative; overflow:hidden; padding:0 8px 8px; }
         .panel.r { background:linear-gradient(135deg,rgba(180,0,0,.15) 0%,rgba(80,0,0,.05) 100%); }
         .panel.m { background:linear-gradient(225deg,rgba(0,80,200,.15) 0%,rgba(0,40,100,.05) 100%); }
@@ -239,18 +239,18 @@ function BattleOverlayContent() {
         {statusMessage && <div className="stbadge">{statusMessage}</div>}
         <div className="hdr">
           <span className="hdr-name r">RONALDO</span>
-          <span style={{fontSize:'clamp(1.4rem,3.5vw,2.5rem)'}}>⚽</span>
+          <span style={{fontSize:'clamp(1.4rem,3.5vw,2.5rem)'}}>?</span>
           <span className="hdr-vs">VS</span>
-          <span style={{fontSize:'clamp(1.4rem,3.5vw,2.5rem)'}}>⚽</span>
+          <span style={{fontSize:'clamp(1.4rem,3.5vw,2.5rem)'}}>?</span>
           <span className="hdr-name m">MESSI</span>
         </div>
         <div className="prow">
           <div className="pbwrap">
-            <div className="plbl r">🧱 {ronaldoCount} / {goal}</div>
+            <div className="plbl r">?? {ronaldoCount} / {goal}</div>
             <div className="pbtrack"><div className="pbfill r" style={{width:`${Math.min(100,(ronaldoCount/goal)*100)}%`}}/></div>
           </div>
           <div className="pbwrap" style={{alignItems:'flex-end'}}>
-            <div className="plbl m">🧱 {messiCount} / {goal}</div>
+            <div className="plbl m">?? {messiCount} / {goal}</div>
             <div className="pbtrack"><div className="pbfill m" style={{width:`${Math.min(100,(messiCount/goal)*100)}%`}}/></div>
           </div>
         </div>
@@ -279,8 +279,8 @@ function BattleOverlayContent() {
           {confetti.map(c=>(
             <div key={c.id} className="cp" style={{left:`${c.x}%`,width:c.size,height:c.size*.6,backgroundColor:c.color,animationName:'cfall',animationDuration:`${c.duration}ms`,animationDelay:`${c.delay}ms`,animationTimingFunction:'linear',animationFillMode:'both',animationIterationCount:'infinite',transform:`rotate(${c.rotation}deg)`}}/>
           ))}
-          <div className={`wtxt ${winnerIsRonaldo?'r':'m'}`}>{winnerIsRonaldo?'🏆 RONALDO THẮNG!':'🏆 MESSI THẮNG!'}</div>
-          <div className="wtrophies">🏆 🏆 🏆</div>
+          <div className={`wtxt ${winnerIsRonaldo?'r':'m'}`}>{winnerIsRonaldo?'?? RONALDO TH?NG!':'?? MESSI TH?NG!'}</div>
+          <div className="wtrophies">?? ?? ??</div>
           <div style={{marginTop:14,color:'rgba(255,255,255,.5)',fontSize:'.8rem',letterSpacing:2}}>Reset sau {Math.ceil(winDisplayMs/1000)}s...</div>
         </div>
       )}
