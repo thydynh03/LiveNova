@@ -35,6 +35,7 @@ export default function DiscoDashboardPage() {
   const [customMusicInput, setCustomMusicInput] = useState<string>('');
   const [djVideoUrl, setDjVideoUrl] = useState<string>('');
   const [isDjVideoMuted, setIsDjVideoMuted] = useState<boolean>(true);
+  const [isAutoDirector, setIsAutoDirector] = useState<boolean>(true);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   // Test Simulator state
@@ -58,7 +59,7 @@ export default function DiscoDashboardPage() {
     }
   }, []);
 
-  const broadcastSync = (data: { musicUrl?: string; trackTitle?: string; videoUrl?: string }) => {
+  const broadcastSync = (data: { musicUrl?: string; trackTitle?: string; videoUrl?: string; cameraShot?: string; duration?: number }) => {
     if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
       try {
         const channel = new BroadcastChannel('livenova_disco_sync');
@@ -153,6 +154,18 @@ export default function DiscoDashboardPage() {
         engine.changeAvatar(senderId);
       } else if (['4', 'đi', 'đi vòng', 'walk'].includes(comment)) {
         engine.walk(senderId);
+      } else if (['!dj', '!pov', '!gocdj', 'pov', 'dj', 'goc dj', 'góc dj', 'view dj'].includes(comment)) {
+        engine.triggerDjPov(9000);
+        broadcastSync({ cameraShot: 'DJ_POV', duration: 9000 });
+      } else if (['!zoom', 'zoom', 'spotlight'].includes(comment)) {
+        engine.triggerSpotlightZoom(5000, senderId);
+        broadcastSync({ cameraShot: 'SPOTLIGHT_ZOOM', duration: 5000 });
+      } else if (['!crane', 'crane'].includes(comment)) {
+        engine.triggerCraneSwoop(6000);
+        broadcastSync({ cameraShot: 'CRANE_SWOOP', duration: 6000 });
+      } else if (['!orbit', 'orbit', 'wide'].includes(comment)) {
+        engine.triggerWideOrbit(8000);
+        broadcastSync({ cameraShot: 'WIDE_ORBIT', duration: 8000 });
       }
     } else if (event.type === LiveEventType.GIFT) {
       const senderId = event.senderUsername || 'unknown';
@@ -263,6 +276,33 @@ export default function DiscoDashboardPage() {
 
   const triggerClearDancers = () => {
     engine.clear();
+  };
+
+  // Camera Director Test Helpers
+  const triggerCameraDjPov = () => {
+    engine.triggerDjPov(9000);
+    broadcastSync({ cameraShot: 'DJ_POV', duration: 9000 });
+  };
+
+  const triggerCameraSpotlight = () => {
+    engine.triggerSpotlightZoom(5000);
+    broadcastSync({ cameraShot: 'SPOTLIGHT_ZOOM', duration: 5000 });
+  };
+
+  const triggerCameraCrane = () => {
+    engine.triggerCraneSwoop(6000);
+    broadcastSync({ cameraShot: 'CRANE_SWOOP', duration: 6000 });
+  };
+
+  const triggerCameraOrbit = () => {
+    engine.triggerWideOrbit(8000);
+    broadcastSync({ cameraShot: 'WIDE_ORBIT', duration: 8000 });
+  };
+
+  const toggleAutoDirector = () => {
+    const next = !isAutoDirector;
+    setIsAutoDirector(next);
+    engine.toggleAutoDirector(next);
   };
 
   if (!user) {
@@ -914,6 +954,124 @@ export default function DiscoDashboardPage() {
             </div>
           </div>
 
+          {/* Camera Director & DJ POV Fast Test Panel */}
+          <div style={{
+            background: 'hsl(var(--card))',
+            border: '1px solid hsl(var(--border))',
+            borderRadius: 'var(--radius)',
+            padding: '1.25rem',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '0.875rem'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <Icon name="broadcast" size={18} />
+                <span style={{ fontWeight: 700, fontSize: '0.875rem', color: 'hsl(var(--foreground))' }}>
+                  🎥 Đổi Góc Quay Camera (Test Nhanh)
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={toggleAutoDirector}
+                style={{
+                  padding: '0.2rem 0.6rem',
+                  borderRadius: '12px',
+                  fontSize: '0.75rem',
+                  fontWeight: 600,
+                  border: '1px solid hsl(var(--border))',
+                  background: isAutoDirector ? 'hsl(var(--primary) / 0.15)' : 'hsl(var(--muted))',
+                  color: isAutoDirector ? 'hsl(var(--primary))' : 'hsl(var(--muted-foreground))',
+                  cursor: 'pointer'
+                }}
+              >
+                {isAutoDirector ? '⚡ Tự động: BẬT' : '⏸️ Tự động: TẮT'}
+              </button>
+            </div>
+
+            {/* Fast Test Button Grid */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+              {/* 1. DJ POV Button */}
+              <button
+                type="button"
+                onClick={triggerCameraDjPov}
+                style={{
+                  gridColumn: 'span 2',
+                  padding: '0.625rem',
+                  borderRadius: 'var(--radius-sm)',
+                  background: 'linear-gradient(135deg, #00f0ff 0%, #0077ff 100%)',
+                  color: '#000',
+                  border: 'none',
+                  fontWeight: 800,
+                  fontSize: '0.8125rem',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '0.375rem',
+                  boxShadow: '0 4px 14px rgba(0, 240, 255, 0.35)'
+                }}
+              >
+                🎧 GÓC NHÌN DJ (POV NHÌN XUỐNG SÀN)
+              </button>
+
+              {/* 2. Spotlight Zoom */}
+              <button
+                type="button"
+                onClick={triggerCameraSpotlight}
+                style={{
+                  padding: '0.5rem',
+                  borderRadius: 'var(--radius-sm)',
+                  background: 'hsl(var(--secondary))',
+                  color: 'hsl(var(--secondary-foreground))',
+                  border: '1px solid hsl(var(--border))',
+                  fontWeight: 600,
+                  fontSize: '0.75rem',
+                  cursor: 'pointer'
+                }}
+              >
+                🔍 Zoom Cận Cảnh
+              </button>
+
+              {/* 3. Crane Swoop */}
+              <button
+                type="button"
+                onClick={triggerCameraCrane}
+                style={{
+                  padding: '0.5rem',
+                  borderRadius: 'var(--radius-sm)',
+                  background: 'hsl(var(--secondary))',
+                  color: 'hsl(var(--secondary-foreground))',
+                  border: '1px solid hsl(var(--border))',
+                  fontWeight: 600,
+                  fontSize: '0.75rem',
+                  cursor: 'pointer'
+                }}
+              >
+                🏗️ Cần Cẩu Lia Máy
+              </button>
+
+              {/* 4. Wide 3D Orbit */}
+              <button
+                type="button"
+                onClick={triggerCameraOrbit}
+                style={{
+                  gridColumn: 'span 2',
+                  padding: '0.5rem',
+                  borderRadius: 'var(--radius-sm)',
+                  background: 'hsl(var(--secondary))',
+                  color: 'hsl(var(--secondary-foreground))',
+                  border: '1px solid hsl(var(--border))',
+                  fontWeight: 600,
+                  fontSize: '0.75rem',
+                  cursor: 'pointer'
+                }}
+              >
+                🌐 Flycam Toàn Cảnh (Orbit)
+              </button>
+            </div>
+          </div>
+
           {/* Audience Guide Cheat Sheet */}
           <div style={{
             background: 'hsl(var(--card))',
@@ -932,6 +1090,8 @@ export default function DiscoDashboardPage() {
               <li><b>Gõ &quot;2&quot;, &quot;jump&quot;, &quot;nhảy&quot;:</b> Bật nhảy lên không trung.</li>
               <li><b>Gõ &quot;3&quot;, &quot;change&quot;, &quot;đổi&quot;:</b> Thay đổi diện mạo/avatar khác.</li>
               <li><b>Gõ &quot;4&quot;, &quot;walk&quot;, &quot;đi&quot;:</b> Đi bộ khám phá sân khấu.</li>
+              <li><b>Gõ &quot;!dj&quot;, &quot;!pov&quot;, &quot;goc dj&quot;:</b> Kích hoạt góc nhìn từ bàn DJ nhìn xuống biển khán giả!</li>
+              <li><b>Gõ &quot;!zoom&quot;, &quot;!crane&quot;, &quot;!orbit&quot;:</b> Đổi góc lia camera tự động.</li>
               <li><b>Tặng bất kỳ quà:</b> Phóng to, camera zoom cận cảnh 3.5s + pháo hoa.</li>
               <li><b>Tặng từ 199 xu:</b> Vinh danh TOP DJ bay lên bục trung tâm!</li>
             </ul>

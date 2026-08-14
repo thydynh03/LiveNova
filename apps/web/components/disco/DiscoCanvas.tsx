@@ -518,7 +518,95 @@ export default function DiscoCanvas({ engine }: DiscoCanvasProps) {
       ctx.restore(); // End Camera Transform
 
       // ==========================================
-      // 3. STROBE FLASH & SCREEN CHÓI SÁNG OVERLAY
+      // 3. DJ POV FOREGROUND MIXER DECK OVERLAY
+      // ==========================================
+      const isDjPov = engine.currentShotType === 'DJ_POV';
+      if (isDjPov) {
+        ctx.save();
+        const deckH = H * 0.18;
+        const deckY = H - deckH;
+
+        // Dark brushed metal console base
+        const deckGrad = ctx.createLinearGradient(0, deckY, 0, H);
+        deckGrad.addColorStop(0, 'rgba(10, 10, 20, 0.95)');
+        deckGrad.addColorStop(1, 'rgba(2, 2, 8, 1.0)');
+        ctx.fillStyle = deckGrad;
+        ctx.fillRect(0, deckY, W, deckH);
+
+        // Top neon cyan edge line
+        ctx.strokeStyle = '#00f0ff';
+        ctx.lineWidth = 2.5;
+        ctx.shadowColor = '#00f0ff';
+        ctx.shadowBlur = 12;
+        ctx.beginPath();
+        ctx.moveTo(0, deckY);
+        ctx.lineTo(W, deckY);
+        ctx.stroke();
+
+        // Dual DJ Turntables Jogwheels
+        const jogR = deckH * 0.38;
+        const leftJogX = W * 0.20;
+        const rightJogX = W * 0.80;
+        const jogCenterY = deckY + deckH * 0.52;
+
+        // Left Jogwheel
+        ctx.save();
+        ctx.translate(leftJogX, jogCenterY);
+        ctx.rotate(now * 0.003);
+        ctx.fillStyle = '#151522';
+        ctx.beginPath();
+        ctx.arc(0, 0, jogR, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#00f0ff';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        ctx.fillStyle = '#00f0ff';
+        ctx.fillRect(-jogR + 3, -2, 10, 4);
+        ctx.restore();
+
+        // Right Jogwheel
+        ctx.save();
+        ctx.translate(rightJogX, jogCenterY);
+        ctx.rotate(now * 0.0035);
+        ctx.fillStyle = '#151522';
+        ctx.beginPath();
+        ctx.arc(0, 0, jogR, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#ff007f';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        ctx.fillStyle = '#ff007f';
+        ctx.fillRect(-jogR + 3, -2, 10, 4);
+        ctx.restore();
+
+        // Center Mixer VU Meter & Display
+        const midX = W * 0.5;
+        ctx.fillStyle = '#0a0a14';
+        ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+        ctx.lineWidth = 1;
+        ctx.fillRect(midX - 55, deckY + 8, 110, deckH - 16);
+        ctx.strokeRect(midX - 55, deckY + 8, 110, deckH - 16);
+
+        // VU meter audio bars
+        for (let v = 0; v < 8; v++) {
+          const barH = Math.abs(Math.sin(now * 0.01 + v * 0.4)) * (deckH * 0.45);
+          ctx.fillStyle = v > 5 ? '#ff0055' : v > 3 ? '#ffea00' : '#00ffaa';
+          ctx.fillRect(midX - 35 + v * 9, deckY + deckH - 20 - barH, 6, barH);
+        }
+
+        // Live DJ POV Banner Text
+        ctx.textAlign = 'center';
+        ctx.font = 'bold 10px sans-serif';
+        ctx.fillStyle = '#00ffff';
+        ctx.shadowColor = '#00f0ff';
+        ctx.shadowBlur = 8;
+        ctx.fillText('🎧 LIVE DJ POV • 138.0 BPM', midX, deckY + 20);
+
+        ctx.restore();
+      }
+
+      // ==========================================
+      // 4. STROBE FLASH & SCREEN CHÓI SÁNG OVERLAY
       // ==========================================
       const beatStrobe = Math.max(0, Math.sin(now * 0.006) ** 7) * 0.15;
       const totalFlash = Math.min(0.85, (engine.flashIntensity || 0) + beatStrobe);

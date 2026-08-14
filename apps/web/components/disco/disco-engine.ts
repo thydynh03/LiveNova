@@ -294,10 +294,41 @@ export class DiscoEngine {
     });
   }
 
+  public currentShotType: 'WIDE_ORBIT' | 'SPOTLIGHT_ZOOM' | 'CRANE_SWOOP' | 'DJ_POV' = 'WIDE_ORBIT';
+  public isAutoDirectorEnabled: boolean = true;
   private nextCinematicShotTime: number = 0;
-  private currentShotType: 'WIDE_ORBIT' | 'SPOTLIGHT_ZOOM' | 'CRANE_SWOOP' = 'WIDE_ORBIT';
   private spotlightTargetId: string | null = null;
   private shotEndTime: number = 0;
+
+  triggerDjPov(durationMs = 9000) {
+    this.currentShotType = 'DJ_POV';
+    this.shotEndTime = Date.now() + durationMs;
+    this.nextCinematicShotTime = Date.now() + durationMs + 6000;
+  }
+
+  triggerSpotlightZoom(durationMs = 5000, targetId?: string) {
+    this.currentShotType = 'SPOTLIGHT_ZOOM';
+    const dancersArray = Array.from(this.dancers.values());
+    this.spotlightTargetId = targetId || (dancersArray.length > 0 ? dancersArray[Math.floor(Math.random() * dancersArray.length)].id : null);
+    this.shotEndTime = Date.now() + durationMs;
+    this.nextCinematicShotTime = Date.now() + durationMs + 6000;
+  }
+
+  triggerCraneSwoop(durationMs = 6000) {
+    this.currentShotType = 'CRANE_SWOOP';
+    this.shotEndTime = Date.now() + durationMs;
+    this.nextCinematicShotTime = Date.now() + durationMs + 6000;
+  }
+
+  triggerWideOrbit(durationMs = 8000) {
+    this.currentShotType = 'WIDE_ORBIT';
+    this.shotEndTime = Date.now() + durationMs;
+    this.nextCinematicShotTime = Date.now() + durationMs + 6000;
+  }
+
+  toggleAutoDirector(enabled?: boolean) {
+    this.isAutoDirectorEnabled = enabled !== undefined ? enabled : !this.isAutoDirectorEnabled;
+  }
 
   tick(now: number) {
     if (!this.lastTick) this.lastTick = now;
@@ -391,29 +422,28 @@ export class DiscoEngine {
       this.camera.lockedOnId = null;
 
       // Cycle cinematic shots automatically like real concert broadcast
-      if (now > this.nextCinematicShotTime) {
+      if (this.isAutoDirectorEnabled && now > this.nextCinematicShotTime) {
         const shotRoll = Math.random();
-        if (shotRoll < 0.40 && dancersArray.length > 0) {
-          // Spotlight zoom on a random dancer or DJ
-          this.currentShotType = 'SPOTLIGHT_ZOOM';
-          const randomDancer = dancersArray[Math.floor(Math.random() * dancersArray.length)];
-          this.spotlightTargetId = randomDancer.id;
-          this.shotEndTime = now + 4000;
-          this.nextCinematicShotTime = now + 13000;
-        } else if (shotRoll < 0.70) {
-          // Dynamic Crane swoop shot
-          this.currentShotType = 'CRANE_SWOOP';
-          this.shotEndTime = now + 5000;
-          this.nextCinematicShotTime = now + 14000;
+        if (shotRoll < 0.28 && dancersArray.length > 0) {
+          this.triggerSpotlightZoom(4500);
+        } else if (shotRoll < 0.52) {
+          // View góc nhìn của DJ nhìn xuống khán giả
+          this.triggerDjPov(7000);
+        } else if (shotRoll < 0.76) {
+          this.triggerCraneSwoop(5000);
         } else {
-          // Smooth wide 3D orbital sweep
-          this.currentShotType = 'WIDE_ORBIT';
-          this.shotEndTime = now + 7000;
-          this.nextCinematicShotTime = now + 15000;
+          this.triggerWideOrbit(8000);
         }
       }
 
-      if (this.currentShotType === 'SPOTLIGHT_ZOOM' && now < this.shotEndTime && this.spotlightTargetId) {
+      if (this.currentShotType === 'DJ_POV' && now < this.shotEndTime) {
+        // View góc nhìn từ bục DJ nhìn xuống toàn cảnh sàn nhảy và khán giả
+        this.camera.targetX = 0.5 + Math.sin(now * 0.0004) * 0.05;
+        this.camera.targetY = 0.40;
+        this.camera.targetPitch = 0.32 + Math.sin(now * 0.0006) * 0.03;
+        this.camera.targetYaw = Math.sin(now * 0.00025) * 0.16;
+        this.camera.targetScale = 1.40;
+      } else if (this.currentShotType === 'SPOTLIGHT_ZOOM' && now < this.shotEndTime && this.spotlightTargetId) {
         const targetDancer = this.dancers.get(this.spotlightTargetId);
         if (targetDancer) {
           this.camera.targetX = targetDancer.x;

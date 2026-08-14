@@ -20,6 +20,28 @@ function DiscoOverlayContent() {
     document.documentElement.style.backgroundColor = 'transparent';
   }, []);
 
+  useEffect(() => {
+    // Listen to BroadcastChannel for instant real-time camera shot switching
+    if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+      const channel = new BroadcastChannel('livenova_disco_sync');
+      channel.onmessage = (event) => {
+        const data = event.data;
+        if (data && data.type === 'SYNC_DISCO_MEDIA') {
+          if (data.cameraShot === 'DJ_POV') {
+            engine.triggerDjPov(data.duration || 9000);
+          } else if (data.cameraShot === 'SPOTLIGHT_ZOOM') {
+            engine.triggerSpotlightZoom(data.duration || 5000);
+          } else if (data.cameraShot === 'CRANE_SWOOP') {
+            engine.triggerCraneSwoop(data.duration || 6000);
+          } else if (data.cameraShot === 'WIDE_ORBIT') {
+            engine.triggerWideOrbit(data.duration || 8000);
+          }
+        }
+      };
+      return () => channel.close();
+    }
+  }, [engine]);
+
   const handleAction = useCallback((action: OverlayAction) => {
     const { event } = action;
     if (!event) return;
@@ -38,6 +60,14 @@ function DiscoOverlayContent() {
         engine.changeAvatar(senderId);
       } else if (['4', 'đi', 'đi vòng', 'walk'].includes(comment)) {
         engine.walk(senderId);
+      } else if (['!dj', '!pov', '!gocdj', 'pov', 'dj', 'goc dj', 'góc dj', 'view dj'].includes(comment)) {
+        engine.triggerDjPov(9000);
+      } else if (['!zoom', 'zoom', 'spotlight'].includes(comment)) {
+        engine.triggerSpotlightZoom(5000, senderId);
+      } else if (['!crane', 'crane'].includes(comment)) {
+        engine.triggerCraneSwoop(6000);
+      } else if (['!orbit', 'orbit', 'wide'].includes(comment)) {
+        engine.triggerWideOrbit(8000);
       }
     } else if (event.type === LiveEventType.GIFT) {
       const diamondCount = event.giftCoinValue || 1;
