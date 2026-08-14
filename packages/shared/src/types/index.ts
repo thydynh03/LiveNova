@@ -626,6 +626,7 @@ export function readAvatarDancePayload(payload: unknown): AvatarDancePayload | n
 export interface OverlayEventContext {
   type: LiveEventType;
   senderDisplayName: string;
+  senderUsername?: string;
   senderAvatar?: string;
   giftName?: string;
   giftCoinValue?: number;

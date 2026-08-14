@@ -122,17 +122,23 @@ export class TiktokService implements OnModuleInit, OnModuleDestroy {
       }
     }
 
-    live.on('chat', (data: any) => {
-      const text = data.comment || data.content || '';
+    const onChat = (data: any) => {
+      const text = data.comment || data.content || data.text || '';
+      const userIdent = identity(data);
+      this.logger.log(`[TikTok LIVE Chat] @${targetHandle} - ${userIdent.senderDisplayName} (@${userIdent.senderUsername}): "${text}"`);
       this.emitEvent({
         id: uuidv4(),
         type: LiveEventType.COMMENT,
         channelId,
-        ...identity(data),
+        ...userIdent,
         content: text,
         occurredAt: toDate(data.createTime || data.timestamp),
       });
-    });
+    };
+
+    live.on('chat', onChat);
+    live.on('comment', onChat);
+    live.on('message', onChat);
 
     live.on('gift', (data: any) => {
       if (data.giftType === 1 && !data.repeatEnd) return;
@@ -140,12 +146,14 @@ export class TiktokService implements OnModuleInit, OnModuleDestroy {
       const repeats = data.repeatCount > 0 ? data.repeatCount : 1;
       const unitValue = data.diamondCount > 0 ? data.diamondCount : 1;
       const giftName = data.giftName || data.giftDetails?.giftName || data.gift?.name || 'Quà';
+      const userIdent = identity(data);
+      this.logger.log(`[TikTok LIVE Gift] @${targetHandle} - ${userIdent.senderDisplayName} tặng ${repeats}x ${giftName} (${unitValue * repeats} xu)`);
 
       this.emitEvent({
         id: uuidv4(),
         type: LiveEventType.GIFT,
         channelId,
-        ...identity(data),
+        ...userIdent,
         giftName,
         giftCoinValue: unitValue * repeats,
         occurredAt: toDate(data.createTime || data.timestamp),
@@ -165,11 +173,24 @@ export class TiktokService implements OnModuleInit, OnModuleDestroy {
     });
 
     live.on('member', (data: any) => {
+      const userIdent = identity(data);
+      this.logger.log(`[TikTok LIVE Member/Join] @${targetHandle} - ${userIdent.senderDisplayName} (@${userIdent.senderUsername}) vào phòng live`);
       this.emitEvent({
         id: uuidv4(),
         type: LiveEventType.JOIN,
         channelId,
-        ...identity(data),
+        ...userIdent,
+        occurredAt: toDate(data.createTime || data.timestamp),
+      });
+    });
+
+    live.on('roomUser', (data: any) => {
+      const userIdent = identity(data);
+      this.emitEvent({
+        id: uuidv4(),
+        type: LiveEventType.JOIN,
+        channelId,
+        ...userIdent,
         occurredAt: toDate(data.createTime || data.timestamp),
       });
     });

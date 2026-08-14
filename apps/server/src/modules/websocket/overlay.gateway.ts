@@ -206,6 +206,7 @@ export class OverlayGateway implements OnGatewayConnection, OnGatewayDisconnect 
         payload: { kind: 'live_event' },
         event: {
           type: event.type,
+          senderUsername: event.senderUsername,
           senderDisplayName: event.senderDisplayName,
           senderAvatar: event.senderAvatar,
           content: event.content,
@@ -214,6 +215,7 @@ export class OverlayGateway implements OnGatewayConnection, OnGatewayDisconnect 
         },
       };
 
+      this.logger.log(`[OverlayGateway] Broadcast live event to ${OverlayGateway.userRoom(userId)}: ${event.type} from ${event.senderDisplayName} ("${event.content || ''}")`);
       this.server.to(OverlayGateway.userRoom(userId)).emit(OVERLAY_SOCKET.ACTION, action);
     } catch (err) {
       this.logger.error(`Error forwarding live event to overlays: ${err}`);

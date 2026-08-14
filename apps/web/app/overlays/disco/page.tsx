@@ -87,6 +87,7 @@ function DiscoOverlayContent() {
   const handleAction = useCallback((action: OverlayAction) => {
     const { event } = action;
     if (!event) return;
+    console.log('[Disco Overlay] Received action:', action);
 
     const senderId = (event as { senderUsername?: string }).senderUsername || event.senderDisplayName || 'khangia';
     const senderName = event.senderDisplayName || senderId;

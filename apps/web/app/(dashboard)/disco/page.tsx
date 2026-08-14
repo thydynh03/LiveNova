@@ -156,6 +156,7 @@ export default function DiscoDashboardPage() {
   };
 
   const handleEvent = useCallback((event: LiveEvent) => {
+    console.log('[Disco Dashboard] Received live event:', event);
     const senderId = event.senderUsername || event.senderDisplayName || 'unknown';
     const senderName = event.senderDisplayName || senderId;
     const avatarUrl = event.senderAvatar;
