@@ -226,6 +226,42 @@ export default function DiscoStageView({
     return () => clearInterval(interval);
   }, []);
 
+  // Synchronize 3D camera pan, tilt, and orbit to background image & LED screen
+  const [camTransform, setCamTransform] = useState({
+    bgTransform: 'scale(1.32) translate3d(0px, 0px, 0px)',
+    screenTransform: 'translate3d(0px, 0px, 35px)',
+  });
+
+  useEffect(() => {
+    let animId: number;
+    const updateCam = () => {
+      if (engine && engine.camera) {
+        const { yaw, pitch, x, y, scale } = engine.camera;
+        // Background 3D Parallax Transform (Scales to 1.32x so rotating camera never reveals black screen edges)
+        const bgShiftX = (0.5 - x) * 140 - Math.sin(yaw) * 130;
+        const bgShiftY = (0.52 - y) * 90 + (pitch - 0.12) * 80;
+        const bgRotY = yaw * 14;
+        const bgRotX = -(pitch - 0.12) * 12;
+        const bgZoom = 1.32 * Math.max(0.9, Math.min(1.5, scale * 0.95));
+
+        // Screen 3D Parallax Transform (Higher foreground parallax depth)
+        const screenShiftX = (0.5 - x) * 180 - Math.sin(yaw) * 165;
+        const screenShiftY = (0.52 - y) * 115 + (pitch - 0.12) * 105;
+        const screenRotY = yaw * 18;
+        const screenRotX = -(pitch - 0.12) * 15;
+        const screenZoom = Math.max(0.85, Math.min(1.7, scale));
+
+        setCamTransform({
+          bgTransform: `scale(${bgZoom}) translate3d(${bgShiftX.toFixed(1)}px, ${bgShiftY.toFixed(1)}px, 0px) rotateY(${bgRotY.toFixed(2)}deg) rotateX(${bgRotX.toFixed(2)}deg)`,
+          screenTransform: `translate3d(${screenShiftX.toFixed(1)}px, ${screenShiftY.toFixed(1)}px, 35px) rotateY(${screenRotY.toFixed(2)}deg) rotateX(${screenRotX.toFixed(2)}deg) scale(${screenZoom.toFixed(2)})`,
+        });
+      }
+      animId = requestAnimationFrame(updateCam);
+    };
+    animId = requestAnimationFrame(updateCam);
+    return () => cancelAnimationFrame(animId);
+  }, [engine]);
+
   // Format YouTube Embed if user enters a YouTube URL
   const ytEmbedUrl = useMemo(() => {
     if (!activeVideoUrl) return null;
@@ -283,10 +319,10 @@ export default function DiscoStageView({
             left: '50%',
             transform: 'translateX(-50%)',
             zIndex: 40,
-            background: 'rgba(5, 5, 15, 0.85)',
+            background: 'rgba(5, 5, 12, 0.85)',
             backdropFilter: 'blur(12px)',
-            border: '1px solid rgba(0, 240, 255, 0.5)',
-            boxShadow: '0 0 20px rgba(0, 240, 255, 0.4)',
+            border: '1px solid rgba(0, 240, 255, 0.4)',
+            boxShadow: '0 0 25px rgba(0, 240, 255, 0.25)',
             borderRadius: '24px',
             padding: '6px 16px',
             display: 'flex',
@@ -346,98 +382,125 @@ export default function DiscoStageView({
           ))}
         </div>
       </div>
-      {/* 1. Background Nightclub Bar Stage Image */}
-      <div style={{ position: 'absolute', inset: 0, zIndex: 0 }}>
-        <Image
-          src="/assets/disco/Stage/premium-stage-v2.png"
-          alt="Nightclub Bar Stage"
-          fill
-          style={{ objectFit: 'cover', objectPosition: 'center center' }}
-          priority
-        />
-      </div>
 
-      {/* 2. Panoramic LED Video Screen Wall behind distant DJ Booth */}
+      {/* 3D Perspective Stage & Background Environment Container */}
       <div
         style={{
           position: 'absolute',
-          top: aspect === 'vertical' ? '31.2%' : '18%',
-          left: aspect === 'vertical' ? '36.2%' : '38%',
-          width: aspect === 'vertical' ? '27.6%' : '24%',
-          height: aspect === 'vertical' ? '10.6%' : '16%',
-          zIndex: 2,
-          borderRadius: 6,
+          inset: 0,
+          perspective: '1000px',
+          perspectiveOrigin: '50% 50%',
           overflow: 'hidden',
-          backgroundColor: '#000',
-          boxShadow: '0 0 30px rgba(0, 240, 255, 0.6), inset 0 0 15px rgba(255, 0, 160, 0.35)',
-          border: '1.5px solid rgba(0, 240, 255, 0.8)',
+          zIndex: 0,
         }}
       >
-        {/* Video / GIF Content or Clean Cyber LED Visualizer */}
-        {hasCustomVideo ? (
-          ytEmbedUrl ? (
-            <iframe
-              src={ytEmbedUrl}
-              style={{ width: '100%', height: '100%', border: 'none', pointerEvents: 'none' }}
-              allow="autoplay; encrypted-media"
-              title="DJ Video Screen"
-            />
-          ) : isImageOrGif ? (
-            <img
-              src={activeVideoUrl}
-              alt="DJ Custom Screen"
-              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-            />
-          ) : (
-            <video
-              src={activeVideoUrl}
-              autoPlay
-              loop
-              muted={isMuted}
-              playsInline
-              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-            />
-          )
-        ) : (
-          <CyberLedVisualizer />
-        )}
-
-        {/* LED Equalizer Audio Bars at bottom of video frame */}
+        {/* 1. Dynamic 3D Moving Nightclub Bar Stage Image */}
         <div
           style={{
             position: 'absolute',
-            bottom: 0,
-            left: 0,
-            right: 0,
-            height: '24px',
-            background: 'linear-gradient(to top, rgba(0,0,0,0.85), transparent)',
-            display: 'flex',
-            alignItems: 'flex-end',
-            justifyContent: 'center',
-            gap: '3px',
-            padding: '0 8px 3px 8px',
-            pointerEvents: 'none',
+            inset: '-15%',
+            zIndex: 0,
+            transform: camTransform.bgTransform,
+            transformOrigin: '50% 50%',
+            transition: 'transform 0.04s ease-out',
+            willChange: 'transform',
           }}
         >
-          {eqHeights.map((h, idx) => (
-            <div
-              key={idx}
-              style={{
-                flex: 1,
-                maxWidth: '6px',
-                height: `${h}%`,
-                background:
-                  h > 50
-                    ? '#ff0055'
-                    : h > 35
-                    ? '#ffbb00'
-                    : '#00ffaa',
-                borderRadius: '2px 2px 0 0',
-                boxShadow: '0 0 6px currentColor',
-                transition: 'height 0.1s ease',
-              }}
-            />
-          ))}
+          <Image
+            src="/assets/disco/Stage/premium-stage-v2.png"
+            alt="Nightclub Bar Stage"
+            fill
+            style={{ objectFit: 'cover', objectPosition: 'center center' }}
+            priority
+          />
+        </div>
+
+        {/* 2. Massive Panoramic LED Video Screen Wall behind DJ Booth */}
+        <div
+          style={{
+            position: 'absolute',
+            top: aspect === 'vertical' ? '13%' : '7%',
+            left: aspect === 'vertical' ? '16%' : '22%',
+            width: aspect === 'vertical' ? '68%' : '56%',
+            height: aspect === 'vertical' ? '25%' : '30%',
+            zIndex: 2,
+            borderRadius: '12px',
+            overflow: 'hidden',
+            backgroundColor: '#000',
+            boxShadow: '0 0 35px rgba(0, 240, 255, 0.7), inset 0 0 20px rgba(255, 0, 160, 0.4)',
+            border: '2px solid rgba(0, 240, 255, 0.85)',
+            transform: camTransform.screenTransform,
+            transformOrigin: '50% 50%',
+            transition: 'transform 0.04s ease-out',
+            willChange: 'transform',
+          }}
+        >
+          {/* Video / GIF Content or Clean Cyber LED Visualizer */}
+          {hasCustomVideo ? (
+            ytEmbedUrl ? (
+              <iframe
+                src={ytEmbedUrl}
+                style={{ width: '100%', height: '100%', border: 'none', pointerEvents: 'none' }}
+                allow="autoplay; encrypted-media"
+                title="DJ Video Screen"
+              />
+            ) : isImageOrGif ? (
+              <img
+                src={activeVideoUrl}
+                alt="DJ Custom Screen"
+                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+              />
+            ) : (
+              <video
+                src={activeVideoUrl}
+                autoPlay
+                loop
+                muted={isMuted}
+                playsInline
+                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+              />
+            )
+          ) : (
+            <CyberLedVisualizer />
+          )}
+
+          {/* LED Equalizer Audio Bars at bottom of video frame */}
+          <div
+            style={{
+              position: 'absolute',
+              bottom: 0,
+              left: 0,
+              right: 0,
+              height: '24px',
+              background: 'linear-gradient(to top, rgba(0,0,0,0.85), transparent)',
+              display: 'flex',
+              alignItems: 'flex-end',
+              justifyContent: 'center',
+              gap: '3px',
+              padding: '0 8px 3px 8px',
+              pointerEvents: 'none',
+            }}
+          >
+            {eqHeights.map((h, idx) => (
+              <div
+                key={idx}
+                style={{
+                  flex: 1,
+                  maxWidth: '6px',
+                  height: `${h}%`,
+                  background:
+                    h > 50
+                      ? '#ff0055'
+                      : h > 35
+                      ? '#ffbb00'
+                      : '#00ffaa',
+                  borderRadius: '2px 2px 0 0',
+                  boxShadow: '0 0 6px currentColor',
+                  transition: 'height 0.1s ease',
+                }}
+              />
+            ))}
+          </div>
         </div>
       </div>
 

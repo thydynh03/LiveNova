@@ -719,32 +719,6 @@ export default function DiscoCanvas({ engine }: DiscoCanvasProps) {
           pointerEvents: 'none',
         }}
       />
-
-      {/* Floating 3D Orbital Camera Control Pill */}
-      <div
-        style={{
-          position: 'absolute',
-          bottom: '12px',
-          right: '12px',
-          zIndex: 30,
-          background: 'rgba(5, 5, 12, 0.75)',
-          backdropFilter: 'blur(10px)',
-          border: '1px solid rgba(0, 240, 255, 0.35)',
-          boxShadow: '0 4px 15px rgba(0,0,0,0.5)',
-          borderRadius: '20px',
-          padding: '4px 10px',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '6px',
-          fontSize: '11px',
-          fontWeight: 600,
-          color: '#00f0ff',
-          pointerEvents: 'none',
-        }}
-      >
-        <span style={{ fontSize: '12px' }}>🔄</span>
-        <span>Kéo chuột / vuốt để xoay 3D • Cuộn phóng to</span>
-      </div>
     </div>
   );
 }
