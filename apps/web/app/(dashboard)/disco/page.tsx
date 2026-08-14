@@ -199,14 +199,8 @@ export default function DiscoDashboardPage() {
   const handleVideoFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        const dataUrl = event.target?.result as string;
-        if (dataUrl) {
-          handleSetVideoUrl(dataUrl);
-        }
-      };
-      reader.readAsDataURL(file);
+      const blobUrl = URL.createObjectURL(file);
+      handleSetVideoUrl(blobUrl);
     }
   };
 

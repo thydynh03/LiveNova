@@ -315,14 +315,14 @@ export function DiscoThreeStage({ engine, videoUrl, isMuted = true }: DiscoThree
     for (let i = 0; i < 5; i++) {
       const hex = top5Colors[i];
 
-      // Volumetric spotlight cone: NARROW at ceiling (radiusBottom = 0.16 at y=0), WIDE at floor (radiusTop = 2.4 at y=1)
-      const beamGeo = new THREE.CylinderGeometry(2.4, 0.16, 1, 24, 1, true);
-      beamGeo.translate(0, 0.5, 0); // Origin y=0 is narrow tip at ceiling, y=1 is wide base at floor
+      // Volumetric spotlight cone: NARROW at ceiling (radiusBottom = 0.08), COMPACT at floor (radiusTop = 1.15)
+      const beamGeo = new THREE.CylinderGeometry(1.15, 0.08, 1, 24, 1, true);
+      beamGeo.translate(0, 0.5, 0); // Origin y=0 is narrow tip at ceiling, y=1 is base at floor
 
       const beamMat = new THREE.MeshBasicMaterial({
         color: hex,
         transparent: true,
-        opacity: 0.38,
+        opacity: 0.35,
         blending: THREE.AdditiveBlending,
         side: THREE.DoubleSide,
         depthWrite: false,
@@ -331,23 +331,23 @@ export function DiscoThreeStage({ engine, videoUrl, isMuted = true }: DiscoThree
       beamMesh.visible = false;
       top5SpotlightGroup.add(beamMesh);
 
-      // Glowing Floor Projection Ring matching the wide base
+      // Glowing Floor Projection Ring - Compact size (2.0 x 2.0)
       const floorMat = new THREE.MeshBasicMaterial({
         map: spotDiscTex,
         color: hex,
         transparent: true,
-        opacity: 0.65,
+        opacity: 0.55,
         blending: THREE.AdditiveBlending,
         depthWrite: false,
         side: THREE.DoubleSide,
       });
-      const floorRing = new THREE.Mesh(new THREE.PlaneGeometry(4.2, 4.2), floorMat);
+      const floorRing = new THREE.Mesh(new THREE.PlaneGeometry(2.0, 2.0), floorMat);
       floorRing.rotation.x = -Math.PI / 2;
       floorRing.visible = false;
       top5SpotlightGroup.add(floorRing);
 
       // Real Point Light illuminating character directly
-      const pointLight = new THREE.PointLight(hex, 3.2, 10, 1.6);
+      const pointLight = new THREE.PointLight(hex, 2.8, 8, 1.6);
       pointLight.visible = false;
       top5SpotlightGroup.add(pointLight);
 
@@ -582,10 +582,16 @@ export function DiscoThreeStage({ engine, videoUrl, isMuted = true }: DiscoThree
       if (isImage) {
         imageEl = new Image();
         imageEl.crossOrigin = 'anonymous';
+        imageEl.onload = () => {};
+        imageEl.onerror = () => {
+          if (imageEl) {
+            imageEl.removeAttribute('crossorigin');
+            imageEl.src = trimmedUrl;
+          }
+        };
         imageEl.src = trimmedUrl;
       } else {
         videoEl = document.createElement('video');
-        videoEl.src = trimmedUrl;
         videoEl.crossOrigin = 'anonymous';
         videoEl.loop = true;
         videoEl.muted = isMuted;
@@ -594,18 +600,24 @@ export function DiscoThreeStage({ engine, videoUrl, isMuted = true }: DiscoThree
         videoEl.setAttribute('playsinline', '');
         videoEl.setAttribute('webkit-playsinline', '');
         videoEl.autoplay = true;
+        videoEl.src = trimmedUrl;
+        videoEl.load();
 
-        const playPromise = videoEl.play();
+        const currentVideo = videoEl;
+        const playPromise = currentVideo.play();
         if (playPromise !== undefined) {
           playPromise.catch(() => {
-            // If autoplay failed due to muted or CORS, retry with muted
-            if (videoEl) {
-              videoEl.muted = true;
-              videoEl.play().catch(() => {});
-            }
+            // Retry with muted or without crossOrigin if blocked
+            currentVideo.muted = true;
+            currentVideo.play().catch(() => {
+              currentVideo.removeAttribute('crossorigin');
+              currentVideo.src = trimmedUrl;
+              currentVideo.load();
+              currentVideo.play().catch(() => {});
+            });
           });
         }
-        videoRef.current = videoEl;
+        videoRef.current = currentVideo;
       }
     }
 
@@ -661,6 +673,9 @@ export function DiscoThreeStage({ engine, videoUrl, isMuted = true }: DiscoThree
       const dt = (time - lastTime) / 1000;
       lastTime = time;
       const nowSec = time * 0.001;
+
+      // STEP ENGINE PHYSICS & QUEUE ON EVERY FRAME
+      engine.tick(Date.now());
       
       const smokeActive = engine.smokeEffectActive === true;
       const effects = engine.activeEffects || [];
@@ -786,7 +801,7 @@ export function DiscoThreeStage({ engine, videoUrl, isMuted = true }: DiscoThree
       if (vCtx) {
         let hasCustomMedia = false;
 
-        if (videoEl && videoEl.readyState >= 2 && !videoEl.paused) {
+        if (videoEl && (videoEl.readyState >= 1 || videoEl.videoWidth > 0) && !videoEl.paused) {
           try {
             vCtx.drawImage(videoEl, 0, 0, 1024, 512);
             hasCustomMedia = true;
@@ -1075,7 +1090,7 @@ export function DiscoThreeStage({ engine, videoUrl, isMuted = true }: DiscoThree
 
           // Position and rotate the conical spotlight beam
           spot.beamMesh.position.copy(fromVec);
-          const beamPulse = 1.15 + Math.sin(nowSec * 6 + s) * 0.12;
+          const beamPulse = 1.0 + Math.sin(nowSec * 5 + s) * 0.06;
           spot.beamMesh.scale.set(beamPulse, dist, beamPulse);
 
           const normDir = dir.clone().normalize();
@@ -1084,13 +1099,13 @@ export function DiscoThreeStage({ engine, videoUrl, isMuted = true }: DiscoThree
 
           // Position glowing floor aura beneath the dancer's feet
           spot.floorRing.position.set(coord.x, coord.floorY, coord.z);
-          const ringPulse = 1.0 + Math.sin(nowSec * 8 + s) * 0.15;
+          const ringPulse = 1.0 + Math.sin(nowSec * 7 + s) * 0.08;
           spot.floorRing.scale.set(ringPulse, ringPulse, 1);
-          (spot.floorRing.material as THREE.MeshBasicMaterial).opacity = 0.55 + Math.sin(nowSec * 7 + s) * 0.2;
+          (spot.floorRing.material as THREE.MeshBasicMaterial).opacity = 0.5 + Math.sin(nowSec * 6 + s) * 0.15;
 
           // Point light directly illuminating the Top character
           spot.pointLight.position.set(coord.x, coord.y + 1.2, coord.z + 0.3);
-          spot.pointLight.intensity = 2.8 + Math.sin(nowSec * 9 + s) * 0.7;
+          spot.pointLight.intensity = 2.4 + Math.sin(nowSec * 8 + s) * 0.5;
         } else {
           spot.beamMesh.visible = false;
           spot.floorRing.visible = false;
