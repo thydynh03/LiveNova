@@ -208,7 +208,7 @@ export class DiscoEngine {
   join(id: string, name: string, avatarUrl?: string) {
     if (this.dancers.has(id)) {
       this.jump(id);
-      this.zoomOn(id, 2500);
+      this.triggerSpotlightZoom(6000, id);
       return;
     }
 
@@ -220,23 +220,25 @@ export class DiscoEngine {
       name,
       avatarUrl,
       x: Math.random() * 0.76 + 0.12, // Random x across arena
-      y: 0.95, // Spawn directly on floor
+      y: 0.35, // Drop from above the dance floor
       z: Math.random() * 0.78 + 0.20, // Random depth row in arena
-      vy: 0,
+      vy: -2.2, // Drop velocity with bouncy landing
       vx: (Math.random() - 0.5) * 0.04, // Slight horizontal drift
       color: randomColor,
       spriteId: randomSprite,
-      scale: 1,
+      scale: 1.25,
       targetScale: 1,
-      state: 'dancing',
+      state: 'jumping',
       danceOffset: Math.random() * Math.PI * 2,
       isDj: false,
       points: 0,
     });
 
-    // Camera zooms/pans to welcome new dancer for 3.5 seconds
-    this.zoomOn(id, 3500);
-    this.triggerFlash(0.3);
+    // Camera zooms/pans immediately to welcome new dancer dropping onto the floor
+    // If another viewer joins, this immediately overrides the spotlight to the new dancer!
+    this.triggerSpotlightZoom(6000, id);
+    this.triggerFlash(0.4);
+    this.triggerFirework();
   }
 
   enqueueGift(senderId: string, senderName: string, giftPoints: number, avatarUrl?: string) {
@@ -494,6 +496,10 @@ export class DiscoEngine {
     this.isDjPovFirstPerson = false;
     const dancersArray = Array.from(this.dancers.values());
     this.spotlightTargetId = targetId || (dancersArray.length > 0 ? dancersArray[Math.floor(Math.random() * dancersArray.length)].id : null);
+    if (this.spotlightTargetId) {
+      this.camera.lockedOnId = this.spotlightTargetId;
+      this.camera.lockTimeout = Date.now() + durationMs;
+    }
     this.shotEndTime = Date.now() + durationMs;
     this.nextCinematicShotTime = Date.now() + durationMs + 30000; // 30 seconds interval per random focus
   }

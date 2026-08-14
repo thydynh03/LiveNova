@@ -130,4 +130,12 @@ export class ChannelService {
     });
     return count > 0;
   }
+
+  async getUserIdForChannel(channelId: string): Promise<string | null> {
+    const channel = await this.prisma.channel.findUnique({
+      where: { id: channelId },
+      select: { userId: true },
+    });
+    return channel?.userId ?? null;
+  }
 }

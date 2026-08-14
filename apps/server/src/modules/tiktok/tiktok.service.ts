@@ -128,7 +128,7 @@ export class TiktokService implements OnModuleInit, OnModuleDestroy {
         id: uuidv4(),
         type: LiveEventType.COMMENT,
         channelId,
-        ...identity(data.user),
+        ...identity(data),
         content: text,
         occurredAt: toDate(data.createTime || data.timestamp),
       });
@@ -145,7 +145,7 @@ export class TiktokService implements OnModuleInit, OnModuleDestroy {
         id: uuidv4(),
         type: LiveEventType.GIFT,
         channelId,
-        ...identity(data.user),
+        ...identity(data),
         giftName,
         giftCoinValue: unitValue * repeats,
         occurredAt: toDate(data.createTime || data.timestamp),
@@ -158,7 +158,7 @@ export class TiktokService implements OnModuleInit, OnModuleDestroy {
         id: uuidv4(),
         type: LiveEventType.LIKE,
         channelId,
-        ...identity(data.user),
+        ...identity(data),
         content: `Thả ${likeCount} tim`,
         occurredAt: toDate(data.createTime || data.timestamp),
       });
@@ -169,7 +169,7 @@ export class TiktokService implements OnModuleInit, OnModuleDestroy {
         id: uuidv4(),
         type: LiveEventType.JOIN,
         channelId,
-        ...identity(data.user),
+        ...identity(data),
         occurredAt: toDate(data.createTime || data.timestamp),
       });
     });
@@ -180,7 +180,7 @@ export class TiktokService implements OnModuleInit, OnModuleDestroy {
         id: uuidv4(),
         type: isFollow ? LiveEventType.FOLLOW : LiveEventType.SHARE,
         channelId,
-        ...identity(data.user),
+        ...identity(data),
         occurredAt: toDate(data.createTime || data.timestamp),
       });
     });
@@ -313,12 +313,35 @@ export class TiktokService implements OnModuleInit, OnModuleDestroy {
 }
 
 /** Viewer identity, with the same fallbacks applied everywhere. */
-function identity(user: { nickname?: string; uniqueId?: string; displayId?: string } | undefined) {
-  const username = user?.displayId || user?.uniqueId || 'unknown';
-  const name = user?.nickname || username || 'Khán giả';
+function identity(data: any) {
+  const user = data?.user || data;
+  const username =
+    data?.uniqueId ||
+    user?.uniqueId ||
+    data?.displayId ||
+    user?.displayId ||
+    data?.userId ||
+    user?.userId ||
+    'unknown';
+  const name =
+    data?.nickname ||
+    user?.nickname ||
+    data?.displayName ||
+    user?.displayName ||
+    username ||
+    'Khán giả';
+  const avatar =
+    data?.profilePictureUrl ||
+    user?.profilePictureUrl ||
+    data?.avatarUrl ||
+    user?.avatarUrl ||
+    data?.userDetails?.profilePictureUrls?.[0] ||
+    user?.userDetails?.profilePictureUrls?.[0] ||
+    user?.profilePictureUrls?.[0];
   return {
     senderUsername: username,
     senderDisplayName: name,
+    senderAvatar: avatar,
   };
 }
 
