@@ -105,7 +105,7 @@ export class DiscoEngine {
           name: item.name,
           avatarUrl: `/assets/disco/Characters/${item.sprite}/000.png`,
           x: spreadX,
-          y: item.isDj ? 0.48 : 0.95,
+          y: item.isDj ? 0.505 : 0.95,
           z: item.z || 0.5,
           vy: 0,
           vx: (Math.random() - 0.5) * 0.04,
@@ -270,7 +270,7 @@ export class DiscoEngine {
       // DJ Physics override (Standing right behind the mixer desk)
       if (dancer.isDj) {
         const targetX = 0.5;
-        const targetY = 0.525;
+        const targetY = 0.505;
         
         // Lerp to DJ position behind the mixer table
         dancer.x += (targetX - dancer.x) * 3 * dt;

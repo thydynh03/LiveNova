@@ -229,21 +229,21 @@ export default function DiscoCanvas({ engine }: DiscoCanvasProps) {
         if (dancer.isDj) {
           return {
             x: 0.5 * W,
-            y: isVertical ? H * 0.525 : H * 0.48,
+            y: isVertical ? H * 0.505 : H * 0.46,
             renderScale: dancer.scale * (isVertical ? 1.25 : 1.1),
             depth: 0.05,
           };
         }
         const z = Math.max(0.1, Math.min(1.0, dancer.z ?? 0.5));
-        // Top-down elevated floor perspective spanning from 0.58 to 0.94
-        const baseFloorY = isVertical ? (H * 0.58 + z * (H * 0.36)) : (H * 0.50 + z * (H * 0.45));
+        // Top-down elevated floor perspective spanning from 0.58 to 0.96
+        const baseFloorY = isVertical ? (H * 0.58 + z * (H * 0.38)) : (H * 0.50 + z * (H * 0.46));
         let y = dancer.y < 1.0 ? dancer.y * baseFloorY : baseFloorY;
         if (dancer.state === 'dancing') {
           y -= Math.abs(Math.sin(dancer.danceOffset)) * (4 + z * 5);
         }
-        // Wide horizontal spread reaching both left and right flanks
-        const x = W * (0.5 + (dancer.x - 0.5) * (0.90 + z * 0.18));
-        const renderScale = (0.52 + z * 0.52) * dancer.scale;
+        // Wide horizontal spread reaching both left and right flanks of the glossy floor
+        const x = W * (0.5 + (dancer.x - 0.5) * (0.92 + z * 0.16));
+        const renderScale = (0.50 + z * 0.54) * dancer.scale;
         return { x, y, renderScale, depth: z };
       };
 

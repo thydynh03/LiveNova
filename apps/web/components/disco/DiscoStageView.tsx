@@ -202,12 +202,12 @@ export default function DiscoStageView({
       <div
         style={{
           position: 'absolute',
-          top: aspect === 'vertical' ? '25.5%' : '14%',
-          left: aspect === 'vertical' ? '12%' : '20%',
-          width: aspect === 'vertical' ? '76%' : '60%',
-          height: aspect === 'vertical' ? '25.5%' : '34%',
+          top: aspect === 'vertical' ? '31.8%' : '20%',
+          left: aspect === 'vertical' ? '23%' : '28%',
+          width: aspect === 'vertical' ? '54%' : '44%',
+          height: aspect === 'vertical' ? '15.8%' : '24%',
           zIndex: 2,
-          borderRadius: 10,
+          borderRadius: 8,
           overflow: 'hidden',
           backgroundColor: '#000',
           boxShadow: '0 0 35px rgba(0, 240, 255, 0.6), inset 0 0 25px rgba(255, 0, 160, 0.35)',
