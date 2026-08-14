@@ -10,6 +10,12 @@ interface DiscoThreeStageProps {
   isMuted?: boolean;
 }
 
+function extractYouTubeId(url?: string): string | null {
+  if (!url) return null;
+  const match = url.match(/(?:youtube\.com\/(?:[^/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?/\s]{11})/i);
+  return match ? match[1] : null;
+}
+
 export function DiscoThreeStage({ engine, videoUrl, isMuted = true }: DiscoThreeStageProps) {
   const mountRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -21,9 +27,13 @@ export function DiscoThreeStage({ engine, videoUrl, isMuted = true }: DiscoThree
     let width = container.clientWidth || 800;
     let height = container.clientHeight || 600;
 
+    const ytId = extractYouTubeId(videoUrl);
+
     // 1. Scene, Camera, Fog & Renderer
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x06030c);
+    if (!ytId) {
+      scene.background = new THREE.Color(0x06030c);
+    }
     scene.fog = new THREE.FogExp2(0x070412, 0.024);
 
     const camera = new THREE.PerspectiveCamera(52, width / height, 0.1, 150);
@@ -31,7 +41,7 @@ export function DiscoThreeStage({ engine, videoUrl, isMuted = true }: DiscoThree
 
     const renderer = new THREE.WebGLRenderer({
       antialias: true,
-      alpha: false,
+      alpha: Boolean(ytId),
       powerPreference: 'high-performance',
     });
     renderer.setSize(width, height);
@@ -212,10 +222,14 @@ export function DiscoThreeStage({ engine, videoUrl, isMuted = true }: DiscoThree
     const ledScreenMat = new THREE.MeshBasicMaterial({
       map: videoTexture,
       side: THREE.BackSide,
+      transparent: true,
+      opacity: ytId ? 0 : 1,
     });
     const ledScreen = new THREE.Mesh(ledScreenGeo, ledScreenMat);
     ledScreen.position.set(0, 5.2, -2.8);
-    scene.add(ledScreen);
+    if (!ytId) {
+      scene.add(ledScreen);
+    }
 
     // Glowing Neon Frames on Wide LED Video Wall
     const frameGeo = new THREE.CylinderGeometry(ledRadius + 0.02, ledRadius + 0.02, 0.22, 48, 1, true, thetaStart, thetaLength);

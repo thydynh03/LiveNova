@@ -13,6 +13,12 @@ export interface DiscoStageViewProps {
   enableAudio?: boolean;
 }
 
+function getYouTubeId(url: string): string | null {
+  if (!url) return null;
+  const match = url.match(/(?:youtube\.com\/(?:[^/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?/\s]{11})/i);
+  return match ? match[1] : null;
+}
+
 export default function DiscoStageView({
   engine,
   videoUrl = '',
@@ -26,6 +32,9 @@ export default function DiscoStageView({
   const [activeTrackTitle, setActiveTrackTitle] = useState(trackTitle);
   const [showTrackToast, setShowTrackToast] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  const trimmedVideoUrl = (activeVideoUrl || '').trim();
+  const ytId = getYouTubeId(trimmedVideoUrl);
 
   // Sync prop updates
   useEffect(() => {
@@ -182,6 +191,39 @@ export default function DiscoStageView({
           })}
         </div>
       </div>
+
+      {/* 3D Stage Background YouTube Video Wall (Placed in the stage's curved screen zone behind DJ booth) */}
+      {ytId && (
+        <div
+          style={{
+            position: 'absolute',
+            top: '7%',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            width: '84%',
+            height: '52%',
+            zIndex: 4,
+            borderRadius: '20px',
+            overflow: 'hidden',
+            boxShadow: '0 0 50px rgba(0, 240, 255, 0.45)',
+            border: '2px solid rgba(0, 240, 255, 0.7)',
+            backgroundColor: '#000',
+            pointerEvents: 'none',
+          }}
+        >
+          <iframe
+            src={`https://www.youtube-nocookie.com/embed/${ytId}?autoplay=1&mute=${isMuted ? 1 : 0}&loop=1&playlist=${ytId}&controls=0&showinfo=0&rel=0&modestbranding=1&enablejsapi=1`}
+            title="YouTube DJ Stage Video Wall"
+            style={{
+              width: '100%',
+              height: '100%',
+              border: 'none',
+              pointerEvents: 'none',
+            }}
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+          />
+        </div>
+      )}
 
       {/* Full 3D Nightclub Scene via Three.js (Arena Floor, Top 2/3 VIP Podiums, DJ Booth, Moving Light Trusses & Curved 3D Video Wall) */}
       <div style={{ position: 'absolute', inset: 0, zIndex: 10 }}>
