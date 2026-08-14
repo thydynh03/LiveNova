@@ -1112,7 +1112,8 @@ export function DiscoThreeStage({ engine, videoUrl, isMuted = true }: DiscoThree
           // Audience Dancers scattered on Dance Floor in layered depth
           posX = (dancer.x - 0.5) * 18;
           posZ = (dancer.z - 0.5) * 12 - 2;
-          posY = 0.98;
+          const dropHeight = Math.max(0, (0.95 - (dancer.y ?? 0.95)) * 8.5);
+          posY = 0.98 + dropHeight;
           floorY = 0.05;
         }
 

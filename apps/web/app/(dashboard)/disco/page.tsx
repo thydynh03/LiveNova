@@ -41,6 +41,7 @@ export default function DiscoDashboardPage() {
   // Test Simulator state
   const [testUsername, setTestUsername] = useState('@streamer_pro');
   const [testDisplayName, setTestDisplayName] = useState('Khán Giả 999');
+  const [customCommentInput, setCustomCommentInput] = useState('');
 
   // Fetch channels to listen to live events
   const channels = useApi<Channel[]>('/channels');
@@ -324,30 +325,80 @@ export default function DiscoDashboardPage() {
   };
 
   // Test action helpers
-  const triggerTestJoin = () => {
-    engine.join(testUsername.trim() || '@khangia', testDisplayName.trim() || 'Khán Giả');
+  const triggerTestJoin = (comment = 'Hey') => {
+    const id = testUsername.trim() || '@streamer_pro';
+    const name = testDisplayName.trim() || 'Khán Giả 999';
+    handleEvent({
+      id: `test_${Date.now()}`,
+      type: LiveEventType.COMMENT,
+      channelId: channelIds[0] || 'test_chan',
+      senderUsername: id,
+      senderDisplayName: name,
+      content: comment,
+      occurredAt: new Date(),
+    });
+    setScenarioLogs((prev) => [`[${new Date().toLocaleTimeString()}] 💬 ${name} (${id}): "${comment}" -> Rơi xuống sàn và quẩy!`, ...prev.slice(0, 19)]);
   };
 
   const triggerTestJump = () => {
-    triggerTestJoin();
-    engine.jump(testUsername.trim() || '@khangia');
+    const id = testUsername.trim() || '@streamer_pro';
+    const name = testDisplayName.trim() || 'Khán Giả 999';
+    handleEvent({
+      id: `test_${Date.now()}`,
+      type: LiveEventType.COMMENT,
+      channelId: channelIds[0] || 'test_chan',
+      senderUsername: id,
+      senderDisplayName: name,
+      content: '2',
+      occurredAt: new Date(),
+    });
+    setScenarioLogs((prev) => [`[${new Date().toLocaleTimeString()}] 🦘 ${name}: Gõ "2" -> Bật nhảy!`, ...prev.slice(0, 19)]);
   };
 
   const triggerTestAvatarChange = () => {
-    triggerTestJoin();
-    engine.changeAvatar(testUsername.trim() || '@khangia');
+    const id = testUsername.trim() || '@streamer_pro';
+    const name = testDisplayName.trim() || 'Khán Giả 999';
+    handleEvent({
+      id: `test_${Date.now()}`,
+      type: LiveEventType.COMMENT,
+      channelId: channelIds[0] || 'test_chan',
+      senderUsername: id,
+      senderDisplayName: name,
+      content: '3',
+      occurredAt: new Date(),
+    });
+    setScenarioLogs((prev) => [`[${new Date().toLocaleTimeString()}] 🎭 ${name}: Gõ "3" -> Đổi trang phục!`, ...prev.slice(0, 19)]);
   };
 
   const triggerTestWalk = () => {
-    triggerTestJoin();
-    engine.walk(testUsername.trim() || '@khangia');
+    const id = testUsername.trim() || '@streamer_pro';
+    const name = testDisplayName.trim() || 'Khán Giả 999';
+    handleEvent({
+      id: `test_${Date.now()}`,
+      type: LiveEventType.COMMENT,
+      channelId: channelIds[0] || 'test_chan',
+      senderUsername: id,
+      senderDisplayName: name,
+      content: '4',
+      occurredAt: new Date(),
+    });
+    setScenarioLogs((prev) => [`[${new Date().toLocaleTimeString()}] 🚶 ${name}: Gõ "4" -> Đi dạo sàn nhảy!`, ...prev.slice(0, 19)]);
   };
 
   const triggerTestGiftNormal = () => {
-    const id = testUsername.trim() || '@khangia';
-    const name = testDisplayName.trim() || 'Khán Giả';
-    engine.enqueueGift(id, name, 3);
-    broadcastSync({ cameraShot: 'DJ_POV', duration: 10000 });
+    const id = testUsername.trim() || '@streamer_pro';
+    const name = testDisplayName.trim() || 'Khán Giả 999';
+    handleEvent({
+      id: `test_${Date.now()}`,
+      type: LiveEventType.GIFT,
+      channelId: channelIds[0] || 'test_chan',
+      senderUsername: id,
+      senderDisplayName: name,
+      giftName: 'Nước Ngọt',
+      giftCoinValue: 3,
+      occurredAt: new Date(),
+    });
+    setScenarioLogs((prev) => [`[${new Date().toLocaleTimeString()}] 🎁 ${name}: Tặng Quà -> DJ POV Zoom!`, ...prev.slice(0, 19)]);
   };
 
   // Live Effect Triggers for Streamer
@@ -422,47 +473,67 @@ export default function DiscoDashboardPage() {
 
   // Interactive Gift & Command Test Handlers
   const triggerTestRose = () => {
-    const id = testUsername || '@user_vip';
-    const name = testDisplayName || 'Khán Giả Cute';
-    if (!engine.dancers.has(id)) {
-      engine.join(id, name);
-    }
-    engine.addGiftPoints(id, name, 1);
-    engine.triggerSpotlightZoom(7000, id);
-    broadcastSync({ cameraShot: 'SPOTLIGHT_ZOOM', duration: 7000, targetId: id });
+    const id = testUsername.trim() || '@streamer_pro';
+    const name = testDisplayName.trim() || 'Khán Giả 999';
+    handleEvent({
+      id: `test_${Date.now()}`,
+      type: LiveEventType.GIFT,
+      channelId: channelIds[0] || 'test_chan',
+      senderUsername: id,
+      senderDisplayName: name,
+      giftName: 'Rose',
+      giftCoinValue: 1,
+      occurredAt: new Date(),
+    });
+    setScenarioLogs((prev) => [`[${new Date().toLocaleTimeString()}] 🌹 ${name}: Tặng 1 Rose -> Spotlight Zoom 7s!`, ...prev.slice(0, 19)]);
   };
 
   const triggerTestTikTok = () => {
-    const id = testUsername || '@user_vip';
-    const name = testDisplayName || 'Khán Giả Cute';
-    if (!engine.dancers.has(id)) {
-      engine.join(id, name);
-    }
-    engine.changeAvatar(id);
-    engine.addGiftPoints(id, name, 1);
-    engine.jump(id);
+    const id = testUsername.trim() || '@streamer_pro';
+    const name = testDisplayName.trim() || 'Khán Giả 999';
+    handleEvent({
+      id: `test_${Date.now()}`,
+      type: LiveEventType.GIFT,
+      channelId: channelIds[0] || 'test_chan',
+      senderUsername: id,
+      senderDisplayName: name,
+      giftName: 'TikTok',
+      giftCoinValue: 1,
+      occurredAt: new Date(),
+    });
+    setScenarioLogs((prev) => [`[${new Date().toLocaleTimeString()}] 🎵 ${name}: Tặng 1 TikTok -> Đổi Avatar & Bật nhảy!`, ...prev.slice(0, 19)]);
   };
 
   const triggerTestRosa = () => {
-    const id = testUsername || '@user_vip';
-    const name = testDisplayName || 'Khán Giả Cute';
-    if (!engine.dancers.has(id)) {
-      engine.join(id, name);
-    }
-    engine.addGiftPoints(id, name, 5);
-    engine.triggerSpotlightZoom(7000, id);
-    const speechText = `Cảm ơn ${name} đã tặng Rosa cho phòng nhảy! Quẩy lên nào!`;
-    broadcastSync({ cameraShot: 'SPOTLIGHT_ZOOM', duration: 7000, targetId: id, speechText });
-    speakMessage(speechText);
+    const id = testUsername.trim() || '@streamer_pro';
+    const name = testDisplayName.trim() || 'Khán Giả 999';
+    handleEvent({
+      id: `test_${Date.now()}`,
+      type: LiveEventType.GIFT,
+      channelId: channelIds[0] || 'test_chan',
+      senderUsername: id,
+      senderDisplayName: name,
+      giftName: 'Rosa',
+      giftCoinValue: 5,
+      occurredAt: new Date(),
+    });
+    setScenarioLogs((prev) => [`[${new Date().toLocaleTimeString()}] 🌌 ${name}: Tặng 1 Rosa -> Highlight & Cảm ơn bằng Voice!`, ...prev.slice(0, 19)]);
   };
 
   const triggerTestConfettiGift = () => {
-    const id = testUsername || '@user_vip';
-    const name = testDisplayName || 'Khán Giả Cute';
-    engine.promoteToDj(id, name);
-    const speechText = `Chúc mừng ${name} đã tặng Pháo Hoa Giấy và đăng quang trở thành TOP 1 DJ đêm nay!`;
-    broadcastSync({ cameraShot: 'DJ_POV', duration: 10000, effect: 'confetti', speechText });
-    speakMessage(speechText);
+    const id = testUsername.trim() || '@streamer_pro';
+    const name = testDisplayName.trim() || 'Khán Giả 999';
+    handleEvent({
+      id: `test_${Date.now()}`,
+      type: LiveEventType.GIFT,
+      channelId: channelIds[0] || 'test_chan',
+      senderUsername: id,
+      senderDisplayName: name,
+      giftName: 'Pháo hoa giấy',
+      giftCoinValue: 100,
+      occurredAt: new Date(),
+    });
+    setScenarioLogs((prev) => [`[${new Date().toLocaleTimeString()}] 🎊 ${name}: Tặng Pháo Hoa Giấy -> LÊN TOP 1 DJ SÂN KHẤU!`, ...prev.slice(0, 19)]);
   };
 
   // Automated Scenario Runner State & Engine
@@ -1376,14 +1447,59 @@ export default function DiscoDashboardPage() {
               </div>
             </div>
 
+            {/* Custom Interactive Comment Input */}
+            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+              <input
+                type="text"
+                value={customCommentInput}
+                onChange={(e) => setCustomCommentInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    triggerTestJoin(customCommentInput.trim() || 'Hey');
+                    setCustomCommentInput('');
+                  }
+                }}
+                placeholder="Gõ bất kỳ bình luận nào (vd: Hey, chào mn, vào quẩy...) - Enter để gửi"
+                style={{
+                  flex: 1,
+                  padding: '0.45rem 0.75rem',
+                  fontSize: '0.8125rem',
+                  borderRadius: 'var(--radius-sm)',
+                  border: '1px solid hsl(var(--border))',
+                  background: 'hsl(var(--background))',
+                  color: 'hsl(var(--foreground))'
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  triggerTestJoin(customCommentInput.trim() || 'Hey');
+                  setCustomCommentInput('');
+                }}
+                style={{
+                  padding: '0.45rem 0.85rem',
+                  fontSize: '0.75rem',
+                  fontWeight: 600,
+                  borderRadius: 'var(--radius-sm)',
+                  background: 'hsl(var(--primary))',
+                  color: 'hsl(var(--primary-foreground))',
+                  border: 'none',
+                  cursor: 'pointer',
+                  whiteSpace: 'nowrap'
+                }}
+              >
+                💬 Gửi Chat
+              </button>
+            </div>
+
             {/* Test Chat Actions */}
             <div>
               <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'hsl(var(--muted-foreground))', marginBottom: '0.5rem' }}>
-                💬 TEST LỆNH CHAT KHÁN GIẢ
+                💬 TEST LỆNH CHAT KHÁN GIẢ (CLICK NHANH)
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
                 <button
-                  onClick={triggerTestJoin}
+                  onClick={() => triggerTestJoin('Hey')}
                   style={{
                     padding: '0.5rem',
                     borderRadius: 'var(--radius-sm)',
