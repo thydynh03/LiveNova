@@ -198,20 +198,20 @@ export default function DiscoStageView({
         />
       </div>
 
-      {/* 2. Expanded Panoramic LED Video Screen Wall behind DJ Booth */}
+      {/* 2. Panoramic LED Video Screen Wall behind distant DJ Booth */}
       <div
         style={{
           position: 'absolute',
-          top: aspect === 'vertical' ? '31.8%' : '20%',
-          left: aspect === 'vertical' ? '23%' : '28%',
-          width: aspect === 'vertical' ? '54%' : '44%',
-          height: aspect === 'vertical' ? '15.8%' : '24%',
+          top: aspect === 'vertical' ? '31.2%' : '18%',
+          left: aspect === 'vertical' ? '36.2%' : '38%',
+          width: aspect === 'vertical' ? '27.6%' : '24%',
+          height: aspect === 'vertical' ? '10.6%' : '16%',
           zIndex: 2,
-          borderRadius: 8,
+          borderRadius: 6,
           overflow: 'hidden',
           backgroundColor: '#000',
-          boxShadow: '0 0 35px rgba(0, 240, 255, 0.6), inset 0 0 25px rgba(255, 0, 160, 0.35)',
-          border: '2px solid rgba(0, 240, 255, 0.8)',
+          boxShadow: '0 0 30px rgba(0, 240, 255, 0.6), inset 0 0 15px rgba(255, 0, 160, 0.35)',
+          border: '1.5px solid rgba(0, 240, 255, 0.8)',
         }}
       >
         {/* Video / GIF Content or Clean Cyber LED Visualizer */}

@@ -105,7 +105,7 @@ export class DiscoEngine {
           name: item.name,
           avatarUrl: `/assets/disco/Characters/${item.sprite}/000.png`,
           x: spreadX,
-          y: item.isDj ? 0.505 : 0.95,
+          y: item.isDj ? 0.435 : 0.95,
           z: item.z || 0.5,
           vy: 0,
           vx: (Math.random() - 0.5) * 0.04,
@@ -270,7 +270,7 @@ export class DiscoEngine {
       // DJ Physics override (Standing right behind the mixer desk)
       if (dancer.isDj) {
         const targetX = 0.5;
-        const targetY = 0.505;
+        const targetY = 0.435;
         
         // Lerp to DJ position behind the mixer table
         dancer.x += (targetX - dancer.x) * 3 * dt;
@@ -331,18 +331,18 @@ export class DiscoEngine {
       const lockedDancer = this.dancers.get(this.camera.lockedOnId);
       if (lockedDancer) {
         this.camera.targetX = lockedDancer.x;
-        this.camera.targetY = lockedDancer.isDj ? 0.52 : 0.55 + lockedDancer.z * 0.35;
+        this.camera.targetY = lockedDancer.isDj ? 0.435 : 0.50 + lockedDancer.z * 0.44;
         this.camera.targetScale = 1.70; // Zoom in close & focus
       } else {
         this.camera.lockedOnId = null;
       }
     } else {
       this.camera.lockedOnId = null;
-      // 3D Top-Down camera sweeping smoothly across left & right flanks of the wide club floor
+      // 3D Top-Down camera sweeping smoothly across left & right flanks of the massive club floor
       const orbitPhase = now * 0.00035; // smooth slow sway
-      this.camera.targetX = 0.5 + Math.sin(orbitPhase) * 0.28; // sweeping wide across both sides
-      this.camera.targetY = 0.56 + Math.cos(orbitPhase * 0.6) * 0.025; // elevated top-down perspective
-      this.camera.targetScale = 1.14; // panoramic view of the wide dance floor
+      this.camera.targetX = 0.5 + Math.sin(orbitPhase) * 0.26; // sweeping wide across both sides
+      this.camera.targetY = 0.52 + Math.cos(orbitPhase * 0.6) * 0.025; // elevated top-down perspective
+      this.camera.targetScale = 1.10; // panoramic view of the massive dance floor
     }
 
     // Smooth Lerp Camera

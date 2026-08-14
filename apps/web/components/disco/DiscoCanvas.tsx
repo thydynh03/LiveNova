@@ -223,27 +223,27 @@ export default function DiscoCanvas({ engine }: DiscoCanvasProps) {
       const focusedId = engine.camera.lockedOnId;
       const rawDancers = Array.from(engine.dancers.values());
 
-      // Calculate 3D screen position & scale for each dancer (Top-Down Wide Club Floor Perspective)
+      // Calculate 3D screen position & scale for each dancer (Distant DJ & Massive Top-Down Dance Floor)
       const calcDancerScreenPos = (dancer: typeof rawDancers[0]) => {
         const isVertical = H > W;
         if (dancer.isDj) {
           return {
             x: 0.5 * W,
-            y: isVertical ? H * 0.505 : H * 0.46,
-            renderScale: dancer.scale * (isVertical ? 1.25 : 1.1),
+            y: isVertical ? H * 0.435 : H * 0.38,
+            renderScale: dancer.scale * (isVertical ? 1.05 : 0.95),
             depth: 0.05,
           };
         }
         const z = Math.max(0.1, Math.min(1.0, dancer.z ?? 0.5));
-        // Top-down elevated floor perspective spanning from 0.58 to 0.96
-        const baseFloorY = isVertical ? (H * 0.58 + z * (H * 0.38)) : (H * 0.50 + z * (H * 0.46));
+        // Massive dance floor starting from 0.50 down to 0.96
+        const baseFloorY = isVertical ? (H * 0.50 + z * (H * 0.46)) : (H * 0.44 + z * (H * 0.52));
         let y = dancer.y < 1.0 ? dancer.y * baseFloorY : baseFloorY;
         if (dancer.state === 'dancing') {
           y -= Math.abs(Math.sin(dancer.danceOffset)) * (4 + z * 5);
         }
-        // Wide horizontal spread reaching both left and right flanks of the glossy floor
-        const x = W * (0.5 + (dancer.x - 0.5) * (0.92 + z * 0.16));
-        const renderScale = (0.50 + z * 0.54) * dancer.scale;
+        // Wide horizontal spread reaching both left and right flanks across the massive floor
+        const x = W * (0.5 + (dancer.x - 0.5) * (0.86 + z * 0.22));
+        const renderScale = (0.44 + z * 0.60) * dancer.scale;
         return { x, y, renderScale, depth: z };
       };
 
