@@ -79,7 +79,9 @@ export function DiscoThreeStage({ engine, videoUrl, isMuted = true }: DiscoThree
     });
     const clubWall = new THREE.Mesh(clubWallGeo, clubWallMat);
     clubWall.position.set(0, 7.5, -4);
-    scene.add(clubWall);
+    if (!ytId) {
+      scene.add(clubWall);
+    }
 
     // 5. Pulsating Beat-Synced Disco Dance Floor with Flashing Checkered Tiles
     const floorCanvas = document.createElement('canvas');

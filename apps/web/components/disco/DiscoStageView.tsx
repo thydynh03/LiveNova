@@ -192,22 +192,17 @@ export default function DiscoStageView({
         </div>
       </div>
 
-      {/* 3D Stage Background YouTube Video Wall (Placed in the stage's curved screen zone behind DJ booth) */}
+      {/* 3D Stage Background Ultra-Wide Panoramic YouTube Video Wall */}
       {ytId && (
         <div
           style={{
             position: 'absolute',
-            top: '7%',
-            left: '50%',
-            transform: 'translateX(-50%)',
-            width: '84%',
-            height: '52%',
-            zIndex: 4,
-            borderRadius: '20px',
+            inset: 0,
+            width: '100%',
+            height: '100%',
+            zIndex: 3,
             overflow: 'hidden',
-            boxShadow: '0 0 50px rgba(0, 240, 255, 0.45)',
-            border: '2px solid rgba(0, 240, 255, 0.7)',
-            backgroundColor: '#000',
+            backgroundColor: '#04020a',
             pointerEvents: 'none',
           }}
         >
@@ -215,12 +210,29 @@ export default function DiscoStageView({
             src={`https://www.youtube-nocookie.com/embed/${ytId}?autoplay=1&mute=${isMuted ? 1 : 0}&loop=1&playlist=${ytId}&controls=0&showinfo=0&rel=0&modestbranding=1&enablejsapi=1`}
             title="YouTube DJ Stage Video Wall"
             style={{
-              width: '100%',
-              height: '100%',
+              position: 'absolute',
+              top: '50%',
+              left: '50%',
+              transform: 'translate(-50%, -50%)',
+              width: '100vw',
+              height: '56.25vw', // 16:9 aspect ratio cover
+              minHeight: '100vh',
+              minWidth: '177.78vh', // 16:9 aspect ratio cover
               border: 'none',
               pointerEvents: 'none',
+              filter: 'contrast(1.06) saturate(1.15) brightness(0.95)',
             }}
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+          />
+
+          {/* Cinematic Vignette & Club Stage Gradient Blend */}
+          <div
+            style={{
+              position: 'absolute',
+              inset: 0,
+              background: 'radial-gradient(ellipse at 50% 50%, rgba(4, 3, 10, 0) 35%, rgba(4, 3, 10, 0.6) 75%, #04030a 100%), linear-gradient(to bottom, rgba(4,3,10,0.5) 0%, transparent 20%, transparent 65%, #04030a 96%)',
+              pointerEvents: 'none',
+            }}
           />
         </div>
       )}
