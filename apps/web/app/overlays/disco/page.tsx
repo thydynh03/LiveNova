@@ -11,9 +11,12 @@ function DiscoOverlayContent() {
   const searchParams = useSearchParams();
   const token = searchParams ? searchParams.get('token') : null;
   const customVideo = searchParams ? searchParams.get('video') : null;
+  const audioParam = searchParams ? searchParams.get('audio') : null;
 
   const engine = useMemo(() => new DiscoEngine(), []);
   const [activeVideo, setActiveVideo] = useState<string>(customVideo || '');
+  // Default unmuted (isMuted = false) so YouTube sound plays directly in TikTok Live Studio / OBS!
+  const [isMuted, setIsMuted] = useState<boolean>(audioParam === '0' || audioParam === 'false' ? true : false);
 
   useEffect(() => {
     if (customVideo !== null) {
@@ -36,6 +39,9 @@ function DiscoOverlayContent() {
         if (data && data.type === 'SYNC_DISCO_MEDIA') {
           if (data.videoUrl !== undefined) {
             setActiveVideo(data.videoUrl);
+          }
+          if (data.isMuted !== undefined) {
+            setIsMuted(Boolean(data.isMuted));
           }
           if (data.cameraShot === 'DJ_POV') {
             engine.triggerDjPov(data.duration || 9000);
@@ -66,20 +72,66 @@ function DiscoOverlayContent() {
     const { event } = action;
     if (!event) return;
 
-    const senderId = event.senderDisplayName || 'khangia';
+    const senderId = (event as { senderUsername?: string }).senderUsername || event.senderDisplayName || 'khangia';
     const senderName = event.senderDisplayName || senderId;
     const avatarUrl = event.senderAvatar;
 
     if (event.type === LiveEventType.COMMENT) {
-      const comment = (event.content || '').toLowerCase().trim();
-      if (['hey', '1', 'join', 'vào', 'hi', 'hello'].includes(comment)) {
+      const rawText = (event.content || '').toLowerCase().trim();
+      const isJoin =
+        rawText.includes('hey') ||
+        rawText.includes('join') ||
+        rawText.includes('vào') ||
+        rawText.includes('vao') ||
+        rawText.includes('nhảy') ||
+        rawText.includes('nhay') ||
+        rawText.includes('quẩy') ||
+        rawText.includes('quay') ||
+        rawText === '1' ||
+        rawText.startsWith('1') ||
+        rawText.includes('hi') ||
+        rawText.includes('hello') ||
+        rawText.includes('chào') ||
+        rawText.includes('chao');
+
+      const isJump =
+        rawText === '2' ||
+        rawText.includes('jump') ||
+        rawText.includes('lên') ||
+        rawText.includes('len') ||
+        rawText.includes('bật') ||
+        rawText.includes('bat');
+
+      const isChange =
+        rawText === '3' ||
+        rawText.includes('đổi') ||
+        rawText.includes('doi') ||
+        rawText.includes('change') ||
+        rawText.includes('skin');
+
+      const isWalk =
+        rawText === '4' ||
+        rawText.includes('đi') ||
+        rawText.includes('di') ||
+        rawText.includes('walk') ||
+        rawText.includes('dạo') ||
+        rawText.includes('dao');
+
+      if (isJoin) {
         engine.join(senderId, senderName, avatarUrl);
-      } else if (['2', 'jump', 'lên', 'nhảy'].includes(comment)) {
+      } else if (isJump) {
+        if (!engine.dancers.has(senderId)) engine.join(senderId, senderName, avatarUrl);
         engine.jump(senderId);
-      } else if (['3', 'đổi', 'đổi nv', 'change'].includes(comment)) {
+      } else if (isChange) {
+        if (!engine.dancers.has(senderId)) engine.join(senderId, senderName, avatarUrl);
         engine.changeAvatar(senderId);
-      } else if (['4', 'đi', 'đi vòng', 'walk'].includes(comment)) {
+      } else if (isWalk) {
+        if (!engine.dancers.has(senderId)) engine.join(senderId, senderName, avatarUrl);
         engine.walk(senderId);
+      } else {
+        if (!engine.dancers.has(senderId)) {
+          engine.join(senderId, senderName, avatarUrl);
+        }
       }
     } else if (event.type === LiveEventType.GIFT) {
       const giftName = ((event.giftName || event.content || '') as string).toLowerCase().trim();
@@ -186,7 +238,7 @@ function DiscoOverlayContent() {
       <DiscoStageView
         engine={engine}
         videoUrl={activeVideo}
-        isMuted={true}
+        isMuted={isMuted}
         enableAudio={true}
       />
     </div>

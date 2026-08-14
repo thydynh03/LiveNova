@@ -68,6 +68,7 @@ export default function DiscoDashboardPage() {
     effect?: string;
     targetId?: string;
     speechText?: string;
+    isMuted?: boolean;
   }) => {
     if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
       try {
@@ -153,37 +154,136 @@ export default function DiscoDashboardPage() {
   };
 
   const handleEvent = useCallback((event: LiveEvent) => {
-    if (event.type === LiveEventType.COMMENT) {
-      const comment = (event.content || '').toLowerCase().trim();
-      const senderId = event.senderUsername || 'unknown';
-      const senderName = event.senderDisplayName || senderId;
-      const avatarUrl = event.senderAvatar;
+    const senderId = event.senderUsername || event.senderDisplayName || 'unknown';
+    const senderName = event.senderDisplayName || senderId;
+    const avatarUrl = event.senderAvatar;
 
-      if (['1', 'join', 'vào'].includes(comment)) {
+    if (event.type === LiveEventType.COMMENT) {
+      const rawText = (event.content || '').toLowerCase().trim();
+      const isJoin =
+        rawText.includes('hey') ||
+        rawText.includes('join') ||
+        rawText.includes('vào') ||
+        rawText.includes('vao') ||
+        rawText.includes('nhảy') ||
+        rawText.includes('nhay') ||
+        rawText.includes('quẩy') ||
+        rawText.includes('quay') ||
+        rawText === '1' ||
+        rawText.startsWith('1') ||
+        rawText.includes('hi') ||
+        rawText.includes('hello') ||
+        rawText.includes('chào') ||
+        rawText.includes('chao');
+
+      const isJump =
+        rawText === '2' ||
+        rawText.includes('jump') ||
+        rawText.includes('lên') ||
+        rawText.includes('len') ||
+        rawText.includes('bật') ||
+        rawText.includes('bat');
+
+      const isChange =
+        rawText === '3' ||
+        rawText.includes('đổi') ||
+        rawText.includes('doi') ||
+        rawText.includes('change') ||
+        rawText.includes('skin');
+
+      const isWalk =
+        rawText === '4' ||
+        rawText.includes('đi') ||
+        rawText.includes('di') ||
+        rawText.includes('walk') ||
+        rawText.includes('dạo') ||
+        rawText.includes('dao');
+
+      if (isJoin) {
         engine.join(senderId, senderName, avatarUrl);
-      } else if (['2', 'jump', 'lên', 'nhảy'].includes(comment)) {
+      } else if (isJump) {
+        if (!engine.dancers.has(senderId)) engine.join(senderId, senderName, avatarUrl);
         engine.jump(senderId);
-      } else if (['3', 'đổi', 'đổi nv', 'change'].includes(comment)) {
+      } else if (isChange) {
+        if (!engine.dancers.has(senderId)) engine.join(senderId, senderName, avatarUrl);
         engine.changeAvatar(senderId);
-      } else if (['4', 'đi', 'đi vòng', 'walk'].includes(comment)) {
+      } else if (isWalk) {
+        if (!engine.dancers.has(senderId)) engine.join(senderId, senderName, avatarUrl);
         engine.walk(senderId);
+      } else {
+        if (!engine.dancers.has(senderId)) {
+          engine.join(senderId, senderName, avatarUrl);
+        }
       }
     } else if (event.type === LiveEventType.GIFT) {
-      const senderId = event.senderUsername || 'unknown';
-      const senderName = event.senderDisplayName || senderId;
-      const avatarUrl = event.senderAvatar;
-      const giftPoints = Math.max(1, event.giftCoinValue || 1);
-      engine.enqueueGift(senderId, senderName, giftPoints, avatarUrl);
-      broadcastSync({ cameraShot: 'DJ_POV', duration: 10000 });
+      const giftName = ((event.giftName || event.content || '') as string).toLowerCase().trim();
+      const giftCoins = event.giftCoinValue || 1;
+
+      // 1. Pháo Hoa Giấy
+      if (
+        giftName.includes('pháo hoa giấy') ||
+        giftName.includes('phao hoa giay') ||
+        giftName.includes('hoa giấy') ||
+        giftName.includes('hoa giay') ||
+        giftName.includes('confetti') ||
+        giftName.includes('firework') ||
+        giftName.includes('popper') ||
+        giftName.includes('paper') ||
+        giftCoins >= 100
+      ) {
+        engine.promoteToDj(senderId, senderName, avatarUrl);
+        const speech = `Chúc mừng ${senderName} đã tặng Pháo Hoa Giấy và đăng quang trở thành TOP 1 DJ đêm nay!`;
+        speakMessage(speech);
+        broadcastSync({ cameraShot: 'DJ_POV', duration: 10000, effect: 'confetti', speechText: speech });
+      }
+      // 2. Rosa
+      else if (
+        giftName.includes('rosa') ||
+        giftName.includes('rose nebula') ||
+        giftName.includes('rosy')
+      ) {
+        if (!engine.dancers.has(senderId)) engine.join(senderId, senderName, avatarUrl);
+        engine.addGiftPoints(senderId, senderName, 5, avatarUrl);
+        engine.triggerSpotlightZoom(7000, senderId);
+        const speech = `Cảm ơn ${senderName} đã tặng Rosa cho phòng nhảy! Quẩy lên nào!`;
+        speakMessage(speech);
+        broadcastSync({ cameraShot: 'SPOTLIGHT_ZOOM', duration: 7000, targetId: senderId, speechText: speech });
+      }
+      // 3. TikTok
+      else if (
+        giftName.includes('tiktok') ||
+        giftName.includes('tik tok')
+      ) {
+        if (!engine.dancers.has(senderId)) engine.join(senderId, senderName, avatarUrl);
+        engine.changeAvatar(senderId);
+        engine.addGiftPoints(senderId, senderName, 1, avatarUrl);
+        engine.jump(senderId);
+      }
+      // 4. Rose
+      else if (
+        giftName.includes('rose') ||
+        giftName.includes('hoa hồng') ||
+        giftName.includes('hoa hong') ||
+        giftName.includes('hồng') ||
+        giftCoins === 1
+      ) {
+        if (!engine.dancers.has(senderId)) engine.join(senderId, senderName, avatarUrl);
+        engine.addGiftPoints(senderId, senderName, 1, avatarUrl);
+        engine.triggerSpotlightZoom(7000, senderId);
+        broadcastSync({ cameraShot: 'SPOTLIGHT_ZOOM', duration: 7000, targetId: senderId });
+      }
+      // 5. Quà khác
+      else {
+        engine.enqueueGift(senderId, senderName, giftCoins, avatarUrl);
+        broadcastSync({ cameraShot: 'DJ_POV', duration: 10000 });
+      }
     } else if (
       event.type === LiveEventType.JOIN || 
       event.type === LiveEventType.FOLLOW || 
       event.type === LiveEventType.LIKE || 
       event.type === LiveEventType.SHARE
     ) {
-       const senderId = event.senderUsername || 'unknown';
-       const senderName = event.senderDisplayName || senderId;
-       engine.join(senderId, senderName);
+       if (!engine.dancers.has(senderId)) engine.join(senderId, senderName, avatarUrl);
        engine.triggerFirework();
     }
   }, [engine]);
@@ -798,7 +898,11 @@ export default function DiscoDashboardPage() {
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                 <button
                   type="button"
-                  onClick={() => setIsDjVideoMuted(!isDjVideoMuted)}
+                  onClick={() => {
+                    const nextMute = !isDjVideoMuted;
+                    setIsDjVideoMuted(nextMute);
+                    broadcastSync({ isMuted: nextMute });
+                  }}
                   style={{
                     padding: '0.3rem 0.6rem',
                     fontSize: '0.75rem',
@@ -810,7 +914,7 @@ export default function DiscoDashboardPage() {
                     cursor: 'pointer'
                   }}
                 >
-                  {isDjVideoMuted ? '🔇 Tắt tiếng Video' : '🔊 Bật tiếng Video'}
+                  {isDjVideoMuted ? '🔇 Tắt tiếng Video' : '🔊 Đang Bật tiếng Video (YouTube)'}
                 </button>
               </div>
             </div>
