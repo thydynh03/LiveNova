@@ -575,16 +575,17 @@ export class DiscoEngine {
       // Lerp scale
       dancer.scale += (dancer.targetScale - dancer.scale) * 8 * dt;
 
-      // Dance bobbing
+      // Dance bobbing & smooth movement
       if (dancer.state === 'dancing' && dancer.vy === 0) {
-        dancer.danceOffset += dt * Math.PI * 5; 
-        // Random autonomous hops for energetic club atmosphere
-        if (Math.random() < 0.005) {
-          dancer.vy = -(0.5 + Math.random() * 0.5);
+        dancer.vx *= 0.97; // Smooth friction
+
+        // Occasional energetic hop
+        if (Math.random() < 0.001) {
+          dancer.vy = -(0.4 + Math.random() * 0.3);
           dancer.state = 'jumping';
         }
-        if (Math.random() < 0.01) {
-          dancer.vx = (Math.random() - 0.5) * 0.12;
+        if (Math.random() < 0.002) {
+          dancer.vx = (Math.random() - 0.5) * 0.05;
         }
       }
     }

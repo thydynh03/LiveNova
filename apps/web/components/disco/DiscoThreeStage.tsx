@@ -1054,16 +1054,16 @@ export function DiscoThreeStage({ engine, videoUrl, isMuted = true }: DiscoThree
         else if (isTop4) top5Coords[3] = { x: posX, y: posY, z: posZ, floorY, isDj: false };
         else if (isTop5) top5Coords[4] = { x: posX, y: posY, z: posZ, floorY, isDj: false };
 
-        // Bobbing & Jump physics
-        const bob = Math.abs(Math.sin(nowSec * 8.5 + dancer.danceOffset)) * 0.25;
-        posY += bob + Math.max(0, -dancer.vy * 0.4);
+        // Natural club rhythm bobbing & jump physics (aligned with 128 BPM beat)
+        const bob = Math.abs(Math.sin(nowSec * 4.2 + (dancer.danceOffset || 0))) * 0.14;
+        posY += bob + Math.max(0, -dancer.vy * 0.35);
 
         entry.targetPos.set(posX, posY, posZ);
-        entry.spriteMesh.position.lerp(entry.targetPos, 0.2);
+        entry.spriteMesh.position.lerp(entry.targetPos, 0.12);
         entry.spriteMesh.scale.set(scale, scale, 1);
 
-        // Frame animation for dancer sprite (Top 2 & Top 3 use hot dancing female sprite 'hanhan_video_dance')
-        const frameIdx = Math.floor(nowSec * 16 + dancer.danceOffset * 5) % 10;
+        // Frame animation at natural 7.5 fps pace
+        const frameIdx = Math.floor(nowSec * 7.5 + (dancer.danceOffset || 0)) % 10;
         const spriteId = (isTop2 || isTop3) ? 'hanhan_video_dance' : dancer.spriteId;
         const tex = getSpriteTexture(spriteId, frameIdx);
         if (tex) {
