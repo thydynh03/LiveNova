@@ -316,6 +316,42 @@ export class DiscoEngine {
     this.triggerFlash(0.75);
   }
 
+  promoteToDj(id: string, name?: string, avatarUrl?: string) {
+    if (!this.dancers.has(id)) {
+      this.join(id, name || id, avatarUrl);
+    }
+    const currentTop = this.getTopDancers(1)[0];
+    const topPoints = currentTop ? (currentTop.points || 0) : 10;
+    const newPoints = Math.max(topPoints + 50, 100);
+
+    const dancer = this.dancers.get(id);
+    if (dancer) {
+      dancer.points = newPoints;
+      dancer.targetScale = Math.min(2.8, dancer.targetScale + 0.6);
+      dancer.vy = -1.8;
+      dancer.state = 'jumping';
+    }
+
+    const oldDj = this.getCurrentDj();
+    const oldDjName = oldDj ? oldDj.name : 'DJ LiveNova';
+    this.setDj(id);
+    this.currentDjId = id;
+    this.djPromotionToast = {
+      oldDjName,
+      newDjName: dancer ? dancer.name : (name || id),
+      points: newPoints,
+      time: Date.now(),
+    };
+
+    // Trigger DJ Coronation celebration
+    this.triggerEffect('confetti');
+    this.triggerDjPov(10000);
+    this.triggerFlash(0.9);
+    for (let i = 0; i < 8; i++) {
+      setTimeout(() => this.triggerFirework(), i * 180);
+    }
+  }
+
   getTopDancers(limit = 5): Dancer[] {
     return Array.from(this.dancers.values())
       .sort((a, b) => (b.points || 0) - (a.points || 0))
@@ -671,5 +707,24 @@ export class DiscoEngine {
 
     // Clean up old fireworks
     this.fireworks = this.fireworks.filter(f => now - f.createdAt < 2000);
+  }
+}
+
+export function speakMessage(text: string) {
+  if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+    try {
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.rate = 1.05;
+      utterance.pitch = 1.0;
+      const voices = window.speechSynthesis.getVoices();
+      const viVoice = voices.find((v) => v.lang.includes('vi') || v.lang.includes('VI'));
+      if (viVoice) {
+        utterance.voice = viVoice;
+      }
+      window.speechSynthesis.speak(utterance);
+    } catch (e) {
+      console.warn('Speech synthesis error:', e);
+    }
   }
 }

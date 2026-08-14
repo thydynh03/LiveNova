@@ -6,7 +6,7 @@ import { useEventsSocket } from '../../../lib/use-events-socket';
 import { LiveEvent, LiveEventType } from '@livenova/shared';
 import { useApi } from '../../../lib/use-api';
 import { api } from '../../../lib/api-client';
-import { DiscoEngine } from '../../../components/disco/disco-engine';
+import { DiscoEngine, speakMessage } from '../../../components/disco/disco-engine';
 import DiscoStageView from '../../../components/disco/DiscoStageView';
 import { Icon } from '../../../components/ui/Icon';
 
@@ -59,7 +59,16 @@ export default function DiscoDashboardPage() {
     }
   }, []);
 
-  const broadcastSync = (data: { musicUrl?: string; trackTitle?: string; videoUrl?: string; cameraShot?: string; duration?: number; effect?: string }) => {
+  const broadcastSync = (data: {
+    musicUrl?: string;
+    trackTitle?: string;
+    videoUrl?: string;
+    cameraShot?: string;
+    duration?: number;
+    effect?: string;
+    targetId?: string;
+    speechText?: string;
+  }) => {
     if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
       try {
         const channel = new BroadcastChannel('livenova_disco_sync');
@@ -235,13 +244,6 @@ export default function DiscoDashboardPage() {
     broadcastSync({ cameraShot: 'DJ_POV', duration: 10000 });
   };
 
-  const triggerTestGiftDJ = () => {
-    const id = testUsername.trim() || '@khangia';
-    const name = testDisplayName.trim() || 'Khán Giả';
-    engine.enqueueGift(id, name, 15);
-    broadcastSync({ cameraShot: 'DJ_POV', duration: 10000 });
-  };
-
   // Live Effect Triggers for Streamer
   const triggerSmoke = () => {
     engine.triggerSmokeEffect();
@@ -312,8 +314,53 @@ export default function DiscoDashboardPage() {
     engine.toggleAutoDirector(next);
   };
 
+  // Interactive Gift & Command Test Handlers
+  const triggerTestRose = () => {
+    const id = testUsername || '@user_vip';
+    const name = testDisplayName || 'Khán Giả Cute';
+    if (!engine.dancers.has(id)) {
+      engine.join(id, name);
+    }
+    engine.addGiftPoints(id, name, 1);
+    engine.triggerSpotlightZoom(7000, id);
+    broadcastSync({ cameraShot: 'SPOTLIGHT_ZOOM', duration: 7000, targetId: id });
+  };
+
+  const triggerTestTikTok = () => {
+    const id = testUsername || '@user_vip';
+    const name = testDisplayName || 'Khán Giả Cute';
+    if (!engine.dancers.has(id)) {
+      engine.join(id, name);
+    }
+    engine.changeAvatar(id);
+    engine.addGiftPoints(id, name, 1);
+    engine.jump(id);
+  };
+
+  const triggerTestRosa = () => {
+    const id = testUsername || '@user_vip';
+    const name = testDisplayName || 'Khán Giả Cute';
+    if (!engine.dancers.has(id)) {
+      engine.join(id, name);
+    }
+    engine.addGiftPoints(id, name, 5);
+    engine.triggerSpotlightZoom(7000, id);
+    const speechText = `Cảm ơn ${name} đã tặng Rosa cho phòng nhảy! Quẩy lên nào!`;
+    broadcastSync({ cameraShot: 'SPOTLIGHT_ZOOM', duration: 7000, targetId: id, speechText });
+    speakMessage(speechText);
+  };
+
+  const triggerTestConfettiGift = () => {
+    const id = testUsername || '@user_vip';
+    const name = testDisplayName || 'Khán Giả Cute';
+    engine.promoteToDj(id, name);
+    const speechText = `Chúc mừng ${name} đã tặng Pháo Hoa Giấy và đăng quang trở thành TOP 1 DJ đêm nay!`;
+    broadcastSync({ cameraShot: 'DJ_POV', duration: 10000, effect: 'confetti', speechText });
+    speakMessage(speechText);
+  };
+
   // Automated Scenario Runner State & Engine
-  const [activeScenario, setActiveScenario] = useState<'concert' | 'dj_battle' | 'fx_party' | null>(null);
+  const [activeScenario, setActiveScenario] = useState<'concert' | 'dj_battle' | 'fx_party' | 'gift_showcase' | null>(null);
   const [scenarioStepIndex, setScenarioStepIndex] = useState<number>(0);
   const [scenarioTotalSteps, setScenarioTotalSteps] = useState<number>(0);
   const [scenarioLogs, setScenarioLogs] = useState<string[]>([]);
@@ -330,7 +377,7 @@ export default function DiscoDashboardPage() {
     setScenarioLogs((prev) => [msg, ...prev.slice(0, 15)]);
   }, []);
 
-  const runScenario = useCallback((type: 'concert' | 'dj_battle' | 'fx_party') => {
+  const runScenario = useCallback((type: 'concert' | 'dj_battle' | 'fx_party' | 'gift_showcase') => {
     stopScenario();
     setActiveScenario(type);
     setScenarioLogs([]);
@@ -472,8 +519,59 @@ export default function DiscoDashboardPage() {
       }, 15000);
 
       scenarioTimerRefs.current.push(t2, t3, t4, t5, t6);
+    } else if (type === 'gift_showcase') {
+      setScenarioTotalSteps(5);
+      setScenarioStepIndex(1);
+      addScenarioLog('▶️ [Bước 1/5] 💬 @minh_anh chat "Hey" -> Vào phòng nhảy');
+      engine.join('@minh_anh', 'Minh Anh 💃');
+
+      const t2 = setTimeout(() => {
+        setScenarioStepIndex(2);
+        addScenarioLog('▶️ [Bước 2/5] 🌹 @hoang_nam tặng 1 Rose -> Camera tự động zoom cận cảnh 7s');
+        engine.join('@hoang_nam', 'Hoàng Nam 🕺');
+        engine.addGiftPoints('@hoang_nam', 'Hoàng Nam 🕺', 1);
+        engine.triggerSpotlightZoom(7000, '@hoang_nam');
+        broadcastSync({ cameraShot: 'SPOTLIGHT_ZOOM', duration: 7000, targetId: '@hoang_nam' });
+      }, 3500);
+
+      const t3 = setTimeout(() => {
+        setScenarioStepIndex(3);
+        addScenarioLog('▶️ [Bước 3/5] 🎵 @thu_ha tặng 1 TikTok -> Đổi Avatar trang phục nhảy dạ hội');
+        engine.join('@thu_ha', 'Thu Hà ✨');
+        engine.changeAvatar('@thu_ha');
+        engine.addGiftPoints('@thu_ha', 'Thu Hà ✨', 1);
+        engine.jump('@thu_ha');
+      }, 8000);
+
+      const t4 = setTimeout(() => {
+        setScenarioStepIndex(4);
+        addScenarioLog('▶️ [Bước 4/5] 💖 @thanh_dat tặng 1 Rosa -> Spotlight + AI Voice cảm ơn!');
+        engine.join('@thanh_dat', 'Thành Đạt 🌟');
+        engine.addGiftPoints('@thanh_dat', 'Thành Đạt 🌟', 5);
+        engine.triggerSpotlightZoom(7000, '@thanh_dat');
+        const speech = 'Cảm ơn Thành Đạt đã tặng Rosa cho phòng nhảy! Quẩy lên nào!';
+        speakMessage(speech);
+        broadcastSync({ cameraShot: 'SPOTLIGHT_ZOOM', duration: 7000, targetId: '@thanh_dat', speechText: speech });
+      }, 12500);
+
+      const t5 = setTimeout(() => {
+        setScenarioStepIndex(5);
+        addScenarioLog('▶️ [Bước 5/5] 🎊 @dai_gia_vip tặng Pháo Hoa Giấy -> Lên thẳng TOP 1 DJ + 10s DJ POV + Voice xướng tên!');
+        engine.promoteToDj('@dai_gia_vip', 'Đại Gia VIP 👑');
+        const speech = 'Chúc mừng Đại Gia VIP đã tặng Pháo Hoa Giấy và đăng quang trở thành TOP 1 DJ đêm nay!';
+        speakMessage(speech);
+        broadcastSync({ cameraShot: 'DJ_POV', duration: 10000, effect: 'confetti', speechText: speech });
+
+        const tDone = setTimeout(() => {
+          addScenarioLog('✅ [Hoàn Tất] Kịch bản Trải Nghiệm Tương Tác Quà & Voice AI đã kết thúc thành công!');
+          setActiveScenario(null);
+        }, 6000);
+        scenarioTimerRefs.current.push(tDone);
+      }, 18000);
+
+      scenarioTimerRefs.current.push(t2, t3, t4, t5);
     }
-  }, [addScenarioLog, engine, handleSetMusic, stopScenario, triggerCameraCrane, triggerCameraDjPov, triggerCameraSpotlight, triggerConfetti, triggerFireworkBurst, triggerLaserShow, triggerSmoke, triggerStrobe]);
+  }, [addScenarioLog, broadcastSync, engine, handleSetMusic, stopScenario, triggerCameraCrane, triggerCameraDjPov, triggerCameraSpotlight, triggerConfetti, triggerFireworkBurst, triggerLaserShow, triggerSmoke, triggerStrobe]);
 
   if (!user) {
     return (
@@ -1011,6 +1109,12 @@ export default function DiscoDashboardPage() {
                   title: '⚡ Kịch Bản 3: Đại Tiệc Hiệu Ứng Sân Khấu',
                   desc: 'Stress test toàn bộ hiệu ứng: Xịt khói CO2 -> Nhấp nháy Strobe -> Laser Show -> Confetti -> Cần cẩu Crane -> Pháo hoa',
                   color: 'linear-gradient(135deg, #06b6d4 0%, #3b82f6 100%)',
+                },
+                {
+                  id: 'gift_showcase' as const,
+                  title: '🎁 Kịch Bản 4: Tương Tác Quà & Voice AI (Hey, Rose, TikTok, Rosa, Pháo Hoa Giấy)',
+                  desc: 'Chat Hey vào sàn -> 1 Rose Zoom 7s -> 1 TikTok Đổi Avatar -> 1 Rosa Voice Cảm Ơn -> Pháo Hoa Giấy Lên Thẳng TOP 1 DJ!',
+                  color: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
                 }
               ].map((sc) => {
                 const isRunning = activeScenario === sc.id;
@@ -1185,7 +1289,7 @@ export default function DiscoDashboardPage() {
                     gap: '0.375rem'
                   }}
                 >
-                  🕺 Gõ &quot;1&quot; (Join sàn)
+                  🕺 Gõ &quot;Hey&quot; / &quot;1&quot; (Vào sàn)
                 </button>
 
                 <button
@@ -1250,22 +1354,23 @@ export default function DiscoDashboardPage() {
               </div>
             </div>
 
-            {/* Test Gift Actions */}
+            {/* Test Specific TikTok Live Gifts */}
             <div>
               <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'hsl(var(--muted-foreground))', marginBottom: '0.5rem' }}>
-                🎁 TEST TẶNG QUÀ (HIỆU ỨNG ĐẶC BIỆT)
+                🎁 TEST TẶNG QUÀ TIKTOK LIVE (THEO YÊU CẦU)
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+                {/* 1. Rose */}
                 <button
-                  onClick={triggerTestGiftNormal}
+                  onClick={triggerTestRose}
                   style={{
-                    padding: '0.625rem',
+                    padding: '0.55rem',
                     borderRadius: 'var(--radius-sm)',
-                    background: 'hsl(var(--primary) / 0.12)',
-                    color: 'hsl(var(--primary))',
-                    border: '1px solid hsl(var(--primary) / 0.3)',
-                    fontWeight: 600,
-                    fontSize: '0.8125rem',
+                    background: 'rgba(244, 63, 94, 0.12)',
+                    color: '#f43f5e',
+                    border: '1px solid rgba(244, 63, 94, 0.35)',
+                    fontWeight: 700,
+                    fontSize: '0.75rem',
                     cursor: 'pointer',
                     display: 'flex',
                     alignItems: 'center',
@@ -1273,28 +1378,93 @@ export default function DiscoDashboardPage() {
                     gap: '0.375rem'
                   }}
                 >
-                  <Icon name="gift" size={16} /> 🎁 Tặng Quà (+3 Điểm → Kích Hoạt POV)
+                  🌹 1 Rose (Zoom 7s)
                 </button>
 
+                {/* 2. TikTok */}
                 <button
-                  onClick={triggerTestGiftDJ}
+                  onClick={triggerTestTikTok}
                   style={{
-                    padding: '0.625rem',
+                    padding: '0.55rem',
                     borderRadius: 'var(--radius-sm)',
-                    background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+                    background: 'rgba(0, 240, 255, 0.12)',
+                    color: '#00f0ff',
+                    border: '1px solid rgba(0, 240, 255, 0.35)',
+                    fontWeight: 700,
+                    fontSize: '0.75rem',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '0.375rem'
+                  }}
+                >
+                  🎵 1 TikTok (Đổi Avatar)
+                </button>
+
+                {/* 3. Rosa */}
+                <button
+                  onClick={triggerTestRosa}
+                  style={{
+                    padding: '0.55rem',
+                    borderRadius: 'var(--radius-sm)',
+                    background: 'rgba(168, 85, 247, 0.15)',
+                    color: '#a855f7',
+                    border: '1px solid rgba(168, 85, 247, 0.4)',
+                    fontWeight: 700,
+                    fontSize: '0.75rem',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '0.375rem'
+                  }}
+                >
+                  💖 1 Rosa (Voice Cảm Ơn)
+                </button>
+
+                {/* 4. Normal Gift */}
+                <button
+                  onClick={triggerTestGiftNormal}
+                  style={{
+                    padding: '0.55rem',
+                    borderRadius: 'var(--radius-sm)',
+                    background: 'hsl(var(--secondary))',
+                    color: 'hsl(var(--foreground))',
+                    border: '1px solid hsl(var(--border))',
+                    fontWeight: 600,
+                    fontSize: '0.75rem',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '0.375rem'
+                  }}
+                >
+                  🎁 Quà Thường (+3đ)
+                </button>
+
+                {/* 5. Pháo Hoa Giấy */}
+                <button
+                  onClick={triggerTestConfettiGift}
+                  style={{
+                    gridColumn: 'span 2',
+                    padding: '0.65rem',
+                    borderRadius: 'var(--radius-sm)',
+                    background: 'linear-gradient(135deg, #f59e0b 0%, #ec4899 50%, #8b5cf6 100%)',
                     color: '#fff',
                     border: 'none',
-                    fontWeight: 700,
+                    fontWeight: 800,
                     fontSize: '0.8125rem',
                     cursor: 'pointer',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    gap: '0.375rem',
-                    boxShadow: '0 4px 12px rgba(245, 158, 11, 0.3)'
+                    gap: '0.5rem',
+                    boxShadow: '0 4px 15px rgba(236, 72, 153, 0.35)'
                   }}
                 >
-                  👑 Tặng Quà VIP (+15 Điểm → Soán Ngôi TOP 1 DJ)
+                  🎊 TẶNG PHÁO HOA GIẤY (LÊN THẲNG TOP 1 DJ + VOICE)
                 </button>
               </div>
             </div>

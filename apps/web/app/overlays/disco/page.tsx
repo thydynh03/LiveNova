@@ -4,7 +4,7 @@ import React, { useState, useMemo, useCallback, useEffect, Suspense } from 'reac
 import { useSearchParams } from 'next/navigation';
 import { OverlayAction, LiveEventType } from '@livenova/shared';
 import { useOverlaySocket } from '../../../lib/use-overlay-socket';
-import { DiscoEngine } from '../../../components/disco/disco-engine';
+import { DiscoEngine, speakMessage } from '../../../components/disco/disco-engine';
 import DiscoStageView from '../../../components/disco/DiscoStageView';
 
 function DiscoOverlayContent() {
@@ -40,7 +40,7 @@ function DiscoOverlayContent() {
           if (data.cameraShot === 'DJ_POV') {
             engine.triggerDjPov(data.duration || 9000);
           } else if (data.cameraShot === 'SPOTLIGHT_ZOOM') {
-            engine.triggerSpotlightZoom(data.duration || 5000);
+            engine.triggerSpotlightZoom(data.duration || 7000, data.targetId);
           } else if (data.cameraShot === 'CRANE_SWOOP') {
             engine.triggerCraneSwoop(data.duration || 6000);
           } else if (data.cameraShot === 'WIDE_ORBIT') {
@@ -51,6 +51,10 @@ function DiscoOverlayContent() {
             engine.triggerSmokeEffect();
           } else if (data.effect) {
             engine.triggerEffect(data.effect);
+          }
+
+          if (data.speechText) {
+            speakMessage(data.speechText);
           }
         }
       };
@@ -68,7 +72,7 @@ function DiscoOverlayContent() {
 
     if (event.type === LiveEventType.COMMENT) {
       const comment = (event.content || '').toLowerCase().trim();
-      if (['1', 'join', 'vào'].includes(comment)) {
+      if (['hey', '1', 'join', 'vào', 'hi', 'hello'].includes(comment)) {
         engine.join(senderId, senderName, avatarUrl);
       } else if (['2', 'jump', 'lên', 'nhảy'].includes(comment)) {
         engine.jump(senderId);
@@ -78,8 +82,70 @@ function DiscoOverlayContent() {
         engine.walk(senderId);
       }
     } else if (event.type === LiveEventType.GIFT) {
-      const giftPoints = Math.max(1, event.giftCoinValue || 1);
-      engine.enqueueGift(senderId, senderName, giftPoints, avatarUrl);
+      const giftName = ((event.giftName || event.content || '') as string).toLowerCase().trim();
+      const giftCoins = event.giftCoinValue || 1;
+      const giftId = Number((event as unknown as { giftId?: number | string }).giftId) || 0;
+
+      // 1. Tặng Pháo Hoa Giấy (Confetti / Fireworks / Paper Fireworks / Popper) -> Lên thẳng TOP 1 DJ luôn!
+      if (
+        giftName.includes('pháo hoa giấy') ||
+        giftName.includes('phao hoa giay') ||
+        giftName.includes('hoa giấy') ||
+        giftName.includes('hoa giay') ||
+        giftName.includes('confetti') ||
+        giftName.includes('firework') ||
+        giftName.includes('popper') ||
+        giftName.includes('paper') ||
+        giftCoins >= 100
+      ) {
+        engine.promoteToDj(senderId, senderName, avatarUrl);
+        speakMessage(`Chúc mừng ${senderName} đã tặng Pháo Hoa Giấy và đăng quang trở thành TOP 1 DJ đêm nay!`);
+      }
+      // 2. Tặng 1 Rosa -> Highlight user đó lên và đọc cảm ơn bằng voice!
+      else if (
+        giftName.includes('rosa') ||
+        giftName.includes('rose nebula') ||
+        giftName.includes('rosy')
+      ) {
+        if (!engine.dancers.has(senderId)) {
+          engine.join(senderId, senderName, avatarUrl);
+        }
+        engine.addGiftPoints(senderId, senderName, 5, avatarUrl);
+        engine.triggerSpotlightZoom(7000, senderId);
+        speakMessage(`Cảm ơn ${senderName} đã tặng Rosa cho phòng nhảy! Quẩy lên nào!`);
+      }
+      // 3. Tặng 1 TikTok -> Đổi avatar trang phục!
+      else if (
+        giftName.includes('tiktok') ||
+        giftName.includes('tik tok') ||
+        giftId === 5269
+      ) {
+        if (!engine.dancers.has(senderId)) {
+          engine.join(senderId, senderName, avatarUrl);
+        }
+        engine.changeAvatar(senderId);
+        engine.addGiftPoints(senderId, senderName, 1, avatarUrl);
+        engine.jump(senderId);
+      }
+      // 4. Tặng 1 Rose (Hoa Hồng) -> Zoom cận cảnh người đang nhảy 7s!
+      else if (
+        giftName.includes('rose') ||
+        giftName.includes('hoa hồng') ||
+        giftName.includes('hoa hong') ||
+        giftName.includes('hồng') ||
+        giftId === 5655 ||
+        giftCoins === 1
+      ) {
+        if (!engine.dancers.has(senderId)) {
+          engine.join(senderId, senderName, avatarUrl);
+        }
+        engine.addGiftPoints(senderId, senderName, 1, avatarUrl);
+        engine.triggerSpotlightZoom(7000, senderId);
+      }
+      // 5. Các quà khác
+      else {
+        engine.enqueueGift(senderId, senderName, giftCoins, avatarUrl);
+      }
     } else if (
       event.type === LiveEventType.JOIN ||
       event.type === LiveEventType.FOLLOW ||
