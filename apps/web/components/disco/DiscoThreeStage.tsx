@@ -212,8 +212,7 @@ export function DiscoThreeStage({ engine, videoUrl, isMuted = true }: DiscoThree
     rightPodiumRing.position.set(4.2, 0.96, -3.5);
     scene.add(rightPodiumRing);
 
-    // 9. Triple-Screen Festival Stage Architecture (Center 16:9 LED Screen + Dual Pulsating Wings)
-    // 9.1 Center Video Screen Texture & Mesh
+    // 9. Center Stage LED Screen (Behind DJ Booth)
     const videoCanvas = document.createElement('canvas');
     videoCanvas.width = 1024;
     videoCanvas.height = 576; // 16:9 ratio
@@ -223,8 +222,7 @@ export function DiscoThreeStage({ engine, videoUrl, isMuted = true }: DiscoThree
     videoTexture.minFilter = THREE.LinearFilter;
     videoTexture.magFilter = THREE.LinearFilter;
 
-    // Center Stage LED Screen (Behind DJ Booth)
-    const centerScreenGeo = new THREE.CylinderGeometry(23, 23, 8.8, 32, 1, true, Math.PI * 0.70, Math.PI * 0.14);
+    const centerScreenGeo = new THREE.CylinderGeometry(23, 23, 9.2, 36, 1, true, Math.PI * 0.62, Math.PI * 0.30);
     const centerUVs = centerScreenGeo.attributes.uv;
     for (let u = 0; u < centerUVs.count; u++) {
       centerUVs.setX(u, 1 - centerUVs.getX(u));
@@ -244,70 +242,14 @@ export function DiscoThreeStage({ engine, videoUrl, isMuted = true }: DiscoThree
     }
 
     // Center Screen Glowing Neon Frame
-    const centerFrameGeo = new THREE.CylinderGeometry(23.03, 23.03, 0.22, 32, 1, true, Math.PI * 0.70, Math.PI * 0.14);
+    const centerFrameGeo = new THREE.CylinderGeometry(23.03, 23.03, 0.22, 36, 1, true, Math.PI * 0.62, Math.PI * 0.30);
     const centerFrameTop = new THREE.Mesh(centerFrameGeo, new THREE.MeshBasicMaterial({ color: 0x00f0ff, side: THREE.BackSide }));
-    centerFrameTop.position.set(0, 5.2 + 4.4, -2.8);
+    centerFrameTop.position.set(0, 5.2 + 4.6, -2.8);
     scene.add(centerFrameTop);
 
     const centerFrameBottom = new THREE.Mesh(centerFrameGeo, new THREE.MeshBasicMaterial({ color: 0x00f0ff, side: THREE.BackSide }));
-    centerFrameBottom.position.set(0, 5.2 - 4.4, -2.8);
+    centerFrameBottom.position.set(0, 5.2 - 4.6, -2.8);
     scene.add(centerFrameBottom);
-
-    // 9.2 Dual Curved Wings (Left & Right Pulsating Cyber Spectrum LED Wings)
-    const wingCanvas = document.createElement('canvas');
-    wingCanvas.width = 512;
-    wingCanvas.height = 512;
-    const wCtx = wingCanvas.getContext('2d');
-
-    const wingTexture = new THREE.CanvasTexture(wingCanvas);
-    wingTexture.minFilter = THREE.LinearFilter;
-    wingTexture.magFilter = THREE.LinearFilter;
-
-    // Left Curved Wing Mesh
-    const leftWingGeo = new THREE.CylinderGeometry(23, 23, 8.5, 32, 1, true, Math.PI * 0.52, Math.PI * 0.16);
-    const leftUVs = leftWingGeo.attributes.uv;
-    for (let u = 0; u < leftUVs.count; u++) {
-      leftUVs.setX(u, 1 - leftUVs.getX(u));
-    }
-    leftUVs.needsUpdate = true;
-
-    const leftWingMat = new THREE.MeshBasicMaterial({ map: wingTexture, side: THREE.BackSide });
-    const leftWing = new THREE.Mesh(leftWingGeo, leftWingMat);
-    leftWing.position.set(0, 5.2, -2.8);
-    scene.add(leftWing);
-
-    // Left Wing Neon Frame
-    const leftFrameGeo = new THREE.CylinderGeometry(23.03, 23.03, 0.22, 32, 1, true, Math.PI * 0.52, Math.PI * 0.16);
-    const leftFrameTop = new THREE.Mesh(leftFrameGeo, new THREE.MeshBasicMaterial({ color: 0xff007f, side: THREE.BackSide }));
-    leftFrameTop.position.set(0, 5.2 + 4.25, -2.8);
-    scene.add(leftFrameTop);
-
-    const leftFrameBottom = new THREE.Mesh(leftFrameGeo, new THREE.MeshBasicMaterial({ color: 0xff007f, side: THREE.BackSide }));
-    leftFrameBottom.position.set(0, 5.2 - 4.25, -2.8);
-    scene.add(leftFrameBottom);
-
-    // Right Curved Wing Mesh
-    const rightWingGeo = new THREE.CylinderGeometry(23, 23, 8.5, 32, 1, true, Math.PI * 0.86, Math.PI * 0.16);
-    const rightUVs = rightWingGeo.attributes.uv;
-    for (let u = 0; u < rightUVs.count; u++) {
-      rightUVs.setX(u, 1 - rightUVs.getX(u));
-    }
-    rightUVs.needsUpdate = true;
-
-    const rightWingMat = new THREE.MeshBasicMaterial({ map: wingTexture, side: THREE.BackSide });
-    const rightWing = new THREE.Mesh(rightWingGeo, rightWingMat);
-    rightWing.position.set(0, 5.2, -2.8);
-    scene.add(rightWing);
-
-    // Right Wing Neon Frame
-    const rightFrameGeo = new THREE.CylinderGeometry(23.03, 23.03, 0.22, 32, 1, true, Math.PI * 0.86, Math.PI * 0.16);
-    const rightFrameTop = new THREE.Mesh(rightFrameGeo, new THREE.MeshBasicMaterial({ color: 0xff007f, side: THREE.BackSide }));
-    rightFrameTop.position.set(0, 5.2 + 4.25, -2.8);
-    scene.add(rightFrameTop);
-
-    const rightFrameBottom = new THREE.Mesh(rightFrameGeo, new THREE.MeshBasicMaterial({ color: 0xff007f, side: THREE.BackSide }));
-    rightFrameBottom.position.set(0, 5.2 - 4.25, -2.8);
-    scene.add(rightFrameBottom);
 
     // 10. Grand Triple Circular Ceiling Trusses with 36 Moving Head Spotlights
     const trussGroup = new THREE.Group();
@@ -930,7 +872,7 @@ export function DiscoThreeStage({ engine, videoUrl, isMuted = true }: DiscoThree
         stageKeyLight.intensity = 2.5;
       }
 
-      // 18.3 Render Center Video Screen & Pulsating Wings Spectrum
+      // 18.3 Render Center Video Screen
       if (vCtx) {
         let hasCustomMedia = false;
 
@@ -988,49 +930,6 @@ export function DiscoThreeStage({ engine, videoUrl, isMuted = true }: DiscoThree
           vCtx.shadowBlur = 0;
         }
         videoTexture.needsUpdate = true;
-      }
-
-      // Render Dynamic Equalizer on Left & Right Wings
-      if (wCtx) {
-        wCtx.fillStyle = '#04020a';
-        wCtx.fillRect(0, 0, 512, 512);
-
-        // Equalizer background grid
-        wCtx.strokeStyle = 'rgba(0, 240, 255, 0.12)';
-        wCtx.lineWidth = 1;
-        for (let gy = 80; gy < 512; gy += 35) {
-          wCtx.beginPath();
-          wCtx.moveTo(0, gy);
-          wCtx.lineTo(512, gy);
-          wCtx.stroke();
-        }
-
-        // 16 Pulsating Neon EQ Columns with Glowing Peak Caps
-        const numCols = 16;
-        const colWidth = 512 / numCols;
-        for (let i = 0; i < numCols; i++) {
-          const colHeight = Math.abs(Math.sin(nowSec * 6.5 + i * 0.5)) * 340 + 40;
-          const grad = wCtx.createLinearGradient(0, 512 - colHeight, 0, 512);
-          const cPick = i % 3;
-          if (cPick === 0) {
-            grad.addColorStop(0, '#00f0ff');
-            grad.addColorStop(1, '#002277');
-          } else if (cPick === 1) {
-            grad.addColorStop(0, '#ff007f');
-            grad.addColorStop(1, '#550055');
-          } else {
-            grad.addColorStop(0, '#ffd700');
-            grad.addColorStop(1, '#884400');
-          }
-
-          wCtx.fillStyle = grad;
-          wCtx.fillRect(i * colWidth + 4, 512 - colHeight, colWidth - 8, colHeight);
-
-          // Glowing white peak tip
-          wCtx.fillStyle = '#ffffff';
-          wCtx.fillRect(i * colWidth + 4, 512 - colHeight - 4, colWidth - 8, 3);
-        }
-        wingTexture.needsUpdate = true;
       }
 
       // 18.4 Animate 36 Moving Head Spotlights (Ceiling + Floor Uplights)
@@ -1360,13 +1259,12 @@ export function DiscoThreeStage({ engine, videoUrl, isMuted = true }: DiscoThree
           }
         } else if (shot === 'CRANE_SWOOP') {
           // High altitude swooping crane camera
-          targetCamPos.set(Math.sin(nowSec * 0.4) * 8.5, (8.5 + Math.cos(nowSec * 0.3) * 2.5) + camHeightAdd, 11 * camDistMult);
-          targetLookAt.set(0, 1.4, -4);
-        } else {
-          // WIDE_ORBIT - Smooth wide circular flycam
-          const orbitAngle = nowSec * 0.22;
-          targetCamPos.set(Math.sin(orbitAngle) * 15.5 * camDistMult, (6.2 + Math.sin(nowSec * 0.3) * 1.5) + camHeightAdd, (Math.cos(orbitAngle) * 14.5 - 3) * camDistMult);
+          targetCamPos.set(Math.sin(nowSec * 0.4) * 4.5, (7.5 + Math.cos(nowSec * 0.3) * 1.5) + camHeightAdd, 12 * camDistMult);
           targetLookAt.set(0, 1.4, -3.5);
+        } else {
+          // FRONT_STAGE - Rock-Solid, Centered Front-Row Stage View (Aligned 100% with Backdrop Video)
+          targetCamPos.set(0, 4.8 + camHeightAdd, 13.8 * camDistMult);
+          targetLookAt.set(0, 1.4, -3.0);
         }
       }
 

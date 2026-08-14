@@ -197,10 +197,10 @@ export default function DiscoStageView({
         <div
           style={{
             position: 'absolute',
-            top: '4.5%',
+            top: '5%',
             left: '50%',
             transform: 'translateX(-50%)',
-            width: '54%',
+            width: '58%',
             aspectRatio: '16 / 9',
             maxHeight: '56%',
             zIndex: 3,
