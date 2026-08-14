@@ -9,16 +9,12 @@ export interface DiscoStageViewProps {
   engine: DiscoEngine;
   videoUrl?: string;
   isMuted?: boolean;
-  showBadges?: boolean;
-  bannerText?: string;
 }
 
 export default function DiscoStageView({
   engine,
   videoUrl = '/assets/disco/Stage/default-dj-loop.gif',
   isMuted = true,
-  showBadges = true,
-  bannerText = 'chat 1 để vào sàn BAR',
 }: DiscoStageViewProps) {
   const [aspect, setAspect] = useState<'vertical' | 'horizontal'>('vertical');
   const [eqHeights, setEqHeights] = useState<number[]>([15, 25, 40, 30, 50, 60, 45, 35, 20, 55, 65, 35, 45, 25, 15]);
@@ -180,104 +176,6 @@ export default function DiscoStageView({
       <div style={{ position: 'absolute', inset: 0, zIndex: 10, pointerEvents: 'none' }}>
         <DiscoCanvas engine={engine} />
       </div>
-
-      {/* 4. Top Animated Banner (Matching User's Screenshot: "chat 1 để vào sàn BAR") */}
-      {bannerText && (
-        <div
-          style={{
-            position: 'absolute',
-            top: aspect === 'vertical' ? '4%' : '3%',
-            left: '50%',
-            transform: 'translateX(-50%)',
-            zIndex: 30,
-            pointerEvents: 'none',
-            textAlign: 'center',
-          }}
-        >
-          <div
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '8px',
-              padding: '8px 20px',
-              borderRadius: 30,
-              background: 'rgba(0, 0, 0, 0.65)',
-              backdropFilter: 'blur(10px)',
-              border: '2px solid rgba(255, 0, 140, 0.7)',
-              boxShadow: '0 0 20px rgba(255, 0, 140, 0.5), 0 0 40px rgba(0, 240, 255, 0.3)',
-            }}
-          >
-            <span style={{ fontSize: '1.2rem', animation: 'spin 3s linear infinite' }}>✨</span>
-            <span
-              style={{
-                fontFamily: "'Segoe UI', Roboto, sans-serif",
-                fontWeight: 900,
-                fontSize: aspect === 'vertical' ? '1.25rem' : '1.4rem',
-                letterSpacing: '0.05em',
-                color: '#fff',
-                textShadow:
-                  '0 0 10px #ff007f, 0 0 20px #ff007f, 0 0 30px #00f0ff, 2px 2px 2px #000',
-              }}
-            >
-              {bannerText}
-            </span>
-            <span style={{ fontSize: '1.2rem' }}>✨</span>
-          </div>
-        </div>
-      )}
-
-      {/* 5. Floating TikTok Badges (Right Column) */}
-      {showBadges && (
-        <div
-          style={{
-            position: 'absolute',
-            right: 12,
-            bottom: aspect === 'vertical' ? '12%' : '8%',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '6px',
-            zIndex: 30,
-            pointerEvents: 'none',
-            maxWidth: '180px',
-          }}
-        >
-          {[
-            { icon: '💬', label: 'chat 1: Vào Sàn', color: '#00f0ff' },
-            { icon: '🔄', label: 'chat 3: Đổi Nhân Vật', color: '#ffea00' },
-            { icon: '🚶', label: 'chat 4: Đi Vòng', color: '#ff9900' },
-            { icon: '🦘', label: 'chat 2: Nhảy Cực Sung', color: '#00ff88' },
-            { icon: '👑', label: '199 Xu: TOP DJ', color: '#ffd700' },
-            { icon: '🎁', label: 'Quà: Phóng To', color: '#ff007f' },
-          ].map((badge, i) => (
-            <div
-              key={i}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-                padding: '4px 10px',
-                background: 'rgba(0, 0, 0, 0.7)',
-                backdropFilter: 'blur(6px)',
-                borderRadius: 20,
-                border: `1px solid ${badge.color}66`,
-                boxShadow: `0 0 10px ${badge.color}33`,
-              }}
-            >
-              <span style={{ fontSize: '14px' }}>{badge.icon}</span>
-              <span
-                style={{
-                  color: '#fff',
-                  fontSize: '11px',
-                  fontWeight: 700,
-                  textShadow: '1px 1px 2px #000',
-                }}
-              >
-                {badge.label}
-              </span>
-            </div>
-          ))}
-        </div>
-      )}
     </div>
   );
 }

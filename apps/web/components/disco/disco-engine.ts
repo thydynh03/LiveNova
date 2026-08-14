@@ -103,6 +103,7 @@ export class DiscoEngine {
         this.dancers.set(item.id, {
           id: item.id,
           name: item.name,
+          avatarUrl: `/assets/disco/Characters/${item.sprite}/000.png`,
           x: spreadX,
           y: item.isDj ? 0.48 : 0.95,
           z: item.z || 0.5,

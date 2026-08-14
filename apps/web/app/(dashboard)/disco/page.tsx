@@ -422,7 +422,6 @@ export default function DiscoDashboardPage() {
               engine={engine}
               videoUrl={djVideoUrl}
               isMuted={isDjVideoMuted}
-              showBadges={true}
             />
           </div>
 

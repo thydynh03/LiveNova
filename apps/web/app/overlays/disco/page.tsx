@@ -96,7 +96,6 @@ function DiscoOverlayContent() {
         engine={engine}
         videoUrl={customVideo || '/assets/disco/Stage/default-dj-loop.gif'}
         isMuted={true}
-        showBadges={true}
       />
     </div>
   );
