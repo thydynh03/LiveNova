@@ -41,6 +41,15 @@ export interface Camera {
   lockTimeout: number;
 }
 
+export interface GiftEvent {
+  id: string;
+  senderId: string;
+  senderName: string;
+  giftPoints: number;
+  avatarUrl?: string;
+  timestamp: number;
+}
+
 export const SPRITES = [
   'mushroom_dance_15',
   'mushroom_dance_01',
@@ -94,6 +103,19 @@ export class DiscoEngine {
   };
   flashIntensity: number = 0;
   lastTick: number = 0;
+
+  public giftQueue: GiftEvent[] = [];
+  public isProcessingGift: boolean = false;
+  public currentGiftEvent: GiftEvent | null = null;
+  private giftProcessEndTime: number = 0;
+
+  public smokeEffectActive: boolean = false;
+  public smokeEffectStartTime: number = 0;
+  public smokeEffectDuration: number = 3000;
+
+  public activeEffects: { type: string; startTime: number; duration: number }[] = [];
+
+  public isDjPovFirstPerson: boolean = false;
   
   private colors = ['#ff4b4b', '#ff7a4b', '#ffb54b', '#e2ff4b', '#62ff4b', '#4bff9a', '#4be2ff', '#4b7aff', '#9a4bff', '#ff4be2'];
 
@@ -192,6 +214,32 @@ export class DiscoEngine {
     // Camera zooms/pans to welcome new dancer for 3.5 seconds
     this.zoomOn(id, 3500);
     this.triggerFlash(0.3);
+  }
+
+  enqueueGift(senderId: string, senderName: string, giftPoints: number, avatarUrl?: string) {
+    this.giftQueue.push({
+      id: Math.random().toString(36).substring(2, 11),
+      senderId,
+      senderName,
+      giftPoints,
+      avatarUrl,
+      timestamp: Date.now()
+    });
+    this.processNextGift();
+  }
+
+  processNextGift() {
+    if (this.isProcessingGift || this.giftQueue.length === 0) return;
+    
+    const event = this.giftQueue.shift();
+    if (!event) return;
+    
+    this.isProcessingGift = true;
+    this.currentGiftEvent = event;
+    
+    this.addGiftPoints(event.senderId, event.senderName, event.giftPoints, event.avatarUrl);
+    
+    this.giftProcessEndTime = Date.now() + 4000;
   }
 
   addGiftPoints(id: string, name: string, points: number, avatarUrl?: string) {
@@ -362,7 +410,7 @@ export class DiscoEngine {
 
   triggerFirework(x?: number, y?: number) {
     this.fireworks.push({
-      id: Math.random().toString(36).substr(2, 9),
+      id: Math.random().toString(36).substring(2, 11),
       x: x !== undefined ? x : Math.random() * 0.8 + 0.1,
       y: y !== undefined ? y : Math.random() * 0.5 + 0.1, // upper half
       createdAt: Date.now()
@@ -377,12 +425,14 @@ export class DiscoEngine {
 
   triggerDjPov(durationMs = 9000) {
     this.currentShotType = 'DJ_POV';
+    this.isDjPovFirstPerson = true;
     this.shotEndTime = Date.now() + durationMs;
     this.nextCinematicShotTime = Date.now() + durationMs + 6000;
   }
 
   triggerSpotlightZoom(durationMs = 5000, targetId?: string) {
     this.currentShotType = 'SPOTLIGHT_ZOOM';
+    this.isDjPovFirstPerson = false;
     const dancersArray = Array.from(this.dancers.values());
     this.spotlightTargetId = targetId || (dancersArray.length > 0 ? dancersArray[Math.floor(Math.random() * dancersArray.length)].id : null);
     this.shotEndTime = Date.now() + durationMs;
@@ -391,14 +441,35 @@ export class DiscoEngine {
 
   triggerCraneSwoop(durationMs = 6000) {
     this.currentShotType = 'CRANE_SWOOP';
+    this.isDjPovFirstPerson = false;
     this.shotEndTime = Date.now() + durationMs;
     this.nextCinematicShotTime = Date.now() + durationMs + 6000;
   }
 
   triggerWideOrbit(durationMs = 8000) {
     this.currentShotType = 'WIDE_ORBIT';
+    this.isDjPovFirstPerson = false;
     this.shotEndTime = Date.now() + durationMs;
     this.nextCinematicShotTime = Date.now() + durationMs + 6000;
+  }
+
+  triggerSmokeEffect() {
+    this.smokeEffectActive = true;
+    this.smokeEffectStartTime = Date.now();
+  }
+
+  triggerEffect(type: 'confetti' | 'strobe' | 'firework_burst' | 'smoke_blast' | 'laser_show') {
+    let duration = 3000;
+    if (type === 'smoke_blast') duration = 4000;
+    else if (type === 'firework_burst') duration = 2000;
+    else if (type === 'strobe') duration = 5000;
+    else if (type === 'laser_show') duration = 6000;
+    
+    this.activeEffects.push({
+      type,
+      startTime: Date.now(),
+      duration
+    });
   }
 
   toggleAutoDirector(enabled?: boolean) {
@@ -413,6 +484,21 @@ export class DiscoEngine {
     const GRAVITY = 2.5;
     const FLOOR = 1.0;
     const BOUNCE = -0.4;
+
+    // Process gifts
+    if (this.isProcessingGift && now > this.giftProcessEndTime) {
+      this.isProcessingGift = false;
+      this.currentGiftEvent = null;
+      this.processNextGift();
+    }
+
+    // Process smoke effect
+    if (this.smokeEffectActive && now > this.smokeEffectStartTime + this.smokeEffectDuration) {
+      this.smokeEffectActive = false;
+    }
+
+    // Process active effects
+    this.activeEffects = this.activeEffects.filter(e => now < e.startTime + e.duration);
 
     // Decay flash intensity
     if (this.flashIntensity > 0) {
@@ -537,6 +623,9 @@ export class DiscoEngine {
         this.camera.targetY = 0.48 + Math.sin(cranePhase * Math.PI) * 0.08;
         this.camera.targetScale = 1.25 + Math.sin(cranePhase * Math.PI) * 0.15;
       } else {
+        if (this.currentShotType === 'DJ_POV') {
+          this.isDjPovFirstPerson = false;
+        }
         // Continuous smooth 3D slow orbital sweep (like a real concert broadcast)
         this.currentShotType = 'WIDE_ORBIT';
         this.camera.targetYaw += dt * 0.12; // slow, gentle continuous orbit

@@ -61,7 +61,7 @@ export function DiscoThreeStage({ engine, videoUrl, isMuted = true }: DiscoThree
     clubBgTex.wrapT = THREE.ClampToEdgeWrapping;
     clubBgTex.repeat.set(1.4, 1);
 
-    const clubWallGeo = new THREE.CylinderGeometry(28, 28, 22, 48, 1, true, -Math.PI * 0.9, Math.PI * 1.8);
+    const clubWallGeo = new THREE.CylinderGeometry(35, 35, 22, 48, 1, true, -Math.PI * 0.9, Math.PI * 1.8);
     const clubWallMat = new THREE.MeshBasicMaterial({
       map: clubBgTex,
       side: THREE.BackSide,
@@ -81,7 +81,7 @@ export function DiscoThreeStage({ engine, videoUrl, isMuted = true }: DiscoThree
     floorTexture.wrapS = THREE.RepeatWrapping;
     floorTexture.wrapT = THREE.RepeatWrapping;
 
-    const floorGeo = new THREE.CylinderGeometry(15.5, 16.0, 0.4, 48);
+    const floorGeo = new THREE.CylinderGeometry(20, 20.5, 0.4, 48);
     const floorMat = new THREE.MeshStandardMaterial({
       map: floorTexture,
       roughness: 0.15,
@@ -92,7 +92,7 @@ export function DiscoThreeStage({ engine, videoUrl, isMuted = true }: DiscoThree
     scene.add(floor);
 
     // Neon Floor Rim Ring
-    const floorRimGeo = new THREE.RingGeometry(15.4, 15.8, 48);
+    const floorRimGeo = new THREE.RingGeometry(19.8, 20.2, 48);
     const floorRimMat = new THREE.MeshBasicMaterial({ color: 0x00f0ff, side: THREE.DoubleSide });
     const floorRim = new THREE.Mesh(floorRimGeo, floorRimMat);
     floorRim.rotation.x = -Math.PI / 2;
@@ -195,9 +195,9 @@ export function DiscoThreeStage({ engine, videoUrl, isMuted = true }: DiscoThree
     videoTexture.minFilter = THREE.LinearFilter;
     videoTexture.magFilter = THREE.LinearFilter;
 
-    // Curved LED Screen Geometry (Using standard plane with curve offset or proper UV cylinder arc)
+    // Curved LED Screen Geometry
     const ledScreenGeo = new THREE.CylinderGeometry(15, 15, 7.2, 40, 1, true, Math.PI * 0.78, Math.PI * 0.44);
-    // Flip UVs horizontally so video/text isn't mirrored
+    // Flip UVs horizontally
     const uvs = ledScreenGeo.attributes.uv;
     for (let u = 0; u < uvs.count; u++) {
       uvs.setX(u, 1 - uvs.getX(u));
@@ -222,7 +222,7 @@ export function DiscoThreeStage({ engine, videoUrl, isMuted = true }: DiscoThree
     frameBottom.position.set(0, 1.2, -2.5);
     scene.add(frameBottom);
 
-    // 10. Grand Circular Ceiling Trusses with Moving Head Spotlights (Image 2 style)
+    // 10. Grand Circular Ceiling Trusses with Moving Head Spotlights
     const trussGroup = new THREE.Group();
     trussGroup.position.set(0, 8.8, -4);
     scene.add(trussGroup);
@@ -282,29 +282,84 @@ export function DiscoThreeStage({ engine, videoUrl, isMuted = true }: DiscoThree
       });
     }
 
-    // 11. Downward VIP Spotlights on Left and Right Podiums
-    const createVipSpotlight = (x: number, hexColor: number) => {
-      const spotMesh = new THREE.Mesh(
-        new THREE.ConeGeometry(2.0, 9.0, 24, 1, true),
-        new THREE.MeshBasicMaterial({
-          color: hexColor,
-          transparent: true,
-          opacity: 0.32,
-          blending: THREE.AdditiveBlending,
-          side: THREE.DoubleSide,
-          depthWrite: false,
-        })
-      );
-      spotMesh.geometry.translate(0, -4.5, 0);
-      spotMesh.position.set(x, 8.8, -3.5);
-      return spotMesh;
-    };
-    const vipSpotLeft = createVipSpotlight(-4.2, 0x00f0ff);
-    const vipSpotRight = createVipSpotlight(4.2, 0xff007f);
-    scene.add(vipSpotLeft);
-    scene.add(vipSpotRight);
+    // 11. Dynamic Top 5 Character Spotlights (Volumetric Beams + Floor Glow Rings + Point Lights)
+    const top5Colors = [0xffd700, 0x00f0ff, 0xff007f, 0xb026ff, 0x00ff88];
+    const top5SpotlightGroup = new THREE.Group();
+    scene.add(top5SpotlightGroup);
 
-    // 12. Volumetric Stage Smoke & Haze Layers (Mờ ảo có khói)
+    interface Top5SpotlightEntry {
+      beamMesh: THREE.Mesh;
+      floorRing: THREE.Mesh;
+      pointLight: THREE.PointLight;
+      color: number;
+    }
+
+    const top5Spotlights: Top5SpotlightEntry[] = [];
+
+    // Glowing circular floor texture for spotlight projection
+    const spotDiscCanvas = document.createElement('canvas');
+    spotDiscCanvas.width = 128;
+    spotDiscCanvas.height = 128;
+    const spotDiscCtx = spotDiscCanvas.getContext('2d');
+    if (spotDiscCtx) {
+      const g = spotDiscCtx.createRadialGradient(64, 64, 0, 64, 64, 64);
+      g.addColorStop(0, 'rgba(255, 255, 255, 0.95)');
+      g.addColorStop(0.35, 'rgba(255, 255, 255, 0.6)');
+      g.addColorStop(0.7, 'rgba(255, 255, 255, 0.2)');
+      g.addColorStop(1.0, 'rgba(255, 255, 255, 0)');
+      spotDiscCtx.fillStyle = g;
+      spotDiscCtx.fillRect(0, 0, 128, 128);
+    }
+    const spotDiscTex = new THREE.CanvasTexture(spotDiscCanvas);
+
+    for (let i = 0; i < 5; i++) {
+      const hex = top5Colors[i];
+
+      // Volumetric spotlight cone pointing down at character (unit height 1, pivot at tip)
+      const beamGeo = new THREE.CylinderGeometry(0.18, 1.35, 1, 24, 1, true);
+      beamGeo.translate(0, 0.5, 0);
+
+      const beamMat = new THREE.MeshBasicMaterial({
+        color: hex,
+        transparent: true,
+        opacity: 0.45,
+        blending: THREE.AdditiveBlending,
+        side: THREE.DoubleSide,
+        depthWrite: false,
+      });
+      const beamMesh = new THREE.Mesh(beamGeo, beamMat);
+      beamMesh.visible = false;
+      top5SpotlightGroup.add(beamMesh);
+
+      // Glowing Floor Projection Ring
+      const floorMat = new THREE.MeshBasicMaterial({
+        map: spotDiscTex,
+        color: hex,
+        transparent: true,
+        opacity: 0.6,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+        side: THREE.DoubleSide,
+      });
+      const floorRing = new THREE.Mesh(new THREE.PlaneGeometry(3.2, 3.2), floorMat);
+      floorRing.rotation.x = -Math.PI / 2;
+      floorRing.visible = false;
+      top5SpotlightGroup.add(floorRing);
+
+      // Real Point Light illuminating character directly
+      const pointLight = new THREE.PointLight(hex, 3.0, 9, 1.6);
+      pointLight.visible = false;
+      top5SpotlightGroup.add(pointLight);
+
+      top5Spotlights.push({
+        beamMesh,
+        floorRing,
+        pointLight,
+        color: hex,
+      });
+    }
+
+    // 12. Volumetric Stage Smoke & Haze Layers
     const smokeCanvas = document.createElement('canvas');
     smokeCanvas.width = 128;
     smokeCanvas.height = 128;
@@ -383,22 +438,29 @@ export function DiscoThreeStage({ engine, videoUrl, isMuted = true }: DiscoThree
       });
     }
 
-    // 14. Floating Sparks/Dust in Air
-    const particleCount = 220;
+    // 14. Floating Sparks/Dust in Air & Confetti
+    const maxParticles = 1500;
     const particleGeo = new THREE.BufferGeometry();
-    const particlePositions = new Float32Array(particleCount * 3);
-    for (let p = 0; p < particleCount; p++) {
+    const particlePositions = new Float32Array(maxParticles * 3);
+    const particleColors = new Float32Array(maxParticles * 3);
+    
+    for (let p = 0; p < maxParticles; p++) {
       particlePositions[p * 3] = (Math.random() - 0.5) * 26;
       particlePositions[p * 3 + 1] = Math.random() * 9.5;
       particlePositions[p * 3 + 2] = (Math.random() - 0.5) * 26 - 4;
+      particleColors[p * 3] = 0;
+      particleColors[p * 3 + 1] = 240 / 255;
+      particleColors[p * 3 + 2] = 255 / 255;
     }
     particleGeo.setAttribute('position', new THREE.BufferAttribute(particlePositions, 3));
+    particleGeo.setAttribute('color', new THREE.BufferAttribute(particleColors, 3));
+    
     const particleMat = new THREE.PointsMaterial({
-      color: 0x00f0ff,
       size: 0.14,
       transparent: true,
       opacity: 0.7,
       blending: THREE.AdditiveBlending,
+      vertexColors: true,
     });
     const sparkPoints = new THREE.Points(particleGeo, particleMat);
     scene.add(sparkPoints);
@@ -418,7 +480,7 @@ export function DiscoThreeStage({ engine, videoUrl, isMuted = true }: DiscoThree
     };
 
     const badgeTextureCache = new Map<string, THREE.CanvasTexture>();
-    const getBadgeTexture = (name: string, points: number, rankType: 'dj' | 'top2' | 'top3' | 'normal', color: string): THREE.CanvasTexture => {
+    const getBadgeTexture = (name: string, points: number, rankType: 'dj' | 'top2' | 'top3' | 'top4' | 'top5' | 'normal', color: string): THREE.CanvasTexture => {
       const key = `${name}_${points}_${rankType}`;
       if (badgeTextureCache.has(key)) return badgeTextureCache.get(key)!;
 
@@ -449,6 +511,16 @@ export function DiscoThreeStage({ engine, videoUrl, isMuted = true }: DiscoThree
           badgeColor = '#ff007f';
           borderColor = '#ff007f';
           bgGrad = 'rgba(35, 0, 25, 0.94)';
+        } else if (rankType === 'top4') {
+          title = `🌟 TOP 4 VIP: ${name} (${points}đ)`;
+          badgeColor = '#b026ff';
+          borderColor = '#b026ff';
+          bgGrad = 'rgba(25, 0, 35, 0.94)';
+        } else if (rankType === 'top5') {
+          title = `✨ TOP 5 VIP: ${name} (${points}đ)`;
+          badgeColor = '#00ff88';
+          borderColor = '#00ff88';
+          bgGrad = 'rgba(0, 30, 20, 0.94)';
         } else if (points > 0) {
           title = `${name} (${points}đ)`;
         }
@@ -551,12 +623,61 @@ export function DiscoThreeStage({ engine, videoUrl, isMuted = true }: DiscoThree
     // 18. Main Animation & Render Loop
     let animId: number;
     let lastTime = performance.now();
+    
+    let prevSmokeActive = false;
 
     const renderLoop = (time: number) => {
       animId = requestAnimationFrame(renderLoop);
       const dt = (time - lastTime) / 1000;
       lastTime = time;
       const nowSec = time * 0.001;
+      
+      const smokeActive = engine.smokeEffectActive === true;
+      const effects = engine.activeEffects || [];
+      const hasEffect = (t: string) => effects.some((e: { type: string; startTime: number; duration: number }) => e.type === t && (Date.now() - e.startTime < e.duration));
+      const isSmokeBlast = hasEffect('smoke_blast');
+      const isConfetti = hasEffect('confetti');
+      const isLaserShow = hasEffect('laser_show');
+      const isStrobe = hasEffect('strobe');
+      const isFirework = hasEffect('firework_burst');
+
+      // Smoke sound effect with Web Audio API procedural sound generation
+      const currentSmokeActive = smokeActive || isSmokeBlast;
+      if (currentSmokeActive && !prevSmokeActive) {
+        try {
+          const AudioContextClass = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+          if (AudioContextClass) {
+            const ctx = new AudioContextClass();
+            const bufferSize = Math.floor(ctx.sampleRate * 1.8);
+            const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+            const output = buffer.getChannelData(0);
+            for (let i = 0; i < bufferSize; i++) {
+              output[i] = (Math.random() * 2 - 1) * Math.exp(-i / (ctx.sampleRate * 0.9));
+            }
+            const whiteNoise = ctx.createBufferSource();
+            whiteNoise.buffer = buffer;
+
+            const bandpass = ctx.createBiquadFilter();
+            bandpass.type = 'bandpass';
+            bandpass.frequency.setValueAtTime(1400, ctx.currentTime);
+            bandpass.Q.setValueAtTime(1.2, ctx.currentTime);
+
+            const gain = ctx.createGain();
+            gain.gain.setValueAtTime(0.01, ctx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.5, ctx.currentTime + 0.05);
+            gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 1.6);
+
+            whiteNoise.connect(bandpass);
+            bandpass.connect(gain);
+            gain.connect(ctx.destination);
+            whiteNoise.start();
+            whiteNoise.stop(ctx.currentTime + 1.7);
+          }
+        } catch (e) {
+          console.warn('Audio synthesis error:', e);
+        }
+      }
+      prevSmokeActive = currentSmokeActive;
 
       // 18.1 Render Animated Pulsating Checkered Dance Floor Tiles
       if (fCtx) {
@@ -607,8 +728,29 @@ export function DiscoThreeStage({ engine, videoUrl, isMuted = true }: DiscoThree
       }
 
       // 18.2 Beat-synced Point Light & Strobe
-      const beatInt = Math.max(0.8, Math.sin(nowSec * 10) ** 3 * 3.5);
+      let beatInt = Math.max(0.8, Math.sin(nowSec * 10) ** 3 * 3.5);
+      if (smokeActive || isSmokeBlast) {
+        beatInt *= 2.0; 
+      }
       beatPointLight.intensity = beatInt;
+
+      if (isStrobe) {
+        ambientLight.intensity = (Math.floor(nowSec * 20) % 2 === 0) ? 4.0 : 0.5;
+      } else {
+        ambientLight.intensity = 2.0;
+      }
+
+      if (isFirework) {
+        if (Math.random() < 0.1) {
+          stageKeyLight.color.setHSL(Math.random(), 1.0, 0.5);
+          stageKeyLight.intensity = 5.0;
+        } else {
+          stageKeyLight.intensity = THREE.MathUtils.lerp(stageKeyLight.intensity, 2.5, dt * 5);
+        }
+      } else {
+        stageKeyLight.color.setHex(0xa060ff);
+        stageKeyLight.intensity = 2.5;
+      }
 
       // 18.3 Render Curved LED Video Wall Texture
       if (vCtx) {
@@ -667,39 +809,87 @@ export function DiscoThreeStage({ engine, videoUrl, isMuted = true }: DiscoThree
       trussGroup.rotation.y = nowSec * 0.045;
 
       // 18.6 Animate Stage Smoke / Fog Billowing Across Floor
+      const targetSmokeOpacity = isSmokeBlast ? 0.8 : (smokeActive ? 0.55 : 0.22);
+      const targetSmokeScale = isSmokeBlast ? 2.5 : (smokeActive ? 1.8 : 1.0);
+      const smokeSpeedMult = isSmokeBlast ? 4.0 : (smokeActive ? 2.0 : 1.0);
+
       smokePlanes.forEach((sp, idx) => {
-        sp.mesh.rotation.z += sp.rotSpeed * dt;
-        sp.mesh.position.x = sp.initX + Math.sin(nowSec * 0.5 + idx) * 1.5;
-        sp.mesh.position.z = sp.initZ + Math.cos(nowSec * 0.4 + idx) * 1.2;
+        const mat = sp.mesh.material as THREE.MeshBasicMaterial;
+        mat.opacity = THREE.MathUtils.lerp(mat.opacity, targetSmokeOpacity, dt * 2);
+        const currentScale = sp.mesh.scale.x;
+        const newScale = THREE.MathUtils.lerp(currentScale, targetSmokeScale, dt * 2);
+        sp.mesh.scale.set(newScale, newScale, 1);
+
+        sp.mesh.rotation.z += sp.rotSpeed * dt * smokeSpeedMult;
+        sp.mesh.position.x = sp.initX + Math.sin(nowSec * 0.5 * smokeSpeedMult + idx) * 1.5;
+        sp.mesh.position.z = sp.initZ + Math.cos(nowSec * 0.4 * smokeSpeedMult + idx) * 1.2;
       });
 
       // 18.7 Animate Crossing Laser Beams
+      const laserSpeedMult = isLaserShow ? 3.0 : 1.0;
       laserLines.forEach((laser) => {
-        const lAngle = laser.baseAngle + Math.sin(nowSec * laser.speed) * 0.8;
+        const lAngle = laser.baseAngle + Math.sin(nowSec * laser.speed * laserSpeedMult) * 0.8;
         const tx = Math.sin(lAngle) * 14;
         const tz = Math.cos(lAngle) * 14 - 3;
         const posAttr = laser.line.geometry.attributes.position as THREE.BufferAttribute;
         posAttr.setXYZ(1, tx, 0.05, tz);
         posAttr.needsUpdate = true;
+        const lineMat = laser.line.material as THREE.LineBasicMaterial;
+        lineMat.opacity = isLaserShow ? 1.0 : 0.8;
       });
 
       // 18.8 Floating Dust & Light Sparks
-      const posAttr = sparkPoints.geometry.attributes.position as THREE.BufferAttribute;
-      for (let p = 0; p < particleCount; p++) {
-        let py = posAttr.getY(p) - dt * 0.35;
-        if (py < 0) py = 9.5;
-        posAttr.setY(p, py);
+      const currentDrawCount = isConfetti ? maxParticles : 220;
+      sparkPoints.geometry.setDrawRange(0, currentDrawCount);
+      
+      const posAttrSpark = sparkPoints.geometry.attributes.position as THREE.BufferAttribute;
+      const colAttrSpark = sparkPoints.geometry.attributes.color as THREE.BufferAttribute;
+      
+      const fallSpeed = isConfetti ? 1.5 : 0.35;
+      
+      if (isConfetti) {
+        (sparkPoints.material as THREE.PointsMaterial).size = 0.25;
+        (sparkPoints.material as THREE.PointsMaterial).opacity = 0.9;
+      } else {
+        (sparkPoints.material as THREE.PointsMaterial).size = 0.14;
+        (sparkPoints.material as THREE.PointsMaterial).opacity = 0.7;
       }
-      posAttr.needsUpdate = true;
 
-      // 18.9 Update Dancers, Top 1 DJ, and Top 2 & Top 3 VIP Podiums
-      const topDancers = engine.getTopDancers(3);
+      for (let p = 0; p < currentDrawCount; p++) {
+        let py = posAttrSpark.getY(p) - dt * fallSpeed;
+        if (py < 0) {
+          py = 9.5;
+          posAttrSpark.setX(p, (Math.random() - 0.5) * 26);
+          posAttrSpark.setZ(p, (Math.random() - 0.5) * 26 - 4);
+        }
+        posAttrSpark.setY(p, py);
+
+        if (isConfetti) {
+          const c = new THREE.Color();
+          c.setHSL((nowSec * 0.2 + p * 0.01) % 1, 1.0, 0.5);
+          colAttrSpark.setXYZ(p, c.r, c.g, c.b);
+        } else {
+          colAttrSpark.setXYZ(p, 0, 240/255, 255/255);
+        }
+      }
+      posAttrSpark.needsUpdate = true;
+      colAttrSpark.needsUpdate = true;
+
+      // 18.9 Update Dancers, Top 1 DJ, Top 2 & Top 3 VIP Podiums, and Top 4-5 Floor VIPs
+      const topDancers = engine.getTopDancers(5);
       const top1 = topDancers[0] || null;
       const top2 = topDancers[1] || null;
       const top3 = topDancers[2] || null;
+      const top4 = topDancers[3] || null;
+      const top5 = topDancers[4] || null;
 
       const activeDancers = Array.from(engine.dancers.values());
       const currentIds = new Set<string>();
+
+      const isDjPovFirstPerson = engine.isDjPovFirstPerson === true;
+
+      // Track 3D target coordinates of Top 5 dancers for Spotlights
+      const top5Coords: ({ x: number; y: number; z: number; floorY: number; isDj: boolean } | null)[] = [null, null, null, null, null];
 
       activeDancers.forEach((dancer) => {
         currentIds.add(dancer.id);
@@ -734,36 +924,61 @@ export function DiscoThreeStage({ engine, videoUrl, isMuted = true }: DiscoThree
         const isTop1 = top1 && top1.id === dancer.id;
         const isTop2 = top2 && top2.id === dancer.id;
         const isTop3 = top3 && top3.id === dancer.id;
+        const isTop4 = top4 && top4.id === dancer.id;
+        const isTop5 = top5 && top5.id === dancer.id;
+
+        const isCurrentDj = dancer.isDj || isTop1;
+
+        if (isDjPovFirstPerson && isCurrentDj) {
+          entry.spriteMesh.visible = false;
+          entry.badgeMesh.visible = false;
+          return;
+        } else {
+          entry.spriteMesh.visible = true;
+          entry.badgeMesh.visible = true;
+        }
 
         let posX = 0;
         let posY = 1.0;
         let posZ = 0;
+        let floorY = 0.05;
         let scale = 1.85 * (dancer.scale || 1);
 
-        if (isTop1 || dancer.isDj) {
+        if (isCurrentDj) {
           // Elevated Top 1 DJ Booth Position
           posX = 0;
           posY = 2.55;
           posZ = -11.0;
+          floorY = 2.05;
           scale = 2.3;
         } else if (isTop2) {
           // Left VIP Stage Podium (Top 2 Gifter)
           posX = -4.2;
           posY = 1.95;
           posZ = -3.5;
+          floorY = 1.25;
           scale = 2.2;
         } else if (isTop3) {
           // Right VIP Stage Podium (Top 3 Gifter)
           posX = 4.2;
           posY = 1.95;
           posZ = -3.5;
+          floorY = 1.25;
           scale = 2.2;
         } else {
           // Audience Dancers scattered on Dance Floor in layered depth
           posX = (dancer.x - 0.5) * 18;
           posZ = (dancer.z - 0.5) * 12 - 2;
           posY = 0.98;
+          floorY = 0.05;
         }
+
+        // Save coordinates for Top 5 Spotlights
+        if (isTop1) top5Coords[0] = { x: posX, y: posY, z: posZ, floorY, isDj: true };
+        else if (isTop2) top5Coords[1] = { x: posX, y: posY, z: posZ, floorY, isDj: false };
+        else if (isTop3) top5Coords[2] = { x: posX, y: posY, z: posZ, floorY, isDj: false };
+        else if (isTop4) top5Coords[3] = { x: posX, y: posY, z: posZ, floorY, isDj: false };
+        else if (isTop5) top5Coords[4] = { x: posX, y: posY, z: posZ, floorY, isDj: false };
 
         // Bobbing & Jump physics
         const bob = Math.abs(Math.sin(nowSec * 8.5 + dancer.danceOffset)) * 0.25;
@@ -786,11 +1001,56 @@ export function DiscoThreeStage({ engine, videoUrl, isMuted = true }: DiscoThree
         entry.badgeMesh.position.set(entry.spriteMesh.position.x, entry.spriteMesh.position.y + scale * 0.58, entry.spriteMesh.position.z);
         entry.badgeMesh.scale.set(2.5, 0.82, 1);
 
-        const rankType = isTop1 || dancer.isDj ? 'dj' : isTop2 ? 'top2' : isTop3 ? 'top3' : 'normal';
+        const rankType = isCurrentDj ? 'dj' : isTop2 ? 'top2' : isTop3 ? 'top3' : isTop4 ? 'top4' : isTop5 ? 'top5' : 'normal';
         const badgeTex = getBadgeTexture(dancer.name, dancer.points || 0, rankType, dancer.color);
         entry.badgeMesh.material.map = badgeTex;
         entry.badgeMesh.material.needsUpdate = true;
       });
+
+      // 18.9.5 Direct Spotlights Following Top 5 Dancers in Real-Time
+      for (let s = 0; s < 5; s++) {
+        const spot = top5Spotlights[s];
+        const coord = top5Coords[s];
+
+        if (coord && !(isDjPovFirstPerson && coord.isDj)) {
+          spot.beamMesh.visible = true;
+          spot.floorRing.visible = true;
+          spot.pointLight.visible = true;
+
+          // Spotlight origin at ceiling truss
+          const originY = 9.2;
+          const originX = coord.isDj ? 0 : s === 1 ? -4.2 : s === 2 ? 4.2 : coord.x * 0.75;
+          const originZ = coord.isDj ? -9.2 : s === 1 ? -3.5 : s === 2 ? -3.5 : coord.z - 1.5;
+
+          const fromVec = new THREE.Vector3(originX, originY, originZ);
+          const toVec = new THREE.Vector3(coord.x, coord.y, coord.z);
+          const dir = new THREE.Vector3().subVectors(toVec, fromVec);
+          const dist = dir.length();
+
+          // Position and rotate the conical spotlight beam
+          spot.beamMesh.position.copy(fromVec);
+          const beamPulse = 1.15 + Math.sin(nowSec * 6 + s) * 0.12;
+          spot.beamMesh.scale.set(beamPulse, dist, beamPulse);
+
+          const normDir = dir.clone().normalize();
+          const upVec = new THREE.Vector3(0, 1, 0);
+          spot.beamMesh.quaternion.setFromUnitVectors(upVec, normDir);
+
+          // Position glowing floor aura beneath the dancer's feet
+          spot.floorRing.position.set(coord.x, coord.floorY, coord.z);
+          const ringPulse = 1.0 + Math.sin(nowSec * 8 + s) * 0.15;
+          spot.floorRing.scale.set(ringPulse, ringPulse, 1);
+          (spot.floorRing.material as THREE.MeshBasicMaterial).opacity = 0.55 + Math.sin(nowSec * 7 + s) * 0.2;
+
+          // Point light directly illuminating the Top character
+          spot.pointLight.position.set(coord.x, coord.y + 1.2, coord.z + 0.3);
+          spot.pointLight.intensity = 2.8 + Math.sin(nowSec * 9 + s) * 0.7;
+        } else {
+          spot.beamMesh.visible = false;
+          spot.floorRing.visible = false;
+          spot.pointLight.visible = false;
+        }
+      }
 
       // Clean up removed dancers
       dancerMeshesMap.forEach((entry, id) => {
@@ -817,8 +1077,8 @@ export function DiscoThreeStage({ engine, videoUrl, isMuted = true }: DiscoThree
         const shot = engine.currentShotType;
         if (shot === 'DJ_POV') {
           // Point of View of the DJ looking down from Booth onto VIP Podiums & Crowd
-          targetCamPos.set(0, 3.2, -11.5);
-          targetLookAt.set(0, 1.2, 0.5);
+          targetCamPos.set(0, 2.8, -10.8);
+          targetLookAt.set(0, 0.3, 2);
         } else if (shot === 'SPOTLIGHT_ZOOM') {
           // Close-up sweep on the VIP Podiums and Stage
           const targetX = Math.sin(nowSec * 0.6) * 4.2;

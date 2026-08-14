@@ -36,6 +36,12 @@ function DiscoOverlayContent() {
           } else if (data.cameraShot === 'WIDE_ORBIT') {
             engine.triggerWideOrbit(data.duration || 8000);
           }
+
+          if (data.effect === 'smoke_blast') {
+            engine.triggerSmokeEffect();
+          } else if (data.effect) {
+            engine.triggerEffect(data.effect);
+          }
         }
       };
       return () => channel.close();
@@ -63,7 +69,7 @@ function DiscoOverlayContent() {
       }
     } else if (event.type === LiveEventType.GIFT) {
       const giftPoints = Math.max(1, event.giftCoinValue || 1);
-      engine.addGiftPoints(senderId, senderName, giftPoints, avatarUrl);
+      engine.enqueueGift(senderId, senderName, giftPoints, avatarUrl);
     } else if (
       event.type === LiveEventType.JOIN ||
       event.type === LiveEventType.FOLLOW ||

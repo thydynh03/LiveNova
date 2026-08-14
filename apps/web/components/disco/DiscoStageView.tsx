@@ -159,23 +159,27 @@ export default function DiscoStageView({
           <span>BẢNG TOP VIP &amp; DJ</span>
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-          {engine.getTopDancers(3).map((dancer, idx) => (
-            <div key={dancer.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
-              <span style={{
-                color: idx === 0 ? '#ffd700' : idx === 1 ? '#00f0ff' : '#ff007f',
-                fontWeight: 700,
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
-                maxWidth: '120px'
-              }}>
-                {idx === 0 ? '👑 TOP 1 DJ: ' : idx === 1 ? '🥈 BỤC TOP 2: ' : '🥉 BỤC TOP 3: '}{dancer.name}
-              </span>
-              <span style={{ color: '#fff', fontWeight: 800, fontSize: '10px' }}>
-                {dancer.points || (dancer.isDj ? 10 : 0)}đ
-              </span>
-            </div>
-          ))}
+          {engine.getTopDancers(5).map((dancer, idx) => {
+            const colors = ['#ffd700', '#00f0ff', '#ff007f', '#b026ff', '#00ff88'];
+            const prefixes = ['👑 TOP 1 DJ: ', '🥈 BỤC TOP 2: ', '🥉 BỤC TOP 3: ', '🌟 TOP 4: ', '✨ TOP 5: '];
+            return (
+              <div key={dancer.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+                <span style={{
+                  color: colors[idx] || '#fff',
+                  fontWeight: 700,
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                  maxWidth: '130px'
+                }}>
+                  {prefixes[idx] || `#${idx + 1}: `}{dancer.name}
+                </span>
+                <span style={{ color: '#fff', fontWeight: 800, fontSize: '10px' }}>
+                  {dancer.points || (dancer.isDj ? 10 : 0)}đ
+                </span>
+              </div>
+            );
+          })}
         </div>
       </div>
 

@@ -59,7 +59,7 @@ export default function DiscoDashboardPage() {
     }
   }, []);
 
-  const broadcastSync = (data: { musicUrl?: string; trackTitle?: string; videoUrl?: string; cameraShot?: string; duration?: number }) => {
+  const broadcastSync = (data: { musicUrl?: string; trackTitle?: string; videoUrl?: string; cameraShot?: string; duration?: number; effect?: string }) => {
     if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
       try {
         const channel = new BroadcastChannel('livenova_disco_sync');
@@ -160,7 +160,7 @@ export default function DiscoDashboardPage() {
       const senderName = event.senderDisplayName || senderId;
       const avatarUrl = event.senderAvatar;
       const giftPoints = Math.max(1, event.giftCoinValue || 1);
-      engine.addGiftPoints(senderId, senderName, giftPoints, avatarUrl);
+      engine.enqueueGift(senderId, senderName, giftPoints, avatarUrl);
       broadcastSync({ cameraShot: 'DJ_POV', duration: 10000 });
     } else if (
       event.type === LiveEventType.JOIN || 
@@ -219,15 +219,44 @@ export default function DiscoDashboardPage() {
   const triggerTestGiftNormal = () => {
     const id = testUsername.trim() || '@khangia';
     const name = testDisplayName.trim() || 'Khán Giả';
-    engine.addGiftPoints(id, name, 3);
+    engine.enqueueGift(id, name, 3);
     broadcastSync({ cameraShot: 'DJ_POV', duration: 10000 });
   };
 
   const triggerTestGiftDJ = () => {
     const id = testUsername.trim() || '@khangia';
     const name = testDisplayName.trim() || 'Khán Giả';
-    engine.addGiftPoints(id, name, 15);
+    engine.enqueueGift(id, name, 15);
     broadcastSync({ cameraShot: 'DJ_POV', duration: 10000 });
+  };
+
+  // Live Effect Triggers for Streamer
+  const triggerSmoke = () => {
+    engine.triggerSmokeEffect();
+    broadcastSync({ effect: 'smoke_blast' });
+  };
+
+  const triggerConfetti = () => {
+    engine.triggerEffect('confetti');
+    broadcastSync({ effect: 'confetti' });
+  };
+
+  const triggerStrobe = () => {
+    engine.triggerEffect('strobe');
+    broadcastSync({ effect: 'strobe' });
+  };
+
+  const triggerLaserShow = () => {
+    engine.triggerEffect('laser_show');
+    broadcastSync({ effect: 'laser_show' });
+  };
+
+  const triggerFireworkBurst = () => {
+    engine.triggerEffect('firework_burst');
+    for (let i = 0; i < 8; i++) {
+      setTimeout(() => engine.triggerFirework(), i * 150);
+    }
+    broadcastSync({ effect: 'firework_burst' });
   };
 
   const triggerAddRandomDancers = () => {
@@ -1034,6 +1063,65 @@ export default function DiscoDashboardPage() {
                 }}
               >
                 🌐 Flycam Toàn Cảnh (Orbit)
+              </button>
+            </div>
+          </div>
+
+          {/* 🎆 LIVE EFFECTS PANEL - Streamer triggers effects directly on live */}
+          <div style={{
+            background: 'hsl(var(--card))',
+            border: '1px solid hsl(var(--border))',
+            borderRadius: 'var(--radius)',
+            padding: '1.25rem',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '0.875rem'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <Icon name="rule" size={18} />
+              <span style={{ fontWeight: 700, fontSize: '0.875rem', color: 'hsl(var(--foreground))' }}>
+                🎆 Hiệu Ứng Trực Tiếp (Bấm Ngay Trên Live)
+              </span>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+              <button
+                type="button"
+                onClick={triggerSmoke}
+                style={{
+                  gridColumn: 'span 2',
+                  padding: '0.625rem',
+                  borderRadius: 'var(--radius-sm)',
+                  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                  color: '#fff',
+                  border: 'none',
+                  fontWeight: 800,
+                  fontSize: '0.8125rem',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '0.375rem',
+                  boxShadow: '0 4px 14px rgba(102, 126, 234, 0.35)'
+                }}
+              >
+                💨 XỊT KHÓI SÂN KHẤU (Có Âm Thanh)
+              </button>
+
+              <button type="button" onClick={triggerConfetti} style={{ padding: '0.5rem', borderRadius: 'var(--radius-sm)', background: 'hsl(var(--secondary))', color: 'hsl(var(--secondary-foreground))', border: '1px solid hsl(var(--border))', fontWeight: 600, fontSize: '0.75rem', cursor: 'pointer' }}>
+                🎊 Confetti / Hoa Giấy
+              </button>
+
+              <button type="button" onClick={triggerStrobe} style={{ padding: '0.5rem', borderRadius: 'var(--radius-sm)', background: 'hsl(var(--secondary))', color: 'hsl(var(--secondary-foreground))', border: '1px solid hsl(var(--border))', fontWeight: 600, fontSize: '0.75rem', cursor: 'pointer' }}>
+                ⚡ Strobe / Nhấp Nháy
+              </button>
+
+              <button type="button" onClick={triggerLaserShow} style={{ padding: '0.5rem', borderRadius: 'var(--radius-sm)', background: 'hsl(var(--secondary))', color: 'hsl(var(--secondary-foreground))', border: '1px solid hsl(var(--border))', fontWeight: 600, fontSize: '0.75rem', cursor: 'pointer' }}>
+                🔴 Laser Show
+              </button>
+
+              <button type="button" onClick={triggerFireworkBurst} style={{ padding: '0.5rem', borderRadius: 'var(--radius-sm)', background: 'hsl(var(--secondary))', color: 'hsl(var(--secondary-foreground))', border: '1px solid hsl(var(--border))', fontWeight: 600, fontSize: '0.75rem', cursor: 'pointer' }}>
+                🎆 Pháo Hoa Bùng Nổ
               </button>
             </div>
           </div>
