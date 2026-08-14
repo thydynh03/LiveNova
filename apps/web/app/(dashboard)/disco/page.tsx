@@ -31,7 +31,7 @@ export default function DiscoDashboardPage() {
   const [publicToken, setPublicToken] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [musicUrl, setMusicUrl] = useState<string | null>(null);
-  const [djVideoUrl, setDjVideoUrl] = useState<string>('/assets/disco/Stage/default-dj-loop.gif');
+  const [djVideoUrl, setDjVideoUrl] = useState<string>('');
   const [isDjVideoMuted, setIsDjVideoMuted] = useState<boolean>(true);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
@@ -47,7 +47,7 @@ export default function DiscoDashboardPage() {
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('livenova_disco_video_url');
-      if (saved) setDjVideoUrl(saved);
+      if (saved && !saved.includes('default-dj-loop')) setDjVideoUrl(saved);
     }
   }, []);
 
@@ -82,7 +82,7 @@ export default function DiscoDashboardPage() {
     }
     const params = new URLSearchParams();
     if (publicToken) params.set('token', publicToken);
-    if (djVideoUrl && djVideoUrl !== '/assets/disco/Stage/default-dj-loop.gif') {
+    if (djVideoUrl && djVideoUrl.trim() !== '') {
       params.set('video', djVideoUrl);
     }
     const query = params.toString();
@@ -481,7 +481,7 @@ export default function DiscoDashboardPage() {
               />
               <button
                 type="button"
-                onClick={() => handleSetVideoUrl('/assets/disco/Stage/default-dj-loop.gif')}
+                onClick={() => handleSetVideoUrl('')}
                 style={{
                   padding: '0.45rem 0.75rem',
                   fontSize: '0.75rem',
@@ -501,8 +501,8 @@ export default function DiscoDashboardPage() {
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
               <span style={{ fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))' }}>Gợi ý mẫu:</span>
               {[
-                { label: '💃 DJ Girl Anime Loop', url: '/assets/disco/Stage/default-dj-loop.gif' },
-                { label: '⚡ Cyber EDM Video', url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' },
+                { label: '⚡ Cyber EDM Visualizer (Mặc định)', url: '' },
+                { label: '📹 Cyberpunk EDM Video', url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' },
               ].map((p, idx) => (
                 <button
                   key={idx}

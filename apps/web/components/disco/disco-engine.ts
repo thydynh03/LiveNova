@@ -294,12 +294,12 @@ export class DiscoEngine {
           }
         }
 
-        // Wall collision
-        if (dancer.x < 0.08) {
-          dancer.x = 0.08;
+        // Wall collision (Wide floor spanning left to right)
+        if (dancer.x < 0.04) {
+          dancer.x = 0.04;
           dancer.vx *= -1;
-        } else if (dancer.x > 0.92) {
-          dancer.x = 0.92;
+        } else if (dancer.x > 0.96) {
+          dancer.x = 0.96;
           dancer.vx *= -1;
         }
       }
@@ -326,23 +326,23 @@ export class DiscoEngine {
       }
     }
 
-    // Camera logic: Focus on specific user or 3D Cinematic Orbital Sweep
+    // Camera logic: Focus on specific user or Top-Down Sweeping View
     if (this.camera.lockedOnId && now < this.camera.lockTimeout) {
       const lockedDancer = this.dancers.get(this.camera.lockedOnId);
       if (lockedDancer) {
         this.camera.targetX = lockedDancer.x;
-        this.camera.targetY = lockedDancer.isDj ? 0.44 : 0.55 + lockedDancer.z * 0.35;
+        this.camera.targetY = lockedDancer.isDj ? 0.52 : 0.55 + lockedDancer.z * 0.35;
         this.camera.targetScale = 1.70; // Zoom in close & focus
       } else {
         this.camera.lockedOnId = null;
       }
     } else {
       this.camera.lockedOnId = null;
-      // 3D Cinematic sweeping rotation across nightclub bar stage
-      const orbitPhase = now * 0.00030; // smooth slow sway
-      this.camera.targetX = 0.5 + Math.sin(orbitPhase) * 0.10; // gentle left-right sway
-      this.camera.targetY = 0.60 + Math.cos(orbitPhase * 0.7) * 0.03; // smooth height sway
-      this.camera.targetScale = 1.08 + Math.sin(orbitPhase * 1.2) * 0.03; // breathing zoom
+      // 3D Top-Down camera sweeping smoothly across left & right flanks of the wide club floor
+      const orbitPhase = now * 0.00035; // smooth slow sway
+      this.camera.targetX = 0.5 + Math.sin(orbitPhase) * 0.28; // sweeping wide across both sides
+      this.camera.targetY = 0.56 + Math.cos(orbitPhase * 0.6) * 0.025; // elevated top-down perspective
+      this.camera.targetScale = 1.14; // panoramic view of the wide dance floor
     }
 
     // Smooth Lerp Camera

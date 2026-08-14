@@ -223,7 +223,7 @@ export default function DiscoCanvas({ engine }: DiscoCanvasProps) {
       const focusedId = engine.camera.lockedOnId;
       const rawDancers = Array.from(engine.dancers.values());
 
-      // Calculate 3D screen position & scale for each dancer
+      // Calculate 3D screen position & scale for each dancer (Top-Down Wide Club Floor Perspective)
       const calcDancerScreenPos = (dancer: typeof rawDancers[0]) => {
         const isVertical = H > W;
         if (dancer.isDj) {
@@ -235,13 +235,15 @@ export default function DiscoCanvas({ engine }: DiscoCanvasProps) {
           };
         }
         const z = Math.max(0.1, Math.min(1.0, dancer.z ?? 0.5));
-        const baseFloorY = isVertical ? (H * 0.65 + z * (H * 0.28)) : (H * 0.58 + z * (H * 0.36));
+        // Top-down elevated floor perspective spanning from 0.58 to 0.94
+        const baseFloorY = isVertical ? (H * 0.58 + z * (H * 0.36)) : (H * 0.50 + z * (H * 0.45));
         let y = dancer.y < 1.0 ? dancer.y * baseFloorY : baseFloorY;
         if (dancer.state === 'dancing') {
           y -= Math.abs(Math.sin(dancer.danceOffset)) * (4 + z * 5);
         }
-        const x = W * (0.5 + (dancer.x - 0.5) * (0.65 + z * 0.35));
-        const renderScale = (0.55 + z * 0.50) * dancer.scale;
+        // Wide horizontal spread reaching both left and right flanks
+        const x = W * (0.5 + (dancer.x - 0.5) * (0.90 + z * 0.18));
+        const renderScale = (0.52 + z * 0.52) * dancer.scale;
         return { x, y, renderScale, depth: z };
       };
 

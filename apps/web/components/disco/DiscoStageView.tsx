@@ -11,9 +11,118 @@ export interface DiscoStageViewProps {
   isMuted?: boolean;
 }
 
+function CyberLedVisualizer() {
+  const canvasRef = React.useRef<HTMLCanvasElement | null>(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    let animId: number;
+    let tick = 0;
+
+    const render = () => {
+      tick++;
+      const w = (canvas.width = canvas.offsetWidth || 400);
+      const h = (canvas.height = canvas.offsetHeight || 200);
+
+      // Dark cyber background
+      ctx.fillStyle = '#030308';
+      ctx.fillRect(0, 0, w, h);
+
+      // 1. Perspective Cyber Grid
+      ctx.save();
+      ctx.strokeStyle = 'rgba(0, 240, 255, 0.22)';
+      ctx.lineWidth = 1;
+      const horizonY = h * 0.35;
+      const speed = (tick * 1.2) % 30;
+
+      // Horizontal moving grid lines
+      for (let y = horizonY; y < h; y += 14 + (y - horizonY) * 0.3) {
+        const lineY = y + (speed * (y - horizonY) / h);
+        if (lineY < h) {
+          ctx.beginPath();
+          ctx.moveTo(0, lineY);
+          ctx.lineTo(w, lineY);
+          ctx.stroke();
+        }
+      }
+
+      // Vanishing point diagonal rays
+      const vX = w * 0.5;
+      for (let x = -w * 0.5; x <= w * 1.5; x += 40) {
+        ctx.beginPath();
+        ctx.moveTo(vX, horizonY);
+        ctx.lineTo(x, h);
+        ctx.stroke();
+      }
+      ctx.restore();
+
+      // 2. Animated Spectrum Equalizer Waves
+      ctx.save();
+      const numBars = 32;
+      const barW = (w * 0.85) / numBars;
+      const startX = w * 0.075;
+      const baseWaveY = h * 0.72;
+
+      for (let i = 0; i < numBars; i++) {
+        const bx = startX + i * barW;
+        const freq1 = Math.sin(tick * 0.08 + i * 0.35);
+        const freq2 = Math.cos(tick * 0.05 - i * 0.2);
+        const barH = Math.max(8, Math.abs(freq1 * 0.6 + freq2 * 0.4) * (h * 0.45));
+
+        const grad = ctx.createLinearGradient(bx, baseWaveY, bx, baseWaveY - barH);
+        grad.addColorStop(0, '#00f0ff');
+        grad.addColorStop(0.6, '#ff007f');
+        grad.addColorStop(1, '#ffea00');
+
+        ctx.fillStyle = grad;
+        ctx.fillRect(bx + 1.5, baseWaveY - barH, barW - 3, barH);
+
+        // Mirror reflection downwards
+        ctx.fillStyle = 'rgba(0, 240, 255, 0.15)';
+        ctx.fillRect(bx + 1.5, baseWaveY, barW - 3, barH * 0.3);
+      }
+      ctx.restore();
+
+      // 3. Central Neon EDM Logo & Audio Pulses
+      ctx.save();
+      const pulse = 1 + Math.sin(tick * 0.1) * 0.08;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+
+      // Outer Glow
+      ctx.font = `900 ${Math.round(18 * pulse)}px 'Segoe UI', sans-serif`;
+      ctx.fillStyle = '#00ffff';
+      ctx.shadowColor = '#00f0ff';
+      ctx.shadowBlur = 18;
+      ctx.fillText('⚡ EDM LIVE CLUB ⚡', w * 0.5, h * 0.32);
+
+      // Inner Text
+      ctx.fillStyle = '#ffffff';
+      ctx.fillText('⚡ EDM LIVE CLUB ⚡', w * 0.5, h * 0.32);
+      ctx.restore();
+
+      animId = requestAnimationFrame(render);
+    };
+
+    render();
+    return () => cancelAnimationFrame(animId);
+  }, []);
+
+  return (
+    <canvas
+      ref={canvasRef}
+      style={{ width: '100%', height: '100%', display: 'block' }}
+    />
+  );
+}
+
 export default function DiscoStageView({
   engine,
-  videoUrl = '/assets/disco/Stage/default-dj-loop.gif',
+  videoUrl = '',
   isMuted = true,
 }: DiscoStageViewProps) {
   const [aspect, setAspect] = useState<'vertical' | 'horizontal'>('vertical');
@@ -55,14 +164,15 @@ export default function DiscoStageView({
     return null;
   }, [videoUrl, isMuted]);
 
+  const hasCustomVideo = Boolean(videoUrl && videoUrl.trim() !== '' && !videoUrl.includes('default-dj-loop'));
+
   const isImageOrGif = useMemo(() => {
-    if (!videoUrl) return true;
+    if (!videoUrl) return false;
     return (
       videoUrl.endsWith('.gif') ||
       videoUrl.endsWith('.png') ||
       videoUrl.endsWith('.jpg') ||
-      videoUrl.endsWith('.webp') ||
-      videoUrl.includes('default-dj-loop')
+      videoUrl.endsWith('.webp')
     );
   }, [videoUrl]);
 
@@ -88,45 +198,49 @@ export default function DiscoStageView({
         />
       </div>
 
-      {/* 2. DJ Video Screen Frame (Placed right behind DJ Booth on the LED wall) */}
+      {/* 2. Expanded Panoramic LED Video Screen Wall behind DJ Booth */}
       <div
         style={{
           position: 'absolute',
-          top: aspect === 'vertical' ? '32.5%' : '22%',
-          left: aspect === 'vertical' ? '28%' : '36%',
-          width: aspect === 'vertical' ? '44%' : '28%',
-          height: aspect === 'vertical' ? '18.5%' : '24%',
+          top: aspect === 'vertical' ? '25.5%' : '14%',
+          left: aspect === 'vertical' ? '12%' : '20%',
+          width: aspect === 'vertical' ? '76%' : '60%',
+          height: aspect === 'vertical' ? '25.5%' : '34%',
           zIndex: 2,
-          borderRadius: 8,
+          borderRadius: 10,
           overflow: 'hidden',
           backgroundColor: '#000',
-          boxShadow: '0 0 25px rgba(0, 240, 255, 0.5), inset 0 0 15px rgba(255, 0, 160, 0.3)',
-          border: '2px solid rgba(0, 240, 255, 0.7)',
+          boxShadow: '0 0 35px rgba(0, 240, 255, 0.6), inset 0 0 25px rgba(255, 0, 160, 0.35)',
+          border: '2px solid rgba(0, 240, 255, 0.8)',
         }}
       >
-        {/* Video / GIF Content */}
-        {ytEmbedUrl ? (
-          <iframe
-            src={ytEmbedUrl}
-            style={{ width: '100%', height: '100%', border: 'none', pointerEvents: 'none' }}
-            allow="autoplay; encrypted-media"
-            title="DJ Video Screen"
-          />
-        ) : isImageOrGif ? (
-          <img
-            src={videoUrl}
-            alt="DJ Live Video"
-            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-          />
+        {/* Video / GIF Content or Clean Cyber LED Visualizer */}
+        {hasCustomVideo ? (
+          ytEmbedUrl ? (
+            <iframe
+              src={ytEmbedUrl}
+              style={{ width: '100%', height: '100%', border: 'none', pointerEvents: 'none' }}
+              allow="autoplay; encrypted-media"
+              title="DJ Video Screen"
+            />
+          ) : isImageOrGif ? (
+            <img
+              src={videoUrl}
+              alt="DJ Custom Screen"
+              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+            />
+          ) : (
+            <video
+              src={videoUrl}
+              autoPlay
+              loop
+              muted={isMuted}
+              playsInline
+              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+            />
+          )
         ) : (
-          <video
-            src={videoUrl}
-            autoPlay
-            loop
-            muted={isMuted}
-            playsInline
-            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-          />
+          <CyberLedVisualizer />
         )}
 
         {/* LED Equalizer Audio Bars at bottom of video frame */}

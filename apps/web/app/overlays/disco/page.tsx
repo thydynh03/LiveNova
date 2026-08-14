@@ -91,10 +91,10 @@ function DiscoOverlayContent() {
         </div>
       )}
 
-      {/* 3D Arena Stage View with Video Screen, Lights & Canvas */}
+      {/* 3D Nightclub Stage View with LED Video Wall & Canvas */}
       <DiscoStageView
         engine={engine}
-        videoUrl={customVideo || '/assets/disco/Stage/default-dj-loop.gif'}
+        videoUrl={customVideo || ''}
         isMuted={true}
       />
     </div>
