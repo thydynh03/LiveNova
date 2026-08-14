@@ -2,12 +2,19 @@
 
 import React, { useEffect, useRef } from 'react';
 import * as THREE from 'three';
+import { CSS3DRenderer, CSS3DObject } from 'three/examples/jsm/renderers/CSS3DRenderer.js';
 import { DiscoEngine } from './disco-engine';
 
 interface DiscoThreeStageProps {
   engine: DiscoEngine;
   videoUrl?: string;
   isMuted?: boolean;
+}
+
+function extractYouTubeId(url?: string): string | null {
+  if (!url) return null;
+  const match = url.match(/(?:youtube\.com\/(?:[^/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?/\s]{11})/i);
+  return match ? match[1] : null;
 }
 
 export function DiscoThreeStage({ engine, videoUrl, isMuted = true }: DiscoThreeStageProps) {
@@ -22,8 +29,43 @@ export function DiscoThreeStage({ engine, videoUrl, isMuted = true }: DiscoThree
     let height = container.clientHeight || 600;
 
     // 1. Scene, Camera, Fog & Renderer
+    const ytId = extractYouTubeId(videoUrl);
+
+    // 1.1 CSS3D Scene & Renderer for True 3D YouTube Video Wall
+    const cssScene = new THREE.Scene();
+    const cssRenderer = new CSS3DRenderer();
+    cssRenderer.setSize(width, height);
+    cssRenderer.domElement.style.position = 'absolute';
+    cssRenderer.domElement.style.top = '0';
+    cssRenderer.domElement.style.left = '0';
+    cssRenderer.domElement.style.width = '100%';
+    cssRenderer.domElement.style.height = '100%';
+    cssRenderer.domElement.style.pointerEvents = 'none';
+    cssRenderer.domElement.style.zIndex = '1';
+    container.appendChild(cssRenderer.domElement);
+
+    if (ytId) {
+      const iframe = document.createElement('iframe');
+      iframe.src = `https://www.youtube-nocookie.com/embed/${ytId}?autoplay=1&mute=${isMuted ? 1 : 0}&loop=1&playlist=${ytId}&controls=0&showinfo=0&rel=0&modestbranding=1&enablejsapi=1`;
+      iframe.style.width = '1440px';
+      iframe.style.height = '720px';
+      iframe.style.border = '0';
+      iframe.style.borderRadius = '16px';
+      iframe.style.boxShadow = '0 0 60px rgba(0, 240, 255, 0.5)';
+      iframe.style.backgroundColor = '#000';
+      iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture';
+
+      const cssObj = new CSS3DObject(iframe);
+      cssObj.position.set(0, 5.0, -3.2);
+      cssObj.scale.set(0.015, 0.015, 0.015); // 1440px * 0.015 = 21.6 units in 3D space
+      cssScene.add(cssObj);
+    }
+
+    // 1.2 WebGL Scene on Layer 2
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x06030c);
+    if (!ytId) {
+      scene.background = new THREE.Color(0x06030c);
+    }
     scene.fog = new THREE.FogExp2(0x070412, 0.024);
 
     const camera = new THREE.PerspectiveCamera(52, width / height, 0.1, 150);
@@ -31,9 +73,15 @@ export function DiscoThreeStage({ engine, videoUrl, isMuted = true }: DiscoThree
 
     const renderer = new THREE.WebGLRenderer({
       antialias: true,
-      alpha: false,
+      alpha: Boolean(ytId),
       powerPreference: 'high-performance',
     });
+    renderer.setSize(width, height);
+    renderer.domElement.style.position = 'absolute';
+    renderer.domElement.style.top = '0';
+    renderer.domElement.style.left = '0';
+    renderer.domElement.style.zIndex = '2';
+    renderer.domElement.style.pointerEvents = 'auto';
     renderer.setSize(width, height);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -212,10 +260,14 @@ export function DiscoThreeStage({ engine, videoUrl, isMuted = true }: DiscoThree
     const ledScreenMat = new THREE.MeshBasicMaterial({
       map: videoTexture,
       side: THREE.BackSide,
+      transparent: true,
+      opacity: ytId ? 0 : 1,
     });
     const ledScreen = new THREE.Mesh(ledScreenGeo, ledScreenMat);
     ledScreen.position.set(0, 5.0, -3.2);
-    scene.add(ledScreen);
+    if (!ytId) {
+      scene.add(ledScreen);
+    }
 
     // Glowing Neon Frames on Wide LED Video Wall
     const frameGeo = new THREE.CylinderGeometry(ledRadius + 0.02, ledRadius + 0.02, 0.2, 48, 1, true, thetaStart, thetaLength);
@@ -1190,6 +1242,9 @@ export function DiscoThreeStage({ engine, videoUrl, isMuted = true }: DiscoThree
       camera.position.lerp(targetCamPos, 0.045);
       camera.lookAt(targetLookAt);
 
+      if (ytId) {
+        cssRenderer.render(cssScene, camera);
+      }
       renderer.render(scene, camera);
     };
 
@@ -1203,6 +1258,7 @@ export function DiscoThreeStage({ engine, videoUrl, isMuted = true }: DiscoThree
       camera.aspect = width / height;
       camera.updateProjectionMatrix();
       renderer.setSize(width, height);
+      cssRenderer.setSize(width, height);
     };
     window.addEventListener('resize', handleResize);
 
@@ -1220,6 +1276,9 @@ export function DiscoThreeStage({ engine, videoUrl, isMuted = true }: DiscoThree
       renderer.dispose();
       if (container.contains(renderer.domElement)) {
         container.removeChild(renderer.domElement);
+      }
+      if (container.contains(cssRenderer.domElement)) {
+        container.removeChild(cssRenderer.domElement);
       }
     };
   }, [engine, videoUrl, isMuted]);
