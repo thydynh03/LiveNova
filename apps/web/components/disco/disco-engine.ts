@@ -483,10 +483,11 @@ export class DiscoEngine {
 
   triggerEffect(type: 'confetti' | 'strobe' | 'firework_burst' | 'smoke_blast' | 'laser_show') {
     let duration = 3000;
-    if (type === 'smoke_blast') duration = 4000;
-    else if (type === 'firework_burst') duration = 2000;
-    else if (type === 'strobe') duration = 5000;
-    else if (type === 'laser_show') duration = 6000;
+    if (type === 'confetti') duration = 12000; // 12 seconds long confetti rainfall
+    else if (type === 'smoke_blast') duration = 5000;
+    else if (type === 'firework_burst') duration = 3500;
+    else if (type === 'strobe') duration = 6000;
+    else if (type === 'laser_show') duration = 8000;
     
     this.activeEffects.push({
       type,

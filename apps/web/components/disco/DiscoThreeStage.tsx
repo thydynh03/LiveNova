@@ -309,48 +309,58 @@ export function DiscoThreeStage({ engine, videoUrl, isMuted = true }: DiscoThree
     rightFrameBottom.position.set(0, 5.2 - 4.25, -2.8);
     scene.add(rightFrameBottom);
 
-    // 10. Grand Circular Ceiling Trusses with Moving Head Spotlights
+    // 10. Grand Triple Circular Ceiling Trusses with 36 Moving Head Spotlights
     const trussGroup = new THREE.Group();
     trussGroup.position.set(0, 8.8, -4);
     scene.add(trussGroup);
 
-    // Concentric Metal Truss Rings
+    // 3 Concentric Metal Truss Rings
     const trussRing1 = new THREE.Mesh(
-      new THREE.TorusGeometry(8.8, 0.14, 12, 48),
+      new THREE.TorusGeometry(11.5, 0.14, 12, 48),
       new THREE.MeshStandardMaterial({ color: 0x18182e, metalness: 0.9, roughness: 0.25 })
     );
     trussRing1.rotation.x = Math.PI / 2;
     trussGroup.add(trussRing1);
 
     const trussRing2 = new THREE.Mesh(
-      new THREE.TorusGeometry(4.8, 0.14, 12, 36),
+      new THREE.TorusGeometry(7.5, 0.14, 12, 36),
       new THREE.MeshStandardMaterial({ color: 0x18182e, metalness: 0.9, roughness: 0.25 })
     );
     trussRing2.rotation.x = Math.PI / 2;
     trussGroup.add(trussRing2);
 
-    // 16 Moving Head Spotlight Volumetric Beam Cones
-    const beamCount = 14;
+    const trussRing3 = new THREE.Mesh(
+      new THREE.TorusGeometry(4.0, 0.14, 12, 32),
+      new THREE.MeshStandardMaterial({ color: 0x18182e, metalness: 0.9, roughness: 0.25 })
+    );
+    trussRing3.rotation.x = Math.PI / 2;
+    trussGroup.add(trussRing3);
+
+    // 28 Ceiling Moving Head Volumetric Beam Cones + 8 Floor Uplights = 36 Beams
+    const beamCount = 28;
     const beamMeshes: { mesh: THREE.Mesh; baseAngle: number; radius: number; speed: number; color: THREE.Color }[] = [];
     const beamColors = [
       new THREE.Color(0xff0077), // Hot Pink
       new THREE.Color(0x00f0ff), // Cyan
       new THREE.Color(0xaa00ff), // Electric Violet
       new THREE.Color(0xffd700), // Gold
-      new THREE.Color(0x00ff99), // Neon Emerald
+      new THREE.Color(0x00ff88), // Neon Emerald
+      new THREE.Color(0x0066ff), // Electric Blue
+      new THREE.Color(0xff5500), // Coral Amber
+      new THREE.Color(0xffffff), // Strobe White
     ];
 
     for (let i = 0; i < beamCount; i++) {
-      const radius = i % 2 === 0 ? 8.8 : 4.8;
+      const radius = i % 3 === 0 ? 11.5 : (i % 3 === 1 ? 7.5 : 4.0);
       const baseAngle = (i / beamCount) * Math.PI * 2;
-      const beamGeo = new THREE.ConeGeometry(0.9, 15, 18, 1, true);
-      beamGeo.translate(0, -7.5, 0); // Pivot at tip
+      const beamGeo = new THREE.ConeGeometry(1.0, 16, 18, 1, true);
+      beamGeo.translate(0, -8.0, 0); // Pivot at tip
 
       const beamColor = beamColors[i % beamColors.length];
       const beamMat = new THREE.MeshBasicMaterial({
         color: beamColor,
         transparent: true,
-        opacity: 0.35,
+        opacity: 0.38,
         side: THREE.DoubleSide,
         blending: THREE.AdditiveBlending,
         depthWrite: false,
@@ -364,9 +374,32 @@ export function DiscoThreeStage({ engine, videoUrl, isMuted = true }: DiscoThree
         mesh: beamMesh,
         baseAngle,
         radius,
-        speed: (i % 2 === 0 ? 1 : -1) * (0.85 + (i % 3) * 0.35),
+        speed: (i % 2 === 0 ? 1 : -1) * (0.85 + (i % 4) * 0.3),
         color: beamColor,
       });
+    }
+
+    // 8 Floor Uplight Moving Heads along front stage rim
+    const floorBeamsGroup = new THREE.Group();
+    scene.add(floorBeamsGroup);
+    const floorBeamMeshes: { mesh: THREE.Mesh; baseAngle: number; speed: number }[] = [];
+    for (let f = 0; f < 8; f++) {
+      const fAngle = (f / 8) * Math.PI - Math.PI / 2; // Semi-circle along front
+      const fGeo = new THREE.ConeGeometry(0.8, 14, 16, 1, true);
+      fGeo.translate(0, 7.0, 0);
+      const fColor = beamColors[(f + 2) % beamColors.length];
+      const fMat = new THREE.MeshBasicMaterial({
+        color: fColor,
+        transparent: true,
+        opacity: 0.32,
+        side: THREE.DoubleSide,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+      });
+      const fMesh = new THREE.Mesh(fGeo, fMat);
+      fMesh.position.set(Math.sin(fAngle) * 9.5, 0.1, Math.cos(fAngle) * 9.5 - 2);
+      floorBeamsGroup.add(fMesh);
+      floorBeamMeshes.push({ mesh: fMesh, baseAngle: fAngle, speed: (f % 2 === 0 ? 1 : -1) * 0.9 });
     }
 
     // 11. Dynamic Top 5 Character Spotlights (Volumetric Beams + Floor Glow Rings + Point Lights)
@@ -497,7 +530,8 @@ export function DiscoThreeStage({ engine, videoUrl, isMuted = true }: DiscoThree
     }
 
     // 13. Animated Crossing Laser Beams
-    const laserCount = 8;
+    // 13. Animated Crossing Laser Beams (16 High-Energy Beams)
+    const laserCount = 16;
     const laserGroup = new THREE.Group();
     scene.add(laserGroup);
 
@@ -505,47 +539,59 @@ export function DiscoThreeStage({ engine, videoUrl, isMuted = true }: DiscoThree
     for (let l = 0; l < laserCount; l++) {
       const laserGeo = new THREE.BufferGeometry().setFromPoints([
         new THREE.Vector3(0, 8.8, -4),
-        new THREE.Vector3(Math.sin(l) * 14, 0.1, Math.cos(l) * 14 - 3),
+        new THREE.Vector3(Math.sin(l * 0.4) * 16, 0.1, Math.cos(l * 0.4) * 16 - 3),
       ]);
-      const laserCol = l % 2 === 0 ? 0x00ffff : 0xff0055;
+      const laserCol = beamColors[l % beamColors.length].getHex();
       const laserMat = new THREE.LineBasicMaterial({
         color: laserCol,
         linewidth: 2,
         transparent: true,
-        opacity: 0.8,
+        opacity: 0.85,
         blending: THREE.AdditiveBlending,
       });
       const line = new THREE.Line(laserGeo, laserMat);
       laserGroup.add(line);
       laserLines.push({
         line,
-        speed: (l % 2 === 0 ? 1 : -1) * (0.8 + l * 0.2),
-        baseAngle: l * 0.8,
+        speed: (l % 2 === 0 ? 1 : -1) * (0.9 + (l % 5) * 0.25),
+        baseAngle: l * 0.45,
         color: laserCol,
       });
     }
 
-    // 14. Floating Sparks/Dust in Air & Confetti
-    const maxParticles = 1500;
+    // 14. Floating Sparks & Massive 3500-Particle Confetti Rainfall (12s Duration)
+    const maxParticles = 3500;
     const particleGeo = new THREE.BufferGeometry();
     const particlePositions = new Float32Array(maxParticles * 3);
     const particleColors = new Float32Array(maxParticles * 3);
     
+    const confettiColors = [
+      [1.0, 0.84, 0.0],  // Gold
+      [1.0, 0.0, 0.5],   // Hot Pink
+      [0.0, 0.94, 1.0],  // Cyan
+      [0.7, 0.15, 1.0],  // Violet
+      [0.0, 1.0, 0.4],   // Neon Emerald
+      [1.0, 0.4, 0.0],   // Orange
+      [1.0, 1.0, 1.0],   // Pure White
+    ];
+
     for (let p = 0; p < maxParticles; p++) {
-      particlePositions[p * 3] = (Math.random() - 0.5) * 26;
-      particlePositions[p * 3 + 1] = Math.random() * 9.5;
-      particlePositions[p * 3 + 2] = (Math.random() - 0.5) * 26 - 4;
-      particleColors[p * 3] = 0;
-      particleColors[p * 3 + 1] = 240 / 255;
-      particleColors[p * 3 + 2] = 255 / 255;
+      particlePositions[p * 3] = (Math.random() - 0.5) * 32;
+      particlePositions[p * 3 + 1] = Math.random() * 11.5;
+      particlePositions[p * 3 + 2] = (Math.random() - 0.5) * 32 - 2;
+
+      const cPick = confettiColors[p % confettiColors.length];
+      particleColors[p * 3] = cPick[0];
+      particleColors[p * 3 + 1] = cPick[1];
+      particleColors[p * 3 + 2] = cPick[2];
     }
     particleGeo.setAttribute('position', new THREE.BufferAttribute(particlePositions, 3));
     particleGeo.setAttribute('color', new THREE.BufferAttribute(particleColors, 3));
     
     const particleMat = new THREE.PointsMaterial({
-      size: 0.14,
+      size: 0.16,
       transparent: true,
-      opacity: 0.7,
+      opacity: 0.85,
       blending: THREE.AdditiveBlending,
       vertexColors: true,
     });
@@ -987,13 +1033,21 @@ export function DiscoThreeStage({ engine, videoUrl, isMuted = true }: DiscoThree
         wingTexture.needsUpdate = true;
       }
 
-      // 18.4 Animate Moving Head Spotlights (Image 2 style)
+      // 18.4 Animate 36 Moving Head Spotlights (Ceiling + Floor Uplights)
       beamMeshes.forEach((beam) => {
         const sweepAngle = Math.sin(nowSec * beam.speed) * 0.65;
         const targetX = Math.cos(beam.baseAngle + sweepAngle) * (beam.radius * 0.85);
         const targetZ = Math.sin(beam.baseAngle + sweepAngle) * (beam.radius * 0.85) - 3;
         beam.mesh.lookAt(targetX, 0, targetZ);
         beam.mesh.rotateX(Math.PI / 2);
+      });
+
+      floorBeamMeshes.forEach((fb) => {
+        const sweepAngle = Math.sin(nowSec * fb.speed) * 0.55;
+        const targetX = Math.sin(fb.baseAngle + sweepAngle) * 8.0;
+        const targetZ = Math.cos(fb.baseAngle + sweepAngle) * 8.0 - 2;
+        fb.mesh.lookAt(targetX, 12, targetZ);
+        fb.mesh.rotateX(-Math.PI / 2);
       });
 
       // 18.5 Slowly Rotate Ceiling Truss
@@ -1016,27 +1070,46 @@ export function DiscoThreeStage({ engine, videoUrl, isMuted = true }: DiscoThree
         sp.mesh.position.z = sp.initZ + Math.cos(nowSec * 0.4 * smokeSpeedMult + idx) * 1.2;
       });
 
-      // 18.7 Animate Crossing Laser Beams
-      const laserSpeedMult = isLaserShow ? 3.0 : 1.0;
+      // 18.7 Animate Crossing Laser Beams (16 Beams)
+      const laserSpeedMult = isLaserShow ? 3.5 : 1.0;
       laserLines.forEach((laser) => {
-        const lAngle = laser.baseAngle + Math.sin(nowSec * laser.speed * laserSpeedMult) * 0.8;
-        const tx = Math.sin(lAngle) * 14;
-        const tz = Math.cos(lAngle) * 14 - 3;
+        const lAngle = laser.baseAngle + Math.sin(nowSec * laser.speed * laserSpeedMult) * 0.85;
+        const tx = Math.sin(lAngle) * 16;
+        const tz = Math.cos(lAngle) * 16 - 3;
         const posAttr = laser.line.geometry.attributes.position as THREE.BufferAttribute;
         posAttr.setXYZ(1, tx, 0.05, tz);
         posAttr.needsUpdate = true;
         const lineMat = laser.line.material as THREE.LineBasicMaterial;
-        lineMat.opacity = isLaserShow ? 1.0 : 0.8;
+        lineMat.opacity = isLaserShow ? 1.0 : 0.85;
       });
 
-      // 18.8 Floating Dust & Light Sparks
-      const currentDrawCount = isConfetti ? maxParticles : 220;
+      // 18.8 Floating Dust & Continuous Confetti Rainfall (Flutter Physics)
+      const currentDrawCount = isConfetti ? maxParticles : 250;
       sparkPoints.geometry.setDrawRange(0, currentDrawCount);
       
       const posAttrSpark = sparkPoints.geometry.attributes.position as THREE.BufferAttribute;
       const colAttrSpark = sparkPoints.geometry.attributes.color as THREE.BufferAttribute;
       
-      const fallSpeed = isConfetti ? 1.5 : 0.35;
+      const pPositions = posAttrSpark.array as Float32Array;
+      const fallSpeed = isConfetti ? 2.2 : 0.35;
+      
+      for (let p = 0; p < currentDrawCount; p++) {
+        pPositions[p * 3 + 1] -= fallSpeed * dt;
+        if (isConfetti) {
+          // Fluttering paper physics (tumbling left and right as it falls)
+          pPositions[p * 3] += Math.sin(nowSec * 6 + p * 0.6) * 0.035;
+          pPositions[p * 3 + 2] += Math.cos(nowSec * 5 + p * 0.4) * 0.035;
+        }
+
+        // Reset to top when touching floor for continuous 12s rainfall
+        if (pPositions[p * 3 + 1] < 0.05) {
+          pPositions[p * 3 + 1] = isConfetti ? (10.5 + Math.random() * 2.5) : 9.5;
+          pPositions[p * 3] = (Math.random() - 0.5) * 32;
+          pPositions[p * 3 + 2] = (Math.random() - 0.5) * 32 - 2;
+        }
+      }
+      posAttrSpark.needsUpdate = true;
+      colAttrSpark.needsUpdate = true;
       
       if (isConfetti) {
         (sparkPoints.material as THREE.PointsMaterial).size = 0.25;
@@ -1045,26 +1118,6 @@ export function DiscoThreeStage({ engine, videoUrl, isMuted = true }: DiscoThree
         (sparkPoints.material as THREE.PointsMaterial).size = 0.14;
         (sparkPoints.material as THREE.PointsMaterial).opacity = 0.7;
       }
-
-      for (let p = 0; p < currentDrawCount; p++) {
-        let py = posAttrSpark.getY(p) - dt * fallSpeed;
-        if (py < 0) {
-          py = 9.5;
-          posAttrSpark.setX(p, (Math.random() - 0.5) * 26);
-          posAttrSpark.setZ(p, (Math.random() - 0.5) * 26 - 4);
-        }
-        posAttrSpark.setY(p, py);
-
-        if (isConfetti) {
-          const c = new THREE.Color();
-          c.setHSL((nowSec * 0.2 + p * 0.01) % 1, 1.0, 0.5);
-          colAttrSpark.setXYZ(p, c.r, c.g, c.b);
-        } else {
-          colAttrSpark.setXYZ(p, 0, 240/255, 255/255);
-        }
-      }
-      posAttrSpark.needsUpdate = true;
-      colAttrSpark.needsUpdate = true;
 
       // 18.9 Update Dancers, Top 1 DJ, Top 2 & Top 3 VIP Podiums, and Top 4-5 Floor VIPs
       const topDancers = engine.getTopDancers(5);
@@ -1188,9 +1241,10 @@ export function DiscoThreeStage({ engine, videoUrl, isMuted = true }: DiscoThree
           entry.spriteMesh.material.needsUpdate = true;
         }
 
-        // Badge Position & Texture
+        // Badge Position, Scale & Beat-Synced Flashing Pulse
+        const badgePulse = 1.0 + (isTop1 ? 0.12 : 0.06) * Math.abs(Math.sin(nowSec * 8 + (dancer.danceOffset || 0)));
         entry.badgeMesh.position.set(entry.spriteMesh.position.x, entry.spriteMesh.position.y + scale * 0.58, entry.spriteMesh.position.z);
-        entry.badgeMesh.scale.set(2.5, 0.82, 1);
+        entry.badgeMesh.scale.set(2.5 * badgePulse, 0.82 * badgePulse, 1);
 
         const rankType = isCurrentDj ? 'dj' : isTop2 ? 'top2' : isTop3 ? 'top3' : isTop4 ? 'top4' : isTop5 ? 'top5' : 'normal';
         const badgeTex = getBadgeTexture(dancer.name, dancer.points || 0, rankType, dancer.color);
