@@ -192,47 +192,36 @@ export default function DiscoStageView({
         </div>
       </div>
 
-      {/* 3D Stage Background Ultra-Wide Panoramic YouTube Video Wall */}
+      {/* 3D Festival Mainstage Center Screen (100% Uncropped 16:9 Video behind DJ Booth) */}
       {ytId && (
         <div
           style={{
             position: 'absolute',
-            inset: 0,
-            width: '100%',
-            height: '100%',
+            top: '4.5%',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            width: '54%',
+            aspectRatio: '16 / 9',
+            maxHeight: '56%',
             zIndex: 3,
+            borderRadius: '16px',
             overflow: 'hidden',
-            backgroundColor: '#04020a',
+            boxShadow: '0 0 50px rgba(0, 240, 255, 0.5), 0 0 100px rgba(176, 38, 255, 0.25)',
+            border: '2px solid rgba(0, 240, 255, 0.8)',
+            backgroundColor: '#000',
             pointerEvents: 'none',
           }}
         >
           <iframe
             src={`https://www.youtube-nocookie.com/embed/${ytId}?autoplay=1&mute=${isMuted ? 1 : 0}&loop=1&playlist=${ytId}&controls=0&showinfo=0&rel=0&modestbranding=1&enablejsapi=1`}
-            title="YouTube DJ Stage Video Wall"
+            title="Main Center LED Screen"
             style={{
-              position: 'absolute',
-              top: '50%',
-              left: '50%',
-              transform: 'translate(-50%, -50%)',
-              width: '100vw',
-              height: '56.25vw', // 16:9 aspect ratio cover
-              minHeight: '100vh',
-              minWidth: '177.78vh', // 16:9 aspect ratio cover
+              width: '100%',
+              height: '100%',
               border: 'none',
               pointerEvents: 'none',
-              filter: 'contrast(1.06) saturate(1.15) brightness(0.95)',
             }}
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-          />
-
-          {/* Cinematic Vignette & Club Stage Gradient Blend */}
-          <div
-            style={{
-              position: 'absolute',
-              inset: 0,
-              background: 'radial-gradient(ellipse at 50% 50%, rgba(4, 3, 10, 0) 35%, rgba(4, 3, 10, 0.6) 75%, #04030a 100%), linear-gradient(to bottom, rgba(4,3,10,0.5) 0%, transparent 20%, transparent 65%, #04030a 96%)',
-              pointerEvents: 'none',
-            }}
           />
         </div>
       )}
