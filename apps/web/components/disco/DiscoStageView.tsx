@@ -77,17 +77,13 @@ export default function DiscoStageView({
         userSelect: 'none',
       }}
     >
-      {/* 1. Background Arena Stage Image */}
+      {/* 1. Background Nightclub Bar Stage Image */}
       <div style={{ position: 'absolute', inset: 0, zIndex: 0 }}>
         <Image
-          src={
-            aspect === 'vertical'
-              ? '/assets/disco/Stage/arena-vertical.png'
-              : '/assets/disco/Stage/arena-horizontal.png'
-          }
-          alt="Arena Stage Background"
+          src="/assets/disco/Stage/premium-stage-v2.png"
+          alt="Nightclub Bar Stage"
           fill
-          style={{ objectFit: 'cover' }}
+          style={{ objectFit: 'cover', objectPosition: 'center center' }}
           priority
         />
       </div>
@@ -96,16 +92,16 @@ export default function DiscoStageView({
       <div
         style={{
           position: 'absolute',
-          top: aspect === 'vertical' ? '23.2%' : '17%',
-          left: aspect === 'vertical' ? '16.5%' : '26%',
-          width: aspect === 'vertical' ? '67%' : '48%',
-          height: aspect === 'vertical' ? '19.2%' : '27%',
+          top: aspect === 'vertical' ? '32.5%' : '22%',
+          left: aspect === 'vertical' ? '28%' : '36%',
+          width: aspect === 'vertical' ? '44%' : '28%',
+          height: aspect === 'vertical' ? '18.5%' : '24%',
           zIndex: 2,
-          borderRadius: 10,
+          borderRadius: 8,
           overflow: 'hidden',
           backgroundColor: '#000',
-          boxShadow: '0 0 25px rgba(0, 240, 255, 0.4), inset 0 0 15px rgba(255, 0, 160, 0.3)',
-          border: '2px solid rgba(0, 240, 255, 0.6)',
+          boxShadow: '0 0 25px rgba(0, 240, 255, 0.5), inset 0 0 15px rgba(255, 0, 160, 0.3)',
+          border: '2px solid rgba(0, 240, 255, 0.7)',
         }}
       >
         {/* Video / GIF Content */}

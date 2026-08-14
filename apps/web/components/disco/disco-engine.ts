@@ -267,18 +267,16 @@ export class DiscoEngine {
 
     const dancersArray = Array.from(this.dancers.values());
     for (const dancer of dancersArray) {
-      // DJ Physics override (Standing right at DJ mixer booth)
       // DJ Physics override (Standing right behind the mixer desk)
       if (dancer.isDj) {
         const targetX = 0.5;
-        const targetY = 0.44;
+        const targetY = 0.525;
         
         // Lerp to DJ position behind the mixer table
         dancer.x += (targetX - dancer.x) * 3 * dt;
         dancer.y += (targetY - dancer.y) * 3 * dt;
         dancer.vx = 0;
         dancer.vy = 0;
-
       } else {
         // Normal Physics on floor
         dancer.vy += GRAVITY * dt;
@@ -340,11 +338,11 @@ export class DiscoEngine {
       }
     } else {
       this.camera.lockedOnId = null;
-      // 3D Cinematic Orbital sweeping rotation around the arena amphitheater
-      const orbitPhase = now * 0.00032; // smooth slow orbit
-      this.camera.targetX = 0.5 + Math.sin(orbitPhase) * 0.22; // sweeps from left to right
-      this.camera.targetY = 0.64 + Math.cos(orbitPhase * 0.7) * 0.04; // smooth height sway
-      this.camera.targetScale = 1.15 + Math.sin(orbitPhase * 1.4) * 0.05; // cinematic breathing zoom
+      // 3D Cinematic sweeping rotation across nightclub bar stage
+      const orbitPhase = now * 0.00030; // smooth slow sway
+      this.camera.targetX = 0.5 + Math.sin(orbitPhase) * 0.10; // gentle left-right sway
+      this.camera.targetY = 0.60 + Math.cos(orbitPhase * 0.7) * 0.03; // smooth height sway
+      this.camera.targetScale = 1.08 + Math.sin(orbitPhase * 1.2) * 0.03; // breathing zoom
     }
 
     // Smooth Lerp Camera

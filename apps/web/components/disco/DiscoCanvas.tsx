@@ -225,24 +225,23 @@ export default function DiscoCanvas({ engine }: DiscoCanvasProps) {
 
       // Calculate 3D screen position & scale for each dancer
       const calcDancerScreenPos = (dancer: typeof rawDancers[0]) => {
+        const isVertical = H > W;
         if (dancer.isDj) {
           return {
             x: 0.5 * W,
-            y: H * 0.44,
-            renderScale: dancer.scale * 1.35,
+            y: isVertical ? H * 0.525 : H * 0.48,
+            renderScale: dancer.scale * (isVertical ? 1.25 : 1.1),
             depth: 0.05,
           };
         }
         const z = Math.max(0.1, Math.min(1.0, dancer.z ?? 0.5));
-        const baseFloorY = H * 0.52 + z * (H * 0.42);
-        const bowlCurv = ((dancer.x - 0.5) ** 2) * (H * 0.08 * (1 - z * 0.4));
-        const curFloorY = baseFloorY + bowlCurv;
-        let y = dancer.y < 1.0 ? dancer.y * curFloorY : curFloorY;
+        const baseFloorY = isVertical ? (H * 0.65 + z * (H * 0.28)) : (H * 0.58 + z * (H * 0.36));
+        let y = dancer.y < 1.0 ? dancer.y * baseFloorY : baseFloorY;
         if (dancer.state === 'dancing') {
-          y -= Math.abs(Math.sin(dancer.danceOffset)) * (6 + z * 6);
+          y -= Math.abs(Math.sin(dancer.danceOffset)) * (4 + z * 5);
         }
-        const x = W * (0.5 + (dancer.x - 0.5) * (0.60 + z * 0.40));
-        const renderScale = (0.55 + z * 0.55) * dancer.scale;
+        const x = W * (0.5 + (dancer.x - 0.5) * (0.65 + z * 0.35));
+        const renderScale = (0.55 + z * 0.50) * dancer.scale;
         return { x, y, renderScale, depth: z };
       };
 
