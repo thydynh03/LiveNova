@@ -200,6 +200,8 @@ export class DiscoEngine {
   public currentDjId: string | null = 'bot_dj_livenova';
   public djPromotionToast: { oldDjName: string; newDjName: string; points: number; time: number } | null = null;
   public lastGiftInfo: { senderName: string; giftPoints: number; time: number } | null = null;
+  public cameraPriority: number = 0; // 0 = Auto/Random, 1 = Join (3.5s), 2 = Gift / Rose (7s), 3 = Top DJ (10s)
+  public cameraLockUntil: number = 0;
 
   triggerFlash(amount = 0.7) {
     this.flashIntensity = Math.min(1.0, this.flashIntensity + amount);
@@ -208,7 +210,7 @@ export class DiscoEngine {
   join(id: string, name: string, avatarUrl?: string) {
     if (this.dancers.has(id)) {
       this.jump(id);
-      this.triggerSpotlightZoom(6000, id);
+      this.triggerSpotlightZoom(3500, id, 1);
       return;
     }
 
@@ -234,9 +236,8 @@ export class DiscoEngine {
       points: 0,
     });
 
-    // Camera zooms/pans immediately to welcome new dancer dropping onto the floor
-    // If another viewer joins, this immediately overrides the spotlight to the new dancer!
-    this.triggerSpotlightZoom(6000, id);
+    // Camera zooms on new dancer with priority = 1 (cannot override gift priority = 2)
+    this.triggerSpotlightZoom(3500, id, 1);
     this.triggerFlash(0.4);
     this.triggerFirework();
   }
@@ -307,14 +308,14 @@ export class DiscoEngine {
       for (let i = 0; i < 6; i++) {
         setTimeout(() => this.triggerFirework(), i * 200);
       }
+      this.triggerDjPov(10000, 3);
     } else {
-      // Normal gift fireworks
+      // Normal gift / Rose: Focus on the gifter for full 7s with priority 2
       this.triggerFirework();
       setTimeout(() => this.triggerFirework(), 250);
+      this.triggerSpotlightZoom(7000, id, 2);
     }
 
-    // TẶNG QUÀ -> KÍCH HOẠT GÓC NHÌN DJ POV NHÌN XUỐNG TOÀN CẢNH SÀN NHẢY
-    this.triggerDjPov(10000);
     this.triggerFlash(0.75);
   }
 
@@ -484,38 +485,61 @@ export class DiscoEngine {
   public spotlightTargetId: string | null = null;
   private shotEndTime: number = 0;
 
-  triggerDjPov(durationMs = 9000) {
+  triggerDjPov(durationMs = 9000, priority = 2) {
+    const now = Date.now();
+    if (now < this.cameraLockUntil && priority < this.cameraPriority) {
+      return;
+    }
     this.currentShotType = 'DJ_POV';
     this.isDjPovFirstPerson = true;
-    this.shotEndTime = Date.now() + durationMs;
-    this.nextCinematicShotTime = Date.now() + durationMs + 6000;
+    this.cameraPriority = priority;
+    this.cameraLockUntil = now + durationMs;
+    this.shotEndTime = now + durationMs;
+    this.nextCinematicShotTime = now + durationMs + 6000;
   }
 
-  triggerSpotlightZoom(durationMs = 7000, targetId?: string) {
+  triggerSpotlightZoom(durationMs = 7000, targetId?: string, priority = 1) {
+    const now = Date.now();
+    // If a higher priority lock is currently active (e.g. Gift priority 2 vs Join priority 1), ignore lower priority request
+    if (now < this.cameraLockUntil && priority < this.cameraPriority) {
+      return;
+    }
+
     this.currentShotType = 'SPOTLIGHT_ZOOM';
     this.isDjPovFirstPerson = false;
+    this.cameraPriority = priority;
+    this.cameraLockUntil = now + durationMs;
+
     const dancersArray = Array.from(this.dancers.values());
     this.spotlightTargetId = targetId || (dancersArray.length > 0 ? dancersArray[Math.floor(Math.random() * dancersArray.length)].id : null);
     if (this.spotlightTargetId) {
       this.camera.lockedOnId = this.spotlightTargetId;
-      this.camera.lockTimeout = Date.now() + durationMs;
+      this.camera.lockTimeout = now + durationMs;
     }
-    this.shotEndTime = Date.now() + durationMs;
-    this.nextCinematicShotTime = Date.now() + durationMs + 30000; // 30 seconds interval per random focus
+    this.shotEndTime = now + durationMs;
+    this.nextCinematicShotTime = now + durationMs + 30000; // 30 seconds interval per random focus
   }
 
-  triggerCraneSwoop(durationMs = 6000) {
+  triggerCraneSwoop(durationMs = 6000, priority = 0) {
+    const now = Date.now();
+    if (now < this.cameraLockUntil && priority < this.cameraPriority) return;
     this.currentShotType = 'CRANE_SWOOP';
     this.isDjPovFirstPerson = false;
-    this.shotEndTime = Date.now() + durationMs;
-    this.nextCinematicShotTime = Date.now() + durationMs + 6000;
+    this.cameraPriority = priority;
+    this.cameraLockUntil = now + durationMs;
+    this.shotEndTime = now + durationMs;
+    this.nextCinematicShotTime = now + durationMs + 6000;
   }
 
-  triggerWideOrbit(durationMs = 8000) {
+  triggerWideOrbit(durationMs = 8000, priority = 0) {
+    const now = Date.now();
+    if (now < this.cameraLockUntil && priority < this.cameraPriority) return;
     this.currentShotType = 'WIDE_ORBIT';
     this.isDjPovFirstPerson = false;
-    this.shotEndTime = Date.now() + durationMs;
-    this.nextCinematicShotTime = Date.now() + durationMs + 6000;
+    this.cameraPriority = priority;
+    this.cameraLockUntil = now + durationMs;
+    this.shotEndTime = now + durationMs;
+    this.nextCinematicShotTime = now + durationMs + 6000;
   }
 
   triggerSmokeEffect() {

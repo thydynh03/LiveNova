@@ -163,66 +163,54 @@ export default function DiscoDashboardPage() {
 
     if (event.type === LiveEventType.COMMENT) {
       const rawText = (event.content || '').toLowerCase().trim();
+      const words = rawText.split(/\s+/);
       const isJoin =
-        rawText.includes('hey') ||
-        rawText.includes('join') ||
-        rawText.includes('vào') ||
-        rawText.includes('vao') ||
-        rawText.includes('nhảy') ||
-        rawText.includes('nhay') ||
-        rawText.includes('quẩy') ||
-        rawText.includes('quay') ||
+        rawText === 'hey' ||
         rawText === '1' ||
-        rawText.startsWith('1') ||
-        rawText.includes('hi') ||
-        rawText.includes('hello') ||
-        rawText.includes('chào') ||
-        rawText.includes('chao');
+        rawText === 'join' ||
+        rawText.startsWith('hey ') ||
+        rawText.startsWith('1 ') ||
+        rawText.startsWith('join ') ||
+        words.some((w) => ['hey', 'heyy', 'heyyy', '1', 'join', 'vào', 'vao', 'nhảy', 'nhay', 'quẩy', 'quay'].includes(w)) ||
+        rawText.includes('vào phòng') ||
+        rawText.includes('vao phong') ||
+        rawText.includes('vào nhảy') ||
+        rawText.includes('vao nhay') ||
+        rawText.includes('vào quẩy') ||
+        rawText.includes('vao quay');
 
       const isJump =
         rawText === '2' ||
-        rawText.includes('jump') ||
-        rawText.includes('lên') ||
-        rawText.includes('len') ||
-        rawText.includes('bật') ||
-        rawText.includes('bat');
+        words.some((w) => ['2', 'jump', 'nhảy', 'lên', 'bật'].includes(w));
 
       const isChange =
         rawText === '3' ||
-        rawText.includes('đổi') ||
-        rawText.includes('doi') ||
-        rawText.includes('change') ||
-        rawText.includes('skin');
+        words.some((w) => ['3', 'skin', 'đổi', 'change'].includes(w));
 
       const isWalk =
         rawText === '4' ||
-        rawText.includes('đi') ||
-        rawText.includes('di') ||
-        rawText.includes('walk') ||
-        rawText.includes('dạo') ||
-        rawText.includes('dao');
+        words.some((w) => ['4', 'walk', 'đi', 'dạo'].includes(w));
 
       if (isJoin) {
         engine.join(senderId, senderName, avatarUrl);
         broadcastSync({ liveAction: { type: 'join', senderId, senderName, avatarUrl } });
       } else if (isJump) {
-        if (!engine.dancers.has(senderId)) engine.join(senderId, senderName, avatarUrl);
-        engine.jump(senderId);
-        broadcastSync({ liveAction: { type: 'jump', senderId, senderName, avatarUrl } });
+        if (engine.dancers.has(senderId)) {
+          engine.jump(senderId);
+          broadcastSync({ liveAction: { type: 'jump', senderId, senderName, avatarUrl } });
+        }
       } else if (isChange) {
-        if (!engine.dancers.has(senderId)) engine.join(senderId, senderName, avatarUrl);
-        engine.changeAvatar(senderId);
-        broadcastSync({ liveAction: { type: 'change', senderId, senderName, avatarUrl } });
+        if (engine.dancers.has(senderId)) {
+          engine.changeAvatar(senderId);
+          broadcastSync({ liveAction: { type: 'change', senderId, senderName, avatarUrl } });
+        }
       } else if (isWalk) {
-        if (!engine.dancers.has(senderId)) engine.join(senderId, senderName, avatarUrl);
-        engine.walk(senderId);
-        broadcastSync({ liveAction: { type: 'walk', senderId, senderName, avatarUrl } });
-      } else {
-        if (!engine.dancers.has(senderId)) {
-          engine.join(senderId, senderName, avatarUrl);
-          broadcastSync({ liveAction: { type: 'join', senderId, senderName, avatarUrl } });
+        if (engine.dancers.has(senderId)) {
+          engine.walk(senderId);
+          broadcastSync({ liveAction: { type: 'walk', senderId, senderName, avatarUrl } });
         }
       }
+      // Note: General comments do NOT join the dancefloor!
     } else if (event.type === LiveEventType.GIFT) {
       const giftName = ((event.giftName || event.content || '') as string).toLowerCase().trim();
       const giftCoins = event.giftCoinValue || 1;
@@ -252,7 +240,7 @@ export default function DiscoDashboardPage() {
       ) {
         if (!engine.dancers.has(senderId)) engine.join(senderId, senderName, avatarUrl);
         engine.addGiftPoints(senderId, senderName, 5, avatarUrl);
-        engine.triggerSpotlightZoom(7000, senderId);
+        engine.triggerSpotlightZoom(7000, senderId, 2);
         const speech = `Cảm ơn ${senderName} đã tặng Rosa cho phòng nhảy! Quẩy lên nào!`;
         speakMessage(speech);
         broadcastSync({ cameraShot: 'SPOTLIGHT_ZOOM', duration: 7000, targetId: senderId, speechText: speech });
@@ -266,8 +254,9 @@ export default function DiscoDashboardPage() {
         engine.changeAvatar(senderId);
         engine.addGiftPoints(senderId, senderName, 1, avatarUrl);
         engine.jump(senderId);
+        engine.triggerSpotlightZoom(7000, senderId, 2);
       }
-      // 4. Rose
+      // 4. Rose (Hoa hồng) -> Zoom 7s cố định (Priority 2)
       else if (
         giftName.includes('rose') ||
         giftName.includes('hoa hồng') ||
@@ -277,7 +266,7 @@ export default function DiscoDashboardPage() {
       ) {
         if (!engine.dancers.has(senderId)) engine.join(senderId, senderName, avatarUrl);
         engine.addGiftPoints(senderId, senderName, 1, avatarUrl);
-        engine.triggerSpotlightZoom(7000, senderId);
+        engine.triggerSpotlightZoom(7000, senderId, 2);
         broadcastSync({ cameraShot: 'SPOTLIGHT_ZOOM', duration: 7000, targetId: senderId });
       }
       // 5. Quà khác
@@ -285,13 +274,7 @@ export default function DiscoDashboardPage() {
         engine.enqueueGift(senderId, senderName, giftCoins, avatarUrl);
         broadcastSync({ cameraShot: 'DJ_POV', duration: 10000 });
       }
-    } else if (
-      event.type === LiveEventType.JOIN || 
-      event.type === LiveEventType.FOLLOW || 
-      event.type === LiveEventType.LIKE || 
-      event.type === LiveEventType.SHARE
-    ) {
-       if (!engine.dancers.has(senderId)) engine.join(senderId, senderName, avatarUrl);
+    } else if (event.type === LiveEventType.LIKE) {
        engine.triggerFirework();
     }
   }, [engine]);
