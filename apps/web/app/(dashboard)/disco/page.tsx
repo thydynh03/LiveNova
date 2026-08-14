@@ -196,6 +196,20 @@ export default function DiscoDashboardPage() {
     }
   };
 
+  const handleVideoFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const dataUrl = event.target?.result as string;
+        if (dataUrl) {
+          handleSetVideoUrl(dataUrl);
+        }
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   // Test action helpers
   const triggerTestJoin = () => {
     engine.join(testUsername.trim() || '@khangia', testDisplayName.trim() || 'Khán Giả');
@@ -577,30 +591,58 @@ export default function DiscoDashboardPage() {
               </button>
             </div>
 
-            {/* Quick Presets */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
-              <span style={{ fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))' }}>Gợi ý mẫu:</span>
-              {[
-                { label: '⚡ Cyber EDM Visualizer (Mặc định)', url: '' },
-                { label: '📹 Cyberpunk EDM Video', url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' },
-              ].map((p, idx) => (
-                <button
-                  key={idx}
-                  type="button"
-                  onClick={() => handleSetVideoUrl(p.url)}
-                  style={{
-                    padding: '0.25rem 0.5rem',
-                    fontSize: '0.75rem',
-                    borderRadius: 'var(--radius-sm)',
-                    background: djVideoUrl === p.url ? 'hsl(var(--primary) / 0.15)' : 'hsl(var(--secondary) / 0.6)',
-                    color: djVideoUrl === p.url ? 'hsl(var(--primary))' : 'hsl(var(--foreground))',
-                    border: djVideoUrl === p.url ? '1px solid hsl(var(--primary))' : '1px solid hsl(var(--border))',
-                    cursor: 'pointer'
-                  }}
-                >
-                  {p.label}
-                </button>
-              ))}
+            {/* Quick Presets & Upload Video Button */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                <span style={{ fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))' }}>Gợi ý mẫu:</span>
+                {[
+                  { label: '⚡ Cyber EDM Visualizer (Mặc định)', url: '' },
+                  { label: '🔥 Neon Cyber Loop Video', url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4' },
+                  { label: '🎆 EDM Rave Visual Video', url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/WeAreGoingOnBullrun.mp4' },
+                ].map((p, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => handleSetVideoUrl(p.url)}
+                    style={{
+                      padding: '0.25rem 0.5rem',
+                      fontSize: '0.75rem',
+                      borderRadius: 'var(--radius-sm)',
+                      background: djVideoUrl === p.url ? 'hsl(var(--primary) / 0.15)' : 'hsl(var(--secondary) / 0.6)',
+                      color: djVideoUrl === p.url ? 'hsl(var(--primary))' : 'hsl(var(--foreground))',
+                      border: djVideoUrl === p.url ? '1px solid hsl(var(--primary))' : '1px solid hsl(var(--border))',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    {p.label}
+                  </button>
+                ))}
+              </div>
+
+              <div>
+                <label style={{
+                  cursor: 'pointer',
+                  padding: '0.35rem 0.65rem',
+                  borderRadius: 'var(--radius-sm)',
+                  background: 'hsl(var(--secondary))',
+                  color: 'hsl(var(--secondary-foreground))',
+                  border: '1px solid hsl(var(--border))',
+                  fontSize: '0.75rem',
+                  fontWeight: 600,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.375rem'
+                }}>
+                  <Icon name="preview" size={14} />
+                  <span>{djVideoUrl ? '📁 Tải Lên Video/GIF Khác' : '📁 Tải Lên Video/GIF'}</span>
+                  <input 
+                    type="file" 
+                    accept="video/mp4,video/webm,video/*,image/gif,image/*" 
+                    onChange={handleVideoFileChange} 
+                    style={{ display: 'none' }} 
+                  />
+                </label>
+              </div>
             </div>
           </div>
 

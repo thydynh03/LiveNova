@@ -315,14 +315,14 @@ export function DiscoThreeStage({ engine, videoUrl, isMuted = true }: DiscoThree
     for (let i = 0; i < 5; i++) {
       const hex = top5Colors[i];
 
-      // Volumetric spotlight cone pointing down at character (unit height 1, pivot at tip)
-      const beamGeo = new THREE.CylinderGeometry(0.18, 1.35, 1, 24, 1, true);
-      beamGeo.translate(0, 0.5, 0);
+      // Volumetric spotlight cone: NARROW at ceiling (radiusBottom = 0.16 at y=0), WIDE at floor (radiusTop = 2.4 at y=1)
+      const beamGeo = new THREE.CylinderGeometry(2.4, 0.16, 1, 24, 1, true);
+      beamGeo.translate(0, 0.5, 0); // Origin y=0 is narrow tip at ceiling, y=1 is wide base at floor
 
       const beamMat = new THREE.MeshBasicMaterial({
         color: hex,
         transparent: true,
-        opacity: 0.45,
+        opacity: 0.38,
         blending: THREE.AdditiveBlending,
         side: THREE.DoubleSide,
         depthWrite: false,
@@ -331,23 +331,23 @@ export function DiscoThreeStage({ engine, videoUrl, isMuted = true }: DiscoThree
       beamMesh.visible = false;
       top5SpotlightGroup.add(beamMesh);
 
-      // Glowing Floor Projection Ring
+      // Glowing Floor Projection Ring matching the wide base
       const floorMat = new THREE.MeshBasicMaterial({
         map: spotDiscTex,
         color: hex,
         transparent: true,
-        opacity: 0.6,
+        opacity: 0.65,
         blending: THREE.AdditiveBlending,
         depthWrite: false,
         side: THREE.DoubleSide,
       });
-      const floorRing = new THREE.Mesh(new THREE.PlaneGeometry(3.2, 3.2), floorMat);
+      const floorRing = new THREE.Mesh(new THREE.PlaneGeometry(4.2, 4.2), floorMat);
       floorRing.rotation.x = -Math.PI / 2;
       floorRing.visible = false;
       top5SpotlightGroup.add(floorRing);
 
       // Real Point Light illuminating character directly
-      const pointLight = new THREE.PointLight(hex, 3.0, 9, 1.6);
+      const pointLight = new THREE.PointLight(hex, 3.2, 10, 1.6);
       pointLight.visible = false;
       top5SpotlightGroup.add(pointLight);
 
@@ -566,17 +566,47 @@ export function DiscoThreeStage({ engine, videoUrl, isMuted = true }: DiscoThree
     }
     const dancerMeshesMap = new Map<string, DancerMeshEntry>();
 
-    // 16. Video Element setup for 3D Video Wall
+    // 16. Video / Image Element setup for 3D LED Video Wall
     let videoEl: HTMLVideoElement | null = null;
-    if (videoUrl && !videoUrl.includes('youtube.com') && !videoUrl.includes('youtu.be')) {
-      videoEl = document.createElement('video');
-      videoEl.src = videoUrl;
-      videoEl.crossOrigin = 'anonymous';
-      videoEl.loop = true;
-      videoEl.muted = isMuted;
-      videoEl.playsInline = true;
-      videoEl.play().catch(() => {});
-      videoRef.current = videoEl;
+    let imageEl: HTMLImageElement | null = null;
+
+    const trimmedUrl = (videoUrl || '').trim();
+    const isImage = Boolean(
+      trimmedUrl && (
+        trimmedUrl.match(/\.(png|jpe?g|gif|webp)(\?.*)?$/i) ||
+        trimmedUrl.startsWith('data:image/')
+      )
+    );
+
+    if (trimmedUrl && !trimmedUrl.includes('youtube.com') && !trimmedUrl.includes('youtu.be')) {
+      if (isImage) {
+        imageEl = new Image();
+        imageEl.crossOrigin = 'anonymous';
+        imageEl.src = trimmedUrl;
+      } else {
+        videoEl = document.createElement('video');
+        videoEl.src = trimmedUrl;
+        videoEl.crossOrigin = 'anonymous';
+        videoEl.loop = true;
+        videoEl.muted = isMuted;
+        videoEl.defaultMuted = isMuted;
+        videoEl.playsInline = true;
+        videoEl.setAttribute('playsinline', '');
+        videoEl.setAttribute('webkit-playsinline', '');
+        videoEl.autoplay = true;
+
+        const playPromise = videoEl.play();
+        if (playPromise !== undefined) {
+          playPromise.catch(() => {
+            // If autoplay failed due to muted or CORS, retry with muted
+            if (videoEl) {
+              videoEl.muted = true;
+              videoEl.play().catch(() => {});
+            }
+          });
+        }
+        videoRef.current = videoEl;
+      }
     }
 
     // 17. Camera Orbit & Drag State
@@ -754,10 +784,26 @@ export function DiscoThreeStage({ engine, videoUrl, isMuted = true }: DiscoThree
 
       // 18.3 Render Curved LED Video Wall Texture
       if (vCtx) {
-        if (videoEl && !videoEl.paused && videoEl.readyState >= 2) {
-          vCtx.drawImage(videoEl, 0, 0, 1024, 512);
-        } else {
-          // Cyber Visualizer Spectrum
+        let hasCustomMedia = false;
+
+        if (videoEl && videoEl.readyState >= 2 && !videoEl.paused) {
+          try {
+            vCtx.drawImage(videoEl, 0, 0, 1024, 512);
+            hasCustomMedia = true;
+          } catch {
+            hasCustomMedia = false;
+          }
+        } else if (imageEl && imageEl.complete && imageEl.naturalWidth > 0) {
+          try {
+            vCtx.drawImage(imageEl, 0, 0, 1024, 512);
+            hasCustomMedia = true;
+          } catch {
+            hasCustomMedia = false;
+          }
+        }
+
+        if (!hasCustomMedia) {
+          // Cyber Visualizer Spectrum (Active when no custom video is loaded or while buffering)
           vCtx.fillStyle = '#05020c';
           vCtx.fillRect(0, 0, 1024, 512);
 
