@@ -78,7 +78,11 @@ export default function DiscoDashboardPage() {
   const handleSetVideoUrl = (url: string) => {
     setDjVideoUrl(url);
     if (typeof window !== 'undefined') {
-      localStorage.setItem('livenova_disco_video_url', url);
+      if (url.startsWith('blob:') || url.startsWith('data:')) {
+        localStorage.removeItem('livenova_disco_video_url');
+      } else {
+        localStorage.setItem('livenova_disco_video_url', url);
+      }
     }
     broadcastSync({ videoUrl: url });
   };
@@ -591,8 +595,8 @@ export default function DiscoDashboardPage() {
                 <span style={{ fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))' }}>Gợi ý mẫu:</span>
                 {[
                   { label: '⚡ Cyber EDM Visualizer (Mặc định)', url: '' },
-                  { label: '🔥 Neon Cyber Loop Video', url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4' },
-                  { label: '🎆 EDM Rave Visual Video', url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/WeAreGoingOnBullrun.mp4' },
+                  { label: '▶️ YouTube DJ Club Video', url: 'https://www.youtube.com/watch?v=kYbgc0wSrnM' },
+                  { label: '🔥 Neon Cyber Loop MP4', url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4' },
                 ].map((p, idx) => (
                   <button
                     key={idx}

@@ -22,8 +22,17 @@ export function DiscoThreeStage({ engine, videoUrl, isMuted = true }: DiscoThree
     let height = container.clientHeight || 600;
 
     // 1. Scene, Camera, Fog & Renderer
+    const isYouTube = Boolean(
+      videoUrl && (
+        videoUrl.includes('youtube.com') ||
+        videoUrl.includes('youtu.be')
+      )
+    );
+
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x06030c);
+    if (!isYouTube) {
+      scene.background = new THREE.Color(0x06030c);
+    }
     scene.fog = new THREE.FogExp2(0x070412, 0.024);
 
     const camera = new THREE.PerspectiveCamera(52, width / height, 0.1, 150);
@@ -31,7 +40,7 @@ export function DiscoThreeStage({ engine, videoUrl, isMuted = true }: DiscoThree
 
     const renderer = new THREE.WebGLRenderer({
       antialias: true,
-      alpha: false,
+      alpha: true,
       powerPreference: 'high-performance',
     });
     renderer.setSize(width, height);
@@ -207,10 +216,14 @@ export function DiscoThreeStage({ engine, videoUrl, isMuted = true }: DiscoThree
     const ledScreenMat = new THREE.MeshBasicMaterial({
       map: videoTexture,
       side: THREE.BackSide,
+      transparent: true,
+      opacity: isYouTube ? 0 : 1,
     });
     const ledScreen = new THREE.Mesh(ledScreenGeo, ledScreenMat);
     ledScreen.position.set(0, 4.8, -2.5);
-    scene.add(ledScreen);
+    if (!isYouTube) {
+      scene.add(ledScreen);
+    }
 
     // Glowing Neon Frames on LED Video Wall
     const frameGeo = new THREE.CylinderGeometry(15.02, 15.02, 0.16, 40, 1, true, Math.PI * 0.78, Math.PI * 0.44);
@@ -1066,6 +1079,24 @@ export function DiscoThreeStage({ engine, videoUrl, isMuted = true }: DiscoThree
         const badgeTex = getBadgeTexture(dancer.name, dancer.points || 0, rankType, dancer.color);
         entry.badgeMesh.material.map = badgeTex;
         entry.badgeMesh.material.needsUpdate = true;
+
+        // Dynamic Opacity during 10s Spotlight Zoom:
+        // The focused target player stays 100% sharp & opaque, while other dancers become semi-transparent (0.22)
+        const isSpotlightZoom = engine.currentShotType === 'SPOTLIGHT_ZOOM' && Boolean(engine.spotlightTargetId);
+        const targetFocusId = engine.spotlightTargetId;
+        let targetOpacity = 1.0;
+        if (isSpotlightZoom) {
+          if (dancer.id === targetFocusId) {
+            targetOpacity = 1.0;
+          } else {
+            targetOpacity = 0.22; // Làm mờ nhân vật khác khi zoom vào 1 nhân vật
+          }
+        }
+
+        const spriteMat = entry.spriteMesh.material as THREE.SpriteMaterial;
+        const badgeMat = entry.badgeMesh.material as THREE.SpriteMaterial;
+        spriteMat.opacity = THREE.MathUtils.lerp(spriteMat.opacity, targetOpacity, dt * 7);
+        badgeMat.opacity = THREE.MathUtils.lerp(badgeMat.opacity, targetOpacity, dt * 7);
       });
 
       // 18.9.5 Direct Spotlights Following Top 5 Dancers in Real-Time
@@ -1141,10 +1172,17 @@ export function DiscoThreeStage({ engine, videoUrl, isMuted = true }: DiscoThree
           targetCamPos.set(0, 2.8, -10.8);
           targetLookAt.set(0, 0.3, 2);
         } else if (shot === 'SPOTLIGHT_ZOOM') {
-          // Close-up sweep on the VIP Podiums and Stage
-          const targetX = Math.sin(nowSec * 0.6) * 4.2;
-          targetCamPos.set(targetX, 2.8, 4.5);
-          targetLookAt.set(targetX * 0.7, 1.8, -3.5);
+          // Dynamic Spotlight Zoom on target dancer
+          const targetEntry = engine.spotlightTargetId ? dancerMeshesMap.get(engine.spotlightTargetId) : null;
+          if (targetEntry) {
+            const tPos = targetEntry.spriteMesh.position;
+            targetCamPos.set(tPos.x + Math.sin(nowSec * 0.35) * 1.5, tPos.y + 0.85, tPos.z + 4.2);
+            targetLookAt.set(tPos.x, tPos.y + 0.35, tPos.z);
+          } else {
+            const targetX = Math.sin(nowSec * 0.6) * 4.2;
+            targetCamPos.set(targetX, 2.8, 4.5);
+            targetLookAt.set(targetX * 0.7, 1.8, -3.5);
+          }
         } else if (shot === 'CRANE_SWOOP') {
           // High altitude swooping crane camera
           targetCamPos.set(Math.sin(nowSec * 0.4) * 8.5, 8.5 + Math.cos(nowSec * 0.3) * 2.5, 11);

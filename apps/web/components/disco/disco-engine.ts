@@ -120,52 +120,75 @@ export class DiscoEngine {
   private colors = ['#ff4b4b', '#ff7a4b', '#ffb54b', '#e2ff4b', '#62ff4b', '#4bff9a', '#4be2ff', '#4b7aff', '#9a4bff', '#ff4be2'];
 
   constructor() {
-    this.addDemoDancers(8);
+    this.addDemoDancers();
   }
 
-  addDemoDancers(count = 8) {
-    const demoNames = [
-      { id: 'bot_dj_pro', name: '🎧 DJ Pro LiveNova', sprite: 'char_dj_pro', isDj: true, z: 0.05, points: 15 },
-      { id: 'bot_sexy_dancer_1', name: '💃 Hot Girl Bella', sprite: 'hanhan_video_dance', isDj: false, z: 0.45, points: 8 },
-      { id: 'bot_sexy_dancer_2', name: '💃 Mỹ Nhân Kimmy', sprite: 'hanhan_video_dance', isDj: false, z: 0.45, points: 5 },
-      { id: 'bot_anya_heh', name: '😏 Anya Waku Waku', sprite: 'char_anya_heh', isDj: false, z: 0.85, points: 0 },
-      { id: 'bot_gojo', name: '🤞 Thầy Gojo Vô Cực', sprite: 'char_gojo_sensei', isDj: false, z: 0.35, points: 0 },
-      { id: 'bot_bocchi', name: '🎸 Bocchi Hoảng Loạn', sprite: 'char_bocchi_panic', isDj: false, z: 0.65, points: 0 },
-      { id: 'bot_umaru', name: '🐹 Umaru Trùm Mũ', sprite: 'char_umaru_chan', isDj: false, z: 0.95, points: 0 },
-      { id: 'bot_zoro', name: '⚔️ Zoro Lạc Đường', sprite: 'char_zoro_lost', isDj: false, z: 0.25, points: 0 },
-      { id: 'bot_yaoming', name: '😂 Thánh Cười YaoMing', sprite: 'char_yaoming_laugh', isDj: false, z: 0.75, points: 0 },
-    ];
+  addDemoDancers() {
+    this.dancers.clear();
+    this.currentDjId = 'bot_dj_livenova';
 
-    const toAdd = demoNames.slice(0, count);
-    for (let i = 0; i < toAdd.length; i++) {
-      const item = toAdd[i];
-      if (!this.dancers.has(item.id)) {
-        const randomColor = this.colors[Math.floor(Math.random() * this.colors.length)];
-        const spreadX = item.isDj ? 0.5 : 0.15 + (i / (toAdd.length - 1 || 1)) * 0.7;
-        this.dancers.set(item.id, {
-          id: item.id,
-          name: item.name,
-          avatarUrl: `/assets/disco/Characters/${item.sprite}/000.png`,
-          x: spreadX,
-          y: item.isDj ? 0.435 : 0.95,
-          z: item.z || 0.5,
-          vy: 0,
-          vx: (Math.random() - 0.5) * 0.04,
-          color: randomColor,
-          spriteId: item.sprite,
-          scale: 1,
-          targetScale: 1,
-          state: 'dancing',
-          danceOffset: Math.random() * Math.PI * 2,
-          isDj: item.isDj,
-          points: item.points || 0,
-        });
-      }
-    }
+    // 1 DJ LiveNova trên bục trung tâm
+    this.dancers.set('bot_dj_livenova', {
+      id: 'bot_dj_livenova',
+      name: '🎧 DJ LiveNova',
+      avatarUrl: '/assets/disco/Characters/char_dj_pro/000.png',
+      x: 0.5,
+      y: 0.435,
+      z: 0.05,
+      vy: 0,
+      vx: 0,
+      color: '#ffd700',
+      spriteId: 'char_dj_pro',
+      scale: 1.6,
+      targetScale: 1.6,
+      state: 'dancing',
+      danceOffset: 0,
+      isDj: true,
+      points: 0,
+    });
+
+    // 2 Nhân vật Dancer trên sàn nhảy
+    this.dancers.set('bot_sexy_dancer_1', {
+      id: 'bot_sexy_dancer_1',
+      name: '💃 Hot Girl Bella',
+      avatarUrl: '/assets/disco/Characters/hanhan_video_dance/000.png',
+      x: 0.28,
+      y: 0.95,
+      z: 0.45,
+      vy: 0,
+      vx: 0.02,
+      color: '#00f0ff',
+      spriteId: 'hanhan_video_dance',
+      scale: 1,
+      targetScale: 1,
+      state: 'dancing',
+      danceOffset: 1.2,
+      isDj: false,
+      points: 0,
+    });
+
+    this.dancers.set('bot_sexy_dancer_2', {
+      id: 'bot_sexy_dancer_2',
+      name: '💃 Mỹ Nhân Kimmy',
+      avatarUrl: '/assets/disco/Characters/hanhan_video_dance/000.png',
+      x: 0.72,
+      y: 0.95,
+      z: 0.45,
+      vy: 0,
+      vx: -0.02,
+      color: '#ff007f',
+      spriteId: 'hanhan_video_dance',
+      scale: 1,
+      targetScale: 1,
+      state: 'dancing',
+      danceOffset: 2.8,
+      isDj: false,
+      points: 0,
+    });
   }
 
   clear() {
-    this.dancers.clear();
+    this.addDemoDancers();
     this.fireworks = [];
     this.camera.lockedOnId = null;
     this.camera.targetScale = 1.15;
@@ -174,7 +197,7 @@ export class DiscoEngine {
     this.flashIntensity = 0;
   }
 
-  public currentDjId: string | null = 'bot_dj_pro';
+  public currentDjId: string | null = 'bot_dj_livenova';
   public djPromotionToast: { oldDjName: string; newDjName: string; points: number; time: number } | null = null;
   public lastGiftInfo: { senderName: string; giftPoints: number; time: number } | null = null;
 
@@ -420,7 +443,7 @@ export class DiscoEngine {
   public currentShotType: 'WIDE_ORBIT' | 'SPOTLIGHT_ZOOM' | 'CRANE_SWOOP' | 'DJ_POV' = 'WIDE_ORBIT';
   public isAutoDirectorEnabled: boolean = true;
   private nextCinematicShotTime: number = 0;
-  private spotlightTargetId: string | null = null;
+  public spotlightTargetId: string | null = null;
   private shotEndTime: number = 0;
 
   triggerDjPov(durationMs = 9000) {
@@ -430,13 +453,13 @@ export class DiscoEngine {
     this.nextCinematicShotTime = Date.now() + durationMs + 6000;
   }
 
-  triggerSpotlightZoom(durationMs = 5000, targetId?: string) {
+  triggerSpotlightZoom(durationMs = 6000, targetId?: string) {
     this.currentShotType = 'SPOTLIGHT_ZOOM';
     this.isDjPovFirstPerson = false;
     const dancersArray = Array.from(this.dancers.values());
     this.spotlightTargetId = targetId || (dancersArray.length > 0 ? dancersArray[Math.floor(Math.random() * dancersArray.length)].id : null);
     this.shotEndTime = Date.now() + durationMs;
-    this.nextCinematicShotTime = Date.now() + durationMs + 6000;
+    this.nextCinematicShotTime = Date.now() + durationMs + 4000;
   }
 
   triggerCraneSwoop(durationMs = 6000) {
