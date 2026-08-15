@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useCallback, useMemo, useEffect } from 'react';
+import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { LiveEvent } from '@livenova/shared';
 import { useApi } from '../../../lib/use-api';
 import { api, ApiError } from '../../../lib/api-client';
@@ -8,6 +8,7 @@ import { useEventsSocket } from '../../../lib/use-events-socket';
 import { LoadingState, ErrorState, EmptyState } from '../../../components/common/States';
 import { LiveFeed, LIVE_FEED_LIMIT } from '../../../components/live-feed/LiveFeed';
 import { Icon } from '../../../components/ui/Icon';
+import { useToast } from '../../../components/ui/Toast';
 import { ConfirmAction } from '../../../components/common/ConfirmAction';
 import { BridgePanel } from '../../../components/bridge/BridgePanel';
 import { readStoredBridgeToken, useLocalBridge } from '../../../lib/use-local-bridge';
@@ -25,6 +26,7 @@ const STATUS_LABEL: Record<string, string> = {
 
 export default function ChannelsPage() {
   const { data, loading, error, reload } = useApi<Channel[]>('/channels');
+  const toast = useToast();
 
   const [handle, setHandle] = useState('');
   const [linking, setLinking] = useState(false);
@@ -76,15 +78,35 @@ export default function ChannelsPage() {
     enabled: channelIds.length > 0,
   });
 
-  // Connect ingest sessions for all verified channels when loaded
+  /**
+   * Mở phiên nhận sự kiện cho các kênh đã xác minh.
+   *
+   * Chỉ gọi MỘT LẦN cho mỗi kênh trong suốt vòng đời trang. Bản cũ phụ thuộc
+   * vào `data`, mà `data` thay đổi sau mỗi `reload()` — kể cả lần reload do
+   * chuyển tab kích hoạt qua listener `visibilitychange` bên dưới. Kết quả là
+   * mỗi lần alt-tab lại bắn một loạt request connect, và mọi lỗi đều bị
+   * `.catch(() => undefined)` nuốt mất.
+   */
+  const connectAttempted = useRef(new Set<string>());
+
   useEffect(() => {
     if (!data) return;
+
     for (const channel of data) {
-      if (channel.verified) {
-        api.post(`/tiktok/channels/${channel.id}/connect`).catch(() => undefined);
-      }
+      if (!channel.verified || connectAttempted.current.has(channel.id)) continue;
+      connectAttempted.current.add(channel.id);
+
+      api.post(`/tiktok/channels/${channel.id}/connect`).catch((err) => {
+        // Cho phép thử lại kênh này về sau, nhưng nói cho người dùng biết là
+        // lần này hỏng — im lặng chính là lý do "app lỗi mà không biết vì sao".
+        connectAttempted.current.delete(channel.id);
+        toast.error(
+          `Không kết nối được kênh @${channel.handle}`,
+          err instanceof ApiError ? err.message : 'Kiểm tra kênh có đang live không, rồi thử lại.',
+        );
+      });
     }
-  }, [data]);
+  }, [data, toast]);
 
   // `isLive` comes from a snapshot and would otherwise stay stale for as long
   // as the tab is open. Revalidating on visibility is the cheap half of the fix;

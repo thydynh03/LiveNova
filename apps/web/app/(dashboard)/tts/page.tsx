@@ -3,6 +3,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Icon } from '../../../components/ui/Icon';
 import { previewTts } from '../../../lib/api-client';
+import { useToast } from '../../../components/ui/Toast';
+import { describeError } from '../../../lib/describe-error';
 
 interface SpeechVoiceOption {
   id: string;
@@ -21,6 +23,7 @@ interface TtsQueueItem {
 }
 
 export default function TtsPage() {
+  const toast = useToast();
   const [availableVoices, setAvailableVoices] = useState<SpeechVoiceOption[]>([]);
   const [selectedVoiceId, setSelectedVoiceId] = useState<string>('google-vi');
   const [speed, setSpeed] = useState<number>(1.0);
@@ -145,7 +148,7 @@ export default function TtsPage() {
       try {
         await playAudioItem(nextItem.text);
       } catch (err) {
-        console.error('Failed to play queue item:', err);
+        toast.error('Không phát được câu trong hàng đợi', describeError(err));
       } finally {
         setQueue((prev) => prev.filter((i) => i.id !== nextItem.id));
         isProcessingQueue.current = false;

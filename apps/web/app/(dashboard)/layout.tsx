@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { Sidebar } from '../../components/common/Sidebar';
 import { TopBar } from '../../components/common/TopBar';
@@ -15,6 +15,30 @@ export default function DashboardLayout({
   const pathname = usePathname();
   const router = useRouter();
   const { status } = useAuth();
+
+  /**
+   * Ngăn kéo điều hướng, chỉ dùng dưới 1024px.
+   *
+   * Trạng thái nằm ở đây chứ không phải trong `Sidebar` vì cả lớp nền mờ lẫn
+   * nút mở trên `TopBar` đều cần chạm tới nó.
+   */
+  const [navOpen, setNavOpen] = useState(false);
+
+  // Đóng ngăn kéo sau khi chuyển trang. Nếu không, người dùng bấm một mục rồi
+  // vẫn phải tự tay đóng cái ngăn kéo đang che trang vừa mở.
+  useEffect(() => {
+    setNavOpen(false);
+  }, [pathname]);
+
+  // Escape đóng ngăn kéo — không có phím này thì người dùng bàn phím bị kẹt.
+  useEffect(() => {
+    if (!navOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setNavOpen(false);
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [navOpen]);
 
   useEffect(() => {
     if (status === 'anonymous') {
@@ -33,26 +57,33 @@ export default function DashboardLayout({
     );
   }
 
-  // Navigation moved out of the header and into the sidebar. It used to appear
-  // in both, which meant every destination was on screen twice with different
-  // styling — and the header copy was the one that scrolled away.
+  // Điều hướng chỉ nằm ở sidebar, không lặp lại trên header. Trước đây mỗi đích
+  // đến xuất hiện hai lần với hai kiểu khác nhau, và bản trên header là bản bị
+  // cuộn mất.
   return (
-    <div style={{ minHeight: '100vh', display: 'flex' }}>
-      <Sidebar />
+    <div className="ln-shell">
+      <Sidebar open={navOpen} />
+
+      {/* Nền mờ khi ngăn kéo mở. `aria-hidden` vì Escape và nút đóng đã đủ cho
+          người dùng bàn phím; đây chỉ là lối tắt cho chuột. */}
+      <div
+        className="ln-scrim"
+        data-open={navOpen}
+        aria-hidden="true"
+        onClick={() => setNavOpen(false)}
+      />
+
       <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
-        <TopBar />
-        {/* Target of the skip link in the root layout. tabIndex={-1} lets
-            focus actually land here instead of staying in the sidebar. */}
+        <TopBar navOpen={navOpen} onToggleNav={() => setNavOpen((v) => !v)} />
+        {/* Đích của liên kết bỏ qua điều hướng ở layout gốc. `tabIndex={-1}` để
+            tiêu điểm thật sự nhảy được tới đây thay vì kẹt lại ở sidebar. */}
         <main
           id="main-content"
           tabIndex={-1}
-          style={{
-            flex: 1,
-            padding: '1.75rem 2rem 3rem',
-            background: 'hsl(var(--background))',
-          }}
+          className="ln-main"
+          style={{ flex: 1, background: 'hsl(var(--background))' }}
         >
-          <div style={{ maxWidth: '1180px', margin: '0 auto' }}>{children}</div>
+          <div className="ln-main-inner">{children}</div>
         </main>
       </div>
     </div>

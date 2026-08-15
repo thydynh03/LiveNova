@@ -3,10 +3,21 @@
 import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import { useAuth } from '../../../context/AuthContext';
 import { useEventsSocket } from '../../../lib/use-events-socket';
-import { LiveEvent, LiveEventType } from '@livenova/shared';
+import { LiveEvent, LiveEventType, interpretDiscoEvent } from '@livenova/shared';
 import { useApi } from '../../../lib/use-api';
-import { api } from '../../../lib/api-client';
+import { api, ApiError } from '../../../lib/api-client';
 import { DiscoEngine, speakMessage } from '../../../components/disco/disco-engine';
+import {
+  applyDiscoAction,
+  type DiscoSyncPayload,
+} from '../../../components/disco/apply-disco-action';
+import { useToast } from '../../../components/ui/Toast';
+import { copyText } from '../../../lib/copy-text';
+import {
+  DEFAULT_FRAME_WIDTH,
+  DEFAULT_FRAME_HEIGHT,
+  DEFAULT_LED_DIM,
+} from '../../../components/overlays/FixedFrame';
 import DiscoStageView from '../../../components/disco/DiscoStageView';
 import { Icon } from '../../../components/ui/Icon';
 
@@ -23,12 +34,15 @@ interface OverlayItem {
 
 export default function DiscoDashboardPage() {
   const { user } = useAuth();
-  
+  const toast = useToast();
+
   // The engine holds all the physics and state for dancers
   const engine = useMemo(() => new DiscoEngine(), []);
 
   // Music Player State
   const [publicToken, setPublicToken] = useState<string | null>(null);
+  // Cần id (không chỉ token) để gọi endpoint đồng bộ — token là thứ dán vào OBS.
+  const [overlayId, setOverlayId] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [musicUrl, setMusicUrl] = useState<string>('');
   const [trackTitle, setTrackTitle] = useState<string>('EDM Nightclub Mix');
@@ -36,6 +50,7 @@ export default function DiscoDashboardPage() {
   const [djVideoUrl, setDjVideoUrl] = useState<string>('');
   const [isDjVideoMuted, setIsDjVideoMuted] = useState<boolean>(true);
   const [isAutoDirector, setIsAutoDirector] = useState<boolean>(true);
+  const [ledDim, setLedDim] = useState<number>(DEFAULT_LED_DIM);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   // Test Simulator state
@@ -60,32 +75,54 @@ export default function DiscoDashboardPage() {
     }
   }, []);
 
-  const broadcastSync = (data: {
-    musicUrl?: string;
-    trackTitle?: string;
-    videoUrl?: string;
-    cameraShot?: string;
-    duration?: number;
-    effect?: string;
-    targetId?: string;
-    speechText?: string;
-    isMuted?: boolean;
-    liveAction?: { type: string; senderId: string; senderName: string; avatarUrl?: string };
-  }) => {
-    if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
-      try {
-        const channel = new BroadcastChannel('livenova_disco_sync');
-        channel.postMessage({
-          type: 'SYNC_DISCO_MEDIA',
-          ...data,
-          timestamp: Date.now(),
-        });
-        channel.close();
-      } catch (err) {
-        console.error('BroadcastChannel sync failed:', err);
+  /**
+   * Đẩy một thay đổi tới overlay đang phát sóng.
+   *
+   * Đường chính là socket qua server. `BroadcastChannel` từng là đường duy nhất,
+   * nhưng nó chỉ chạy trong cùng một trình duyệt — OBS và TikTok Live Studio là
+   * tiến trình riêng, nên streamer đổi nhạc mà khán giả không nghe thấy gì. Giờ
+   * nó chỉ còn là đường dự phòng cho lúc xem thử ở tab kế bên khi chưa có overlay.
+   *
+   * Cả hai đường cùng chạy: gửi thừa một khung state là vô hại (overlay áp
+   * idempotent), còn thiếu một khung thì streamer mất điều khiển giữa buổi live.
+   */
+  const broadcastSync = useCallback(
+    (data: DiscoSyncPayload & { musicUrl?: string; trackTitle?: string; videoUrl?: string; isMuted?: boolean; ledDim?: number }) => {
+      if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+        try {
+          const channel = new BroadcastChannel('livenova_disco_sync');
+          channel.postMessage({ type: 'SYNC_DISCO_MEDIA', ...data, timestamp: Date.now() });
+          channel.close();
+        } catch {
+          // Đường dự phòng hỏng không đáng làm phiền streamer — socket mới là
+          // đường thật, và lỗi của nó được báo bằng toast ở dưới.
+        }
       }
-    }
-  };
+
+      if (!overlayId) return;
+
+      api
+        .post(`/overlays/${overlayId}/disco-sync`, {
+          musicUrl: data.musicUrl,
+          trackTitle: data.trackTitle,
+          videoUrl: data.videoUrl,
+          isMuted: data.isMuted,
+          ledDim: data.ledDim,
+          cameraShot: data.cameraShot,
+          cameraDurationMs: data.duration,
+          cameraTargetId: data.targetId,
+          effect: data.effect,
+          speechText: data.speechText,
+        })
+        .catch((err) => {
+          toast.error(
+            'Không đẩy được thay đổi lên overlay',
+            err instanceof ApiError ? err.message : 'Kiểm tra kết nối mạng rồi thử lại.',
+          );
+        });
+    },
+    [overlayId, toast],
+  );
 
   const handleSetVideoUrl = (url: string) => {
     setDjVideoUrl(url);
@@ -118,17 +155,29 @@ export default function DiscoDashboardPage() {
     async function loadToken() {
       try {
         const overlays = await api.get<OverlayItem[]>('/overlays');
-        // Find STAGE or first available overlay to share the public token
-        const stageOverlay = overlays.find((o) => o.type === 'STAGE' || o.type === 'GAME_BATTLE') || overlays[0];
+        const stageOverlay =
+          overlays.find((o) => o.type === 'STAGE' || o.type === 'GAME_BATTLE') || overlays[0];
+
         if (stageOverlay) {
           setPublicToken(stageOverlay.publicToken);
+          setOverlayId(stageOverlay.id);
+        } else {
+          // Trước đây trường hợp này im lặng, và người dùng nhận một link thiếu
+          // token mà không hiểu vì sao overlay trong OBS trống trơn.
+          toast.info(
+            'Chưa có overlay nào',
+            'Tạo một overlay ở mục Overlay trước, rồi quay lại đây để lấy link.',
+          );
         }
       } catch (err) {
-        console.error('Failed to fetch overlay token:', err);
+        toast.error(
+          'Không tải được link overlay',
+          err instanceof ApiError ? err.message : 'Kiểm tra kết nối rồi tải lại trang.',
+        );
       }
     }
     loadToken();
-  }, []);
+  }, [toast]);
 
   const overlayUrl = useMemo(() => {
     let origin = typeof window === 'undefined' ? '' : window.location.origin;
@@ -146,138 +195,51 @@ export default function DiscoDashboardPage() {
 
   const handleCopyUrl = async () => {
     if (!overlayUrl) return;
-    try {
-      await navigator.clipboard.writeText(overlayUrl);
+
+    if ((await copyText(overlayUrl)) === 'copied') {
       setCopied(true);
       setTimeout(() => setCopied(false), 2500);
-    } catch (err) {
-      console.error('Failed to copy URL:', err);
+      return;
+    }
+
+    toast.error(
+      'Không chép được link',
+      'Trình duyệt chặn clipboard trên kết nối HTTP. Hãy bôi đen link rồi nhấn Ctrl+C.',
+    );
+  };
+
+  /** Chép kích thước khung để dán thẳng vào ô Width/Height của Browser Source. */
+  const handleCopySize = async () => {
+    const size = `${DEFAULT_FRAME_WIDTH}x${DEFAULT_FRAME_HEIGHT}`;
+    if ((await copyText(size)) === 'copied') {
+      toast.success(`Đã chép ${size}`, 'Dán vào ô Width × Height của Browser Source.');
+    } else {
+      toast.info(`Kích thước cần đặt: ${size}`, 'Nhập tay vào Browser Source.');
     }
   };
 
-  const handleEvent = useCallback((event: LiveEvent) => {
-    console.log('[Disco Dashboard] Received live event:', event);
-    const senderId = event.senderUsername || event.senderDisplayName || 'unknown';
-    const senderName = event.senderDisplayName || senderId;
-    const avatarUrl = event.senderAvatar;
+  /**
+   * Sự kiện live, áp lên bản xem trước cục bộ.
+   *
+   * Bộ luật nằm ở `@livenova/shared` và overlay dùng đúng bộ luật đó, nên hai
+   * màn hình không thể diễn giải khác nhau như trước.
+   *
+   * KHÔNG đọc lời chúc bằng giọng nói ở đây (`speak` mặc định false): overlay
+   * mới là thứ đang lên sóng, và nếu cả hai cùng đọc thì streamer mở cả hai tab
+   * sẽ nghe hai giọng chồng nhau.
+   *
+   * Cũng không phát `liveAction` sang overlay nữa — overlay tự nhận sự kiện từ
+   * socket. Trước đây cả hai cùng gọi `engine.join()` cho một comment, nên mỗi
+   * người xem hiện thành hai nhân vật khi mở dashboard và OBS trên cùng máy.
+   */
+  const handleEvent = useCallback(
+    (event: LiveEvent) => {
+      const action = interpretDiscoEvent(event);
+      if (action) applyDiscoAction(engine, action, { speak: false });
+    },
+    [engine],
+  );
 
-    if (event.type === LiveEventType.COMMENT) {
-      const rawText = (event.content || '').toLowerCase().trim();
-      const words = rawText.split(/\s+/);
-      const isJoin =
-        rawText === 'hey' ||
-        rawText === '1' ||
-        rawText === 'join' ||
-        rawText.startsWith('hey ') ||
-        rawText.startsWith('1 ') ||
-        rawText.startsWith('join ') ||
-        words.some((w) => ['hey', 'heyy', 'heyyy', '1', 'join', 'vào', 'vao', 'nhảy', 'nhay', 'quẩy', 'quay'].includes(w)) ||
-        rawText.includes('vào phòng') ||
-        rawText.includes('vao phong') ||
-        rawText.includes('vào nhảy') ||
-        rawText.includes('vao nhay') ||
-        rawText.includes('vào quẩy') ||
-        rawText.includes('vao quay');
-
-      const isJump =
-        rawText === '2' ||
-        words.some((w) => ['2', 'jump', 'nhảy', 'lên', 'bật'].includes(w));
-
-      const isChange =
-        rawText === '3' ||
-        words.some((w) => ['3', 'skin', 'đổi', 'change'].includes(w));
-
-      const isWalk =
-        rawText === '4' ||
-        words.some((w) => ['4', 'walk', 'đi', 'dạo'].includes(w));
-
-      if (isJoin) {
-        engine.join(senderId, senderName, avatarUrl);
-        broadcastSync({ liveAction: { type: 'join', senderId, senderName, avatarUrl } });
-      } else if (isJump) {
-        if (engine.dancers.has(senderId)) {
-          engine.jump(senderId);
-          broadcastSync({ liveAction: { type: 'jump', senderId, senderName, avatarUrl } });
-        }
-      } else if (isChange) {
-        if (engine.dancers.has(senderId)) {
-          engine.changeAvatar(senderId);
-          broadcastSync({ liveAction: { type: 'change', senderId, senderName, avatarUrl } });
-        }
-      } else if (isWalk) {
-        if (engine.dancers.has(senderId)) {
-          engine.walk(senderId);
-          broadcastSync({ liveAction: { type: 'walk', senderId, senderName, avatarUrl } });
-        }
-      }
-      // Note: General comments do NOT join the dancefloor!
-    } else if (event.type === LiveEventType.GIFT) {
-      const giftName = ((event.giftName || event.content || '') as string).toLowerCase().trim();
-      const giftCoins = event.giftCoinValue || 1;
-
-      // 1. Pháo Hoa Giấy
-      if (
-        giftName.includes('pháo hoa giấy') ||
-        giftName.includes('phao hoa giay') ||
-        giftName.includes('hoa giấy') ||
-        giftName.includes('hoa giay') ||
-        giftName.includes('confetti') ||
-        giftName.includes('firework') ||
-        giftName.includes('popper') ||
-        giftName.includes('paper') ||
-        giftCoins >= 100
-      ) {
-        engine.promoteToDj(senderId, senderName, avatarUrl);
-        const speech = `Chúc mừng ${senderName} đã tặng Pháo Hoa Giấy và đăng quang trở thành TOP 1 DJ đêm nay!`;
-        speakMessage(speech);
-        broadcastSync({ cameraShot: 'DJ_POV', duration: 10000, effect: 'confetti', speechText: speech });
-      }
-      // 2. Rosa
-      else if (
-        giftName.includes('rosa') ||
-        giftName.includes('rose nebula') ||
-        giftName.includes('rosy')
-      ) {
-        if (!engine.dancers.has(senderId)) engine.join(senderId, senderName, avatarUrl);
-        engine.addGiftPoints(senderId, senderName, 5, avatarUrl);
-        engine.triggerSpotlightZoom(7000, senderId, 2);
-        const speech = `Cảm ơn ${senderName} đã tặng Rosa cho phòng nhảy! Quẩy lên nào!`;
-        speakMessage(speech);
-        broadcastSync({ cameraShot: 'SPOTLIGHT_ZOOM', duration: 7000, targetId: senderId, speechText: speech });
-      }
-      // 3. TikTok
-      else if (
-        giftName.includes('tiktok') ||
-        giftName.includes('tik tok')
-      ) {
-        if (!engine.dancers.has(senderId)) engine.join(senderId, senderName, avatarUrl);
-        engine.changeAvatar(senderId);
-        engine.addGiftPoints(senderId, senderName, 1, avatarUrl);
-        engine.jump(senderId);
-        engine.triggerSpotlightZoom(7000, senderId, 2);
-      }
-      // 4. Rose (Hoa hồng) -> Zoom 7s cố định (Priority 2)
-      else if (
-        giftName.includes('rose') ||
-        giftName.includes('hoa hồng') ||
-        giftName.includes('hoa hong') ||
-        giftName.includes('hồng') ||
-        giftCoins === 1
-      ) {
-        if (!engine.dancers.has(senderId)) engine.join(senderId, senderName, avatarUrl);
-        engine.addGiftPoints(senderId, senderName, 1, avatarUrl);
-        engine.triggerSpotlightZoom(7000, senderId, 2);
-        broadcastSync({ cameraShot: 'SPOTLIGHT_ZOOM', duration: 7000, targetId: senderId });
-      }
-      // 5. Quà khác
-      else {
-        engine.enqueueGift(senderId, senderName, giftCoins, avatarUrl);
-        broadcastSync({ cameraShot: 'DJ_POV', duration: 10000 });
-      }
-    } else if (event.type === LiveEventType.LIKE) {
-       engine.triggerFirework();
-    }
-  }, [engine]);
 
   const { status } = useEventsSocket({
     channelIds,
@@ -717,9 +679,9 @@ export default function DiscoDashboardPage() {
 
       const t5 = setTimeout(() => {
         setScenarioStepIndex(5);
-        addScenarioLog('▶️ [Bước 5/5] 🎊 @dai_gia_vip tặng Pháo Hoa Giấy -> Lên thẳng TOP 1 DJ + 10s DJ POV + Voice xướng tên!');
-        engine.promoteToDj('@dai_gia_vip', 'Đại Gia VIP 👑');
-        const speech = 'Chúc mừng Đại Gia VIP đã tặng Pháo Hoa Giấy và đăng quang trở thành TOP 1 DJ đêm nay!';
+        addScenarioLog('▶️ [Bước 5/5] 🎊 @dai_gia_vip tặng Pháo Hoa Giấy -> Lên bục TOP 1 + 10s DJ POV + Voice xướng tên!');
+        engine.promoteToTop1('@dai_gia_vip', 'Đại Gia VIP 👑');
+        const speech = 'Chúc mừng Đại Gia VIP đã tặng Pháo Hoa Giấy và đăng quang TOP 1 đêm nay!';
         speakMessage(speech);
         broadcastSync({ cameraShot: 'DJ_POV', duration: 10000, effect: 'confetti', speechText: speech });
 
@@ -815,9 +777,57 @@ export default function DiscoDashboardPage() {
               Link Overlay gắn OBS / TikTok Live Studio
             </span>
           </div>
-          <span style={{ fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))' }}>
-            Độ phân giải khuyên dùng: <b>1920 × 1080</b>
-          </span>
+        </div>
+
+        {/*
+          Hướng dẫn kích thước, không phải một dòng gợi ý cho có.
+
+          Ô này trước ghi "1920 × 1080" — đúng cho overlay ngang, sai hoàn toàn
+          cho sàn nhảy dọc. Streamer đặt nguồn theo con số đó rồi phải kéo giãn
+          cho vừa khung TikTok, mà kéo giãn thì phần mềm phát sóng phóng to ảnh
+          đã render sẵn: đó chính là lý do hình bị mờ và rỗ.
+        */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'flex-start',
+            gap: '0.625rem',
+            padding: '0.75rem',
+            borderRadius: 'var(--radius-sm)',
+            background: 'hsl(var(--accent-surface))',
+            border: '1px solid hsl(var(--border))',
+          }}
+        >
+          <Icon name="info" size={18} />
+          <div style={{ fontSize: '0.8125rem', lineHeight: 1.55 }}>
+            <p style={{ margin: 0, fontWeight: 600 }}>
+              Đặt Browser Source đúng{' '}
+              <button
+                type="button"
+                onClick={handleCopySize}
+                title="Chép kích thước"
+                style={{
+                  font: 'inherit',
+                  fontFamily: 'monospace',
+                  fontWeight: 700,
+                  padding: '0.05rem 0.35rem',
+                  borderRadius: '4px',
+                  border: '1px solid hsl(var(--border))',
+                  background: 'hsl(var(--background))',
+                  color: 'hsl(var(--primary))',
+                  cursor: 'pointer',
+                }}
+              >
+                {DEFAULT_FRAME_WIDTH} × {DEFAULT_FRAME_HEIGHT}
+              </button>{' '}
+              — rồi <b>không kéo giãn</b>.
+            </p>
+            <p style={{ margin: '0.35rem 0 0', color: 'hsl(var(--muted-foreground))' }}>
+              Sàn nhảy luôn vẽ ở đúng khung dọc 9:16 này. Kéo giãn nguồn sẽ phóng
+              to ảnh đã vẽ và làm hình mờ đi. Cần khung ngang cho OBS? Thêm{' '}
+              <code>?ratio=16:9</code> vào cuối link.
+            </p>
+          </div>
         </div>
 
         <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
@@ -935,6 +945,7 @@ export default function DiscoDashboardPage() {
               musicUrl={musicUrl}
               trackTitle={trackTitle}
               isMuted={isDjVideoMuted}
+              ledDim={ledDim}
               enableAudio={false}
             />
           </div>
@@ -1013,6 +1024,41 @@ export default function DiscoDashboardPage() {
               >
                 Mặc định
               </button>
+            </div>
+
+            {/*
+              Độ mờ màn LED.
+
+              Video phát hết độ sáng làm nhân vật và chữ phía trước bị chìm; một
+              lớp tối mỏng kéo video lùi lại mà vẫn giữ nguyên nội dung.
+            */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+              <label
+                htmlFor="disco-led-dim"
+                style={{ fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))', minWidth: '160px' }}
+              >
+                Độ mờ màn LED
+              </label>
+              <input
+                id="disco-led-dim"
+                type="range"
+                min={0}
+                max={0.6}
+                step={0.02}
+                value={ledDim}
+                onChange={(e) => {
+                  const next = Number(e.target.value);
+                  setLedDim(next);
+                  broadcastSync({ ledDim: next });
+                }}
+                style={{ flex: 1, minWidth: '180px', accentColor: 'hsl(var(--primary))' }}
+              />
+              <span
+                className="mono"
+                style={{ fontSize: '0.75rem', color: 'hsl(var(--foreground))', minWidth: '48px' }}
+              >
+                {Math.round(ledDim * 100)}%
+              </span>
             </div>
 
             {/* Quick Presets & Upload Video Button */}

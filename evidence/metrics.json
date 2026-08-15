@@ -1,0 +1,67 @@
+[
+  {
+    "id": "E1",
+    "title": "Khung cố định 9:16 + độ phân giải render khi Browser Source là 16:9",
+    "data": {
+      "viewport": {
+        "w": 1280,
+        "h": 720
+      },
+      "devicePixelRatio": 1,
+      "frameCssSize": {
+        "w": "1080px",
+        "h": "1920px"
+      },
+      "frameTransform": "translate(-50%, -50%) scale(0.375)",
+      "canvasBackingStore": {
+        "w": 1080,
+        "h": 1920
+      }
+    }
+  },
+  {
+    "id": "E2",
+    "title": "Overlay ở khung dọc 9:16 đúng chuẩn (ảnh chính)",
+    "data": {
+      "canvasBackingStore": {
+        "w": 1080,
+        "h": 1920
+      }
+    }
+  },
+  {
+    "id": "E3",
+    "title": "Tham số ?ratio=16:9 đổi sang khung ngang",
+    "data": {
+      "frameCssSize": {
+        "w": "1920px",
+        "h": "1080px"
+      }
+    }
+  },
+  {
+    "id": "E4",
+    "title": "Nghiệp vụ: ghế DJ, bục Top 3, luật quà",
+    "data": {
+      "djAfterBigGift": "bot_dj_livenova",
+      "bigGifterIsDj": false,
+      "podiumAfterBigGift": [
+        "dai_gia",
+        "khach_b",
+        "khach_a"
+      ],
+      "podiumPoints": [
+        150,
+        10,
+        2
+      ],
+      "podiumSize": 3,
+      "djOnPodium": false,
+      "totalDancers": 7,
+      "rosaExpensive": "ROSA_SPOTLIGHT",
+      "sodaOneCoin": "GENERIC",
+      "heyCommand": "join",
+      "chatterCommand": null
+    }
+  }
+]

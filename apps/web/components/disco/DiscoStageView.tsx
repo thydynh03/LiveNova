@@ -11,6 +11,10 @@ export interface DiscoStageViewProps {
   trackTitle?: string;
   isMuted?: boolean;
   enableAudio?: boolean;
+  /** Độ mờ lớp phủ màn LED, 0 = trong suốt, 1 = đen kịt. */
+  ledDim?: number;
+  /** Hệ số nhân độ phân giải render 3D. */
+  renderQuality?: number;
 }
 
 function getYouTubeId(url: string): string | null {
@@ -26,6 +30,8 @@ export default function DiscoStageView({
   trackTitle = '',
   isMuted = true,
   enableAudio = true,
+  ledDim = 0.28,
+  renderQuality = 1,
 }: DiscoStageViewProps) {
   const [activeVideoUrl, setActiveVideoUrl] = useState(videoUrl);
   const [activeMusicUrl, setActiveMusicUrl] = useState(musicUrl);
@@ -90,7 +96,8 @@ export default function DiscoStageView({
 
   useEffect(() => {
     const update = () => {
-      setTopDancers(engine.getTopDancers(5));
+      // Bục vinh danh, đã loại DJ — xem chú thích ở khối hiển thị bên dưới.
+      setTopDancers(engine.getPodiumDancers());
     };
     update();
     const interval = setInterval(update, 500);
@@ -182,24 +189,34 @@ export default function DiscoStageView({
             boxShadow: '0 2px 12px rgba(255, 215, 0, 0.2)',
           }}
         >
-          <span style={{ color: '#ffd700', display: 'flex', alignItems: 'center', gap: '4px' }}>
-            👑 {topDancers[0] ? topDancers[0].name : 'DJ LiveNova'} ({topDancers[0]?.points || 10}đ)
-          </span>
-          {topDancers[1] && (
-            <>
-              <span style={{ color: 'rgba(255,255,255,0.3)' }}>|</span>
-              <span style={{ color: '#00f0ff', maxWidth: '80px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                🥈 {topDancers[1].name}
-              </span>
-            </>
-          )}
-          {topDancers[2] && (
-            <>
-              <span style={{ color: 'rgba(255,255,255,0.3)' }}>|</span>
-              <span style={{ color: '#ff007f', maxWidth: '80px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                🥉 {topDancers[2].name}
-              </span>
-            </>
+          {/*
+            Bảng quà, KHÔNG có DJ.
+
+            Trước đây ô này lấy `getTopDancers`, mà hàm đó tính cả DJ LiveNova —
+            nên DJ luôn chiếm hạng nhất với "10đ" dù DJ không hề nhận quà, và
+            khán giả tặng quà thật thì bị đẩy xuống hạng dưới. `getPodiumDancers`
+            loại DJ ra, đúng với việc DJ không tham gia đua quà.
+          */}
+          {topDancers.length === 0 ? (
+            <span style={{ color: 'rgba(255,255,255,0.75)' }}>Chưa có ai tặng quà</span>
+          ) : (
+            topDancers.slice(0, 3).map((dancer, index) => (
+              <React.Fragment key={dancer.id}>
+                {index > 0 && <span style={{ color: 'rgba(255,255,255,0.3)' }}>|</span>}
+                <span
+                  style={{
+                    color: ['#ffd700', '#c0c8d8', '#cd7f32'][index],
+                    maxWidth: index === 0 ? '120px' : '80px',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {['🥇', '🥈', '🥉'][index]} {dancer.name}
+                  {index === 0 ? ` (${dancer.points}đ)` : ''}
+                </span>
+              </React.Fragment>
+            ))
           )}
         </div>
       </div>
@@ -230,11 +247,33 @@ export default function DiscoStageView({
             style={{ width: '100%', height: '100%', border: 'none' }}
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
           />
+          {/*
+            Lớp phủ làm dịu màn LED, bản dành cho YouTube.
+
+            Khi nguồn là YouTube thì màn LED trong scene 3D bị gỡ đi và video
+            chạy bằng <iframe> ở tầng DOM, nên lớp phủ 3D không với tới được.
+            Đây là lớp tương đương, đặt đè lên iframe.
+          */}
+          <div
+            aria-hidden="true"
+            style={{
+              position: 'absolute',
+              inset: 0,
+              background: `rgba(0, 0, 0, ${ledDim})`,
+              pointerEvents: 'none',
+            }}
+          />
         </div>
       )}
 
       <div style={{ position: 'absolute', inset: 0, zIndex: 10 }}>
-        <DiscoThreeStage engine={engine} videoUrl={activeVideoUrl} isMuted={isMuted} />
+        <DiscoThreeStage
+          engine={engine}
+          videoUrl={activeVideoUrl}
+          isMuted={isMuted}
+          ledDim={ledDim}
+          renderQuality={renderQuality}
+        />
       </div>
     </div>
   );

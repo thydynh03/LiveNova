@@ -929,7 +929,59 @@ export interface BattleState {
   assets?: Record<string, string>;
 }
 
-export type OverlayState = GoalState | PkState | BattleState;
+/**
+ * Payload của một khung STATE cho overlay sàn nhảy (DISCO).
+ *
+ * Trước đây dashboard đồng bộ nhạc/video/camera cho overlay qua
+ * `BroadcastChannel`, mà API đó chỉ chạy trong cùng một trình duyệt. OBS và
+ * TikTok Live Studio là tiến trình riêng, nên mọi thao tác đổi nhạc trên
+ * dashboard không bao giờ tới được overlay đang phát sóng. Đây là kênh thay thế:
+ * đi qua server nên vượt được ranh giới tiến trình và cả ranh giới máy.
+ *
+ * Là *state* chứ không phải *action*: overlay kết nối lại giữa buổi live phải
+ * biết ngay đang phát bài nào, chứ không thể phát lại toàn bộ lịch sử đổi nhạc.
+ */
+/**
+ * Hiệu ứng sân khấu một lần.
+ *
+ * Danh sách đóng để dashboard không gửi được một chuỗi mà overlay lặng lẽ bỏ
+ * qua — kiểu `string` trước đó cho phép đúng chuyện đó xảy ra.
+ */
+export type DiscoEffect =
+  | 'confetti'
+  | 'strobe'
+  | 'firework_burst'
+  | 'smoke_blast'
+  | 'laser_show';
+
+export interface DiscoState {
+  kind: 'disco';
+  musicUrl?: string;
+  trackTitle?: string;
+  videoUrl?: string;
+  /** Tắt tiếng video nền (thường là YouTube). */
+  isMuted?: boolean;
+  /** Độ mờ lớp phủ trên màn LED, 0 = trong suốt, 1 = đen kịt. */
+  ledDim?: number;
+  /**
+   * Cú máy một lần.
+   *
+   * Sống chung với state vì nó luôn đi kèm một thay đổi state khác, và tách ra
+   * thành action riêng sẽ mở lại đúng cái khe đồng bộ mà kênh này đang lấp.
+   * `issuedAt` cho overlay biết đây là cú máy mới hay chỉ là khung lặp lại.
+   */
+  cameraShot?: 'DJ_POV' | 'SPOTLIGHT_ZOOM' | 'CRANE_SWOOP' | 'WIDE_ORBIT';
+  cameraDurationMs?: number;
+  cameraTargetId?: string;
+  /** Hiệu ứng một lần. */
+  effect?: DiscoEffect;
+  /** Câu cần đọc bằng giọng nói trên overlay. */
+  speechText?: string;
+  /** Epoch ms, để overlay phân biệt khung mới với khung phát lại. */
+  issuedAt: number;
+}
+
+export type OverlayState = GoalState | PkState | BattleState | DiscoState;
 
 /**
  * Asset keys the battle renderer looks for.

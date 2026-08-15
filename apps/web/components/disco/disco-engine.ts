@@ -1,3 +1,13 @@
+/**
+ * Id của DJ LiveNova — chủ nhân cố định của ghế DJ.
+ *
+ * Không người xem nào được gán id này, nên không ai chiếm được chỗ.
+ */
+export const DJ_LIVENOVA_ID = 'bot_dj_livenova';
+
+/** Số chỗ đứng trên bục vinh danh phía trước sân khấu DJ. */
+export const TOP_PODIUM_SLOTS = 3;
+
 export interface Dancer {
   id: string; // usually the username
   name: string;
@@ -125,11 +135,11 @@ export class DiscoEngine {
 
   addDemoDancers() {
     this.dancers.clear();
-    this.currentDjId = 'bot_dj_livenova';
+    this.currentTop1Id = null;
 
     // 1 DJ LiveNova trên bục trung tâm
-    this.dancers.set('bot_dj_livenova', {
-      id: 'bot_dj_livenova',
+    this.dancers.set(DJ_LIVENOVA_ID, {
+      id: DJ_LIVENOVA_ID,
       name: '🎧 DJ LiveNova',
       avatarUrl: '/assets/disco/Characters/char_dj_pro/000.png',
       x: 0.5,
@@ -197,8 +207,22 @@ export class DiscoEngine {
     this.flashIntensity = 0;
   }
 
-  public currentDjId: string | null = 'bot_dj_livenova';
-  public djPromotionToast: { oldDjName: string; newDjName: string; points: number; time: number } | null = null;
+  /**
+   * Ghế DJ là của LiveNova và không ai thay thế được.
+   *
+   * Trước đây trường này đổi theo người tặng quà lớn nhất, nên khách chiếm mất
+   * chỗ DJ. Giờ nó là hằng số; thứ hạng của khán giả thể hiện qua bục Top 3.
+   */
+  public readonly currentDjId: string = DJ_LIVENOVA_ID;
+
+  /** Người đang dẫn đầu bảng quà — đứng ô giữa bục Top 3, không phải ghế DJ. */
+  public currentTop1Id: string | null = null;
+  public top1PromotionToast: {
+    oldTopName: string | null;
+    newTopName: string;
+    points: number;
+    time: number;
+  } | null = null;
   public lastGiftInfo: { senderName: string; giftPoints: number; time: number } | null = null;
   public cameraPriority: number = 0; // 0 = Auto/Random, 1 = Join (3.5s), 2 = Gift / Rose (7s), 3 = Top DJ (10s)
   public cameraLockUntil: number = 0;
@@ -282,7 +306,8 @@ export class DiscoEngine {
 
     this.lastGiftInfo = { senderName: name, giftPoints: points, time: Date.now() };
 
-    // Check for DJ Promotion: Highest points AND at least 10 points becomes TOP DJ
+    // Ai đang dẫn đầu bảng quà (tối thiểu 10 điểm mới được tính là TOP 1).
+    // Người này lên đứng giữa bục Top 3 — KHÔNG chiếm chỗ DJ.
     let topScorer: Dancer | null = null;
     for (const d of Array.from(this.dancers.values())) {
       if ((d.points || 0) >= 10) {
@@ -292,25 +317,21 @@ export class DiscoEngine {
       }
     }
 
-    if (topScorer && topScorer.id !== this.currentDjId) {
-      // PROMOTION: New TOP DJ replaces the previous DJ
-      const oldDj = this.getCurrentDj();
-      const oldDjName = oldDj ? oldDj.name : 'DJ Pro';
-      this.setDj(topScorer.id);
-      this.currentDjId = topScorer.id;
-      this.djPromotionToast = {
-        oldDjName,
-        newDjName: topScorer.name,
+    if (topScorer && topScorer.id !== this.currentTop1Id) {
+      const previous = this.getCurrentTop1();
+      this.setTop1(topScorer.id);
+      this.top1PromotionToast = {
+        oldTopName: previous ? previous.name : null,
+        newTopName: topScorer.name,
         points: topScorer.points,
         time: Date.now(),
       };
-      // Celebration fireworks & light show
       for (let i = 0; i < 6; i++) {
         setTimeout(() => this.triggerFirework(), i * 200);
       }
       this.triggerDjPov(10000, 3);
     } else {
-      // Normal gift / Rose: Focus on the gifter for full 7s with priority 2
+      // Quà thường / hoa hồng: bám người tặng đủ 7 giây, ưu tiên 2
       this.triggerFirework();
       setTimeout(() => this.triggerFirework(), 250);
       this.triggerSpotlightZoom(7000, id, 2);
@@ -319,7 +340,14 @@ export class DiscoEngine {
     this.triggerFlash(0.75);
   }
 
-  promoteToDj(id: string, name?: string, avatarUrl?: string) {
+  /**
+   * Đưa một người xem lên hạng TOP 1.
+   *
+   * Trước đây hàm này tên `promoteToDj` và thực sự đẩy người xem vào ghế DJ.
+   * Giờ ghế DJ luôn thuộc về DJ LiveNova (`DJ_LIVENOVA_ID`); người dẫn đầu bảng
+   * quà đứng ở ô giữa bục Top 3 phía trước sân khấu.
+   */
+  promoteToTop1(id: string, name?: string, avatarUrl?: string) {
     if (!this.dancers.has(id)) {
       this.join(id, name || id, avatarUrl);
     }
@@ -335,18 +363,16 @@ export class DiscoEngine {
       dancer.state = 'jumping';
     }
 
-    const oldDj = this.getCurrentDj();
-    const oldDjName = oldDj ? oldDj.name : 'DJ LiveNova';
-    this.setDj(id);
-    this.currentDjId = id;
-    this.djPromotionToast = {
-      oldDjName,
-      newDjName: dancer ? dancer.name : (name || id),
+    const previous = this.getCurrentTop1();
+    this.setTop1(id);
+    this.top1PromotionToast = {
+      oldTopName: previous ? previous.name : null,
+      newTopName: dancer ? dancer.name : (name || id),
       points: newPoints,
       time: Date.now(),
     };
 
-    // Trigger DJ Coronation celebration
+    // Lễ đăng quang TOP 1
     this.triggerEffect('confetti');
     this.triggerDjPov(10000);
     this.triggerFlash(0.9);
@@ -361,14 +387,30 @@ export class DiscoEngine {
       .slice(0, limit);
   }
 
+  /** DJ LiveNova, nếu đã có mặt trong scene. */
   getCurrentDj(): Dancer | null {
-    if (this.currentDjId && this.dancers.has(this.currentDjId)) {
-      return this.dancers.get(this.currentDjId) || null;
-    }
-    for (const d of Array.from(this.dancers.values())) {
-      if (d.isDj) return d;
+    return this.dancers.get(this.currentDjId) ?? null;
+  }
+
+  /** Người đang dẫn đầu bảng quà. */
+  getCurrentTop1(): Dancer | null {
+    if (this.currentTop1Id && this.dancers.has(this.currentTop1Id)) {
+      return this.dancers.get(this.currentTop1Id) ?? null;
     }
     return null;
+  }
+
+  /**
+   * Ba người đứng trên bục vinh danh, theo thứ tự hạng 1 → 3.
+   *
+   * DJ LiveNova bị loại khỏi bảng: DJ không tham gia đua quà, và nếu để lẫn thì
+   * ô giữa bục sẽ bị chính DJ chiếm.
+   */
+  getPodiumDancers(): Dancer[] {
+    return Array.from(this.dancers.values())
+      .filter((d) => d.id !== this.currentDjId && (d.points || 0) > 0)
+      .sort((a, b) => (b.points || 0) - (a.points || 0))
+      .slice(0, TOP_PODIUM_SLOTS);
   }
 
   jump(id: string) {
@@ -414,31 +456,23 @@ export class DiscoEngine {
     this.triggerFlash(0.6);
   }
 
-  setDj(id: string) {
-    // Revoke old DJ
-    const dancersArray = Array.from(this.dancers.values());
-    for (const dancer of dancersArray) {
-      if (dancer.id !== id) {
-        if (dancer.isDj) {
-          dancer.isDj = false;
-          // Fall back to ground
-          dancer.vy = 0;
-        }
-      }
-    }
+  /**
+   * Đánh dấu người dẫn đầu bảng quà.
+   *
+   * Không đụng tới `isDj`: ghế DJ thuộc về DJ LiveNova vĩnh viễn. Người này chỉ
+   * được đưa lên ô giữa bục Top 3 và phóng to một chút cho dễ thấy.
+   */
+  setTop1(id: string) {
+    const dancer = this.dancers.get(id);
+    if (!dancer) return;
 
-    const newDj = this.dancers.get(id);
-    if (newDj) {
-      newDj.isDj = true;
-      this.currentDjId = newDj.id;
-      newDj.targetScale = 1.6;
-      // Spawn fireworks for the new DJ
-      this.triggerFirework(0.3, 0.3);
-      this.triggerFirework(0.5, 0.2);
-      this.triggerFirework(0.7, 0.3);
-      this.zoomOn(id, 5000);
-      this.triggerFlash(1.0);
-    }
+    this.currentTop1Id = id;
+    dancer.targetScale = 1.6;
+    this.triggerFirework(0.3, 0.3);
+    this.triggerFirework(0.5, 0.2);
+    this.triggerFirework(0.7, 0.3);
+    this.zoomOn(id, 5000);
+    this.triggerFlash(1.0);
   }
 
   zoomOn(id: string, durationMs = 3500) {

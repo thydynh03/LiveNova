@@ -47,3 +47,40 @@ export function getPrimaryNavItems(): NavItem[] {
 export function getBottomNavItems(): NavItem[] {
   return getNavItems().filter((item) => item.placement === 'bottom');
 }
+
+/**
+ * Nhóm hiển thị trong sidebar.
+ *
+ * Mười mục ngang hàng thì không mục nào nổi lên, và người dùng mới không đoán
+ * được thứ nào cần trước. Ba cụm phản ánh cách công việc thật diễn ra: dựng
+ * trước buổi live (Nội dung), chạy trong buổi live (Vận hành), phần còn lại.
+ *
+ * Suy ra từ `order` chứ không thêm trường mới vào mười file `*.nav.ts` — những
+ * file đó là append-only có chủ đích, và sửa cả mười là cách chế tạo xung đột
+ * merge. Khoảng `order` đã sẵn phản ánh đúng cách nhóm này.
+ */
+export interface NavGroup {
+  id: string;
+  label: string;
+  items: NavItem[];
+}
+
+const GROUP_RANGES: ReadonlyArray<{ id: string; label: string; max: number }> = [
+  { id: 'operate', label: 'Vận hành', max: 29 },
+  { id: 'content', label: 'Nội dung', max: 59 },
+  { id: 'account', label: 'Tài khoản', max: Number.POSITIVE_INFINITY },
+];
+
+export function getNavGroups(): NavGroup[] {
+  const primary = getPrimaryNavItems();
+
+  return GROUP_RANGES.map((range, index) => {
+    const min = index === 0 ? -Infinity : GROUP_RANGES[index - 1].max;
+    return {
+      id: range.id,
+      label: range.label,
+      items: primary.filter((item) => item.order > min && item.order <= range.max),
+    };
+    // Nhóm rỗng bị loại bên dưới: một tiêu đề không có mục nào chỉ tổ gây khó hiểu.
+  }).filter((group) => group.items.length > 0);
+}

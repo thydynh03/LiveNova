@@ -4,6 +4,7 @@ import { Be_Vietnam_Pro, JetBrains_Mono } from 'next/font/google';
 import { Tracker } from '../components/analytics/Tracker';
 import { ThemeProvider } from '../context/ThemeContext';
 import { AuthProvider } from '../context/AuthContext';
+import { ToastProvider } from '../components/ui/Toast';
 import { themeInitScript } from '../lib/theme-script';
 import { siteUrl, SITE_NAME, SITE_DESCRIPTION } from '../lib/site';
 import './globals.css';
@@ -114,7 +115,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           Bỏ qua điều hướng
         </a>
         <ThemeProvider>
-          <AuthProvider>{children}</AuthProvider>
+          <AuthProvider>
+            {/* Bọc trong cùng, để mọi màn hình đều báo lỗi được — trước đây các
+                thao tác thất bại chỉ đi vào console và người dùng không thấy gì. */}
+            <ToastProvider>{children}</ToastProvider>
+          </AuthProvider>
         </ThemeProvider>
         {/* Đo lưu lượng bằng bảng của chính mình. Không cookie, không IP,
             không script bên thứ ba — xem chú thích trong Tracker. */}

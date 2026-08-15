@@ -4,11 +4,15 @@ import React, { useState, useEffect, useCallback, Suspense } from 'react';
 import { api } from '../../../../lib/api-client';
 import { BattleState, BattleTeamState, BATTLE_MAP_PRESETS } from '@livenova/shared';
 import { BattleOverlayContent } from '../../../../components/battle/BattleOverlayContent';
+import { useToast } from '../../../../components/ui/Toast';
+import { describeError } from '../../../../lib/describe-error';
+import { copyText } from '../../../../lib/copy-text';
 import { Icon } from '../../../../components/ui/Icon';
 import { useAuth } from '../../../../context/AuthContext';
 
 export default function BattleSimulatorPage() {
   const { user } = useAuth();
+  const toast = useToast();
   const [battleState, setBattleState] = useState<BattleState | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedTeamKey, setSelectedTeamKey] = useState('cat');
@@ -23,7 +27,7 @@ export default function BattleSimulatorPage() {
       const data = await api.get<BattleState>('/battle/state');
       setBattleState(data);
     } catch (err) {
-      console.error('Failed to fetch battle state:', err);
+      toast.error('Không tải được trạng thái trận đấu', describeError(err));
     } finally {
       setLoading(false);
     }
@@ -37,7 +41,7 @@ export default function BattleSimulatorPage() {
         setPublicToken(battleOverlay.publicToken);
       }
     } catch (err) {
-      console.error('Failed to fetch overlays:', err);
+      toast.error('Không tải được link overlay', describeError(err));
     }
   }, []);
 
@@ -63,7 +67,7 @@ export default function BattleSimulatorPage() {
       });
       setBattleState(updated);
     } catch (err) {
-      console.error('Simulation error:', err);
+      toast.error('Mô phỏng thất bại', describeError(err));
     } finally {
       setSimulating(false);
     }
@@ -77,7 +81,7 @@ export default function BattleSimulatorPage() {
       });
       setBattleState(updated);
     } catch (err) {
-      console.error('Map switch error:', err);
+      toast.error('Không đổi được bản đồ', describeError(err));
     } finally {
       setSwitchingMap(false);
     }
@@ -93,7 +97,7 @@ export default function BattleSimulatorPage() {
       });
       setBattleState(updated);
     } catch (err) {
-      console.error('Engine switch error:', err);
+      toast.error('Không đổi được chế độ hiển thị', describeError(err));
     } finally {
       setSwitchingEngine(false);
     }
@@ -105,7 +109,7 @@ export default function BattleSimulatorPage() {
       const updated = await api.post<BattleState>('/battle/reset', {});
       setBattleState(updated);
     } catch (err) {
-      console.error('Reset error:', err);
+      toast.error('Không đặt lại được hiệp đấu', describeError(err));
     }
   };
 
@@ -116,7 +120,10 @@ export default function BattleSimulatorPage() {
       origin = process.env.NEXT_PUBLIC_OVERLAY_URL.replace(/\/$/, '');
     }
     const url = `${origin}/overlays/battle?token=${publicToken}`;
-    navigator.clipboard.writeText(url);
+    void copyText(url).then((result) => {
+      if (result === 'copied') return;
+      toast.error('Không chép được link', 'Bôi đen link rồi nhấn Ctrl+C.');
+    });
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };

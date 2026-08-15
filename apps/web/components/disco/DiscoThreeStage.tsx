@@ -8,7 +8,69 @@ interface DiscoThreeStageProps {
   engine: DiscoEngine;
   videoUrl?: string;
   isMuted?: boolean;
+  /**
+   * Độ mờ lớp phủ trên màn LED trung tâm, 0 = trong suốt, 1 = đen kịt.
+   *
+   * Màn LED phát video ở hết độ sáng thì nhân vật và chữ phía trước bị chìm.
+   * Một lớp tối mỏng kéo video lùi lại phía sau mà không làm mất nội dung.
+   */
+  ledDim?: number;
+  /** Hệ số nhân độ phân giải render. Xem `FixedFrame` để biết vì sao. */
+  renderQuality?: number;
 }
+
+/**
+ * Hai preset camera cho hai tỉ lệ khung.
+ *
+ * Cả lúc khởi tạo lẫn lúc đổi kích thước đều đọc từ đây. Trước kia hai chỗ dùng
+ * hai bộ số khác nhau (khởi tạo FOV 65, đổi kích thước FOV 78), nên khung hình
+ * nhảy một nhịp ngay lần resize đầu tiên.
+ */
+const CAMERA_PRESETS = {
+  /**
+   * Khung dọc 9:16.
+   *
+   * Vị trí đầu tiên (y 7.4, z 20.5) đặt camera quá cao và quá xa: sân khấu dồn
+   * lên nửa trên còn gần 40% đáy khung là sàn trống — thấy rõ trong ảnh chụp
+   * đầu tiên. Hạ thấp và tiến gần lại để sân khấu, bục Top 3 và đám đông lấp
+   * đầy khung.
+   */
+  portrait: { fov: 60, y: 4.6, z: 15.5 },
+  landscape: { fov: 52, y: 5.2, z: 14 },
+} as const;
+
+/**
+ * Bục vinh danh Top 3, đặt trước sân khấu DJ.
+ *
+ * Toạ độ căn theo sân khấu DJ (z = -11.5, cao 1.3) và bàn DJ (z = -11.0). Bục
+ * thấp hơn sân khấu DJ để không che DJ LiveNova phía sau.
+ */
+const TOP_PODIUM = {
+  /**
+   * Hẹp hơn bề ngang sân khấu.
+   *
+   * Bản 7.6 rộng gần bằng cả khung hình ở góc máy chính, nên dải neon mặt trước
+   * cắt ngang hết đáy khung thành một vạch hồng. 6.4 vẫn thừa chỗ cho ba người
+   * mà không chiếm trọn bề ngang.
+   */
+  width: 6.4,
+  height: 0.75,
+  depth: 2.0,
+  /**
+   * Phải nằm NGOÀI khối trụ sân khấu DJ.
+   *
+   * Vị trí đầu tiên (z = -8.6) trông hợp lý trên giấy nhưng thực tế bị chôn hẳn:
+   * sân khấu DJ ở z = -11.5 với bán kính 6.4, tức là trải từ z = -17.9 tới
+   * z = -5.1 và cao 1.3 — nên cả cái bục cao 0.55 nằm gọn bên trong nó và không
+   * nhìn thấy được. Ảnh chụp mới lộ ra chuyện này. z = -3.6 đặt bục hẳn ra sàn
+   * trống phía trước, vẫn thấp hơn chỗ DJ đứng.
+   */
+  z: -4.0,
+  /** Ba chỗ đứng, theo thứ tự hạng 1 → 3: hạng nhất ở giữa. */
+  slotX: [0, -2.2, 2.2],
+  /** Vàng, bạc, đồng — cùng thứ tự với `slotX`. */
+  rankColors: [0xffd700, 0xc0c8d8, 0xcd7f32],
+} as const;
 
 function extractYouTubeId(url?: string): string | null {
   if (!url) return null;
@@ -16,7 +78,13 @@ function extractYouTubeId(url?: string): string | null {
   return match ? match[1] : null;
 }
 
-export function DiscoThreeStage({ engine, videoUrl, isMuted = true }: DiscoThreeStageProps) {
+export function DiscoThreeStage({
+  engine,
+  videoUrl,
+  isMuted = true,
+  ledDim = 0.28,
+  renderQuality = 1,
+}: DiscoThreeStageProps) {
   const mountRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
 
@@ -36,33 +104,58 @@ export function DiscoThreeStage({ engine, videoUrl, isMuted = true }: DiscoThree
     }
     scene.fog = new THREE.FogExp2(0x070412, 0.024);
 
+    /**
+     * Hai preset camera tách bạch thay vì toán tử ba ngôi chung.
+     *
+     * Khung 9:16 không chỉ hẹp hơn — nó cần lùi xa hơn và ngước lên một chút thì
+     * mới thấy đủ sân khấu. Nhét cả hai vào một biểu thức khiến chỉnh preset này
+     * là hỏng preset kia.
+     */
     const isPortrait = width < height;
-    const camera = new THREE.PerspectiveCamera(isPortrait ? 65 : 52, width / height, 0.1, 150);
-    camera.position.set(0, isPortrait ? 6.8 : 5.2, isPortrait ? 18.5 : 14);
+    const cameraPreset = isPortrait ? CAMERA_PRESETS.portrait : CAMERA_PRESETS.landscape;
+
+    const camera = new THREE.PerspectiveCamera(
+      cameraPreset.fov,
+      width / height,
+      0.1,
+      150,
+    );
+    camera.position.set(0, cameraPreset.y, cameraPreset.z);
 
     const renderer = new THREE.WebGLRenderer({
       antialias: true,
       alpha: Boolean(ytId),
       powerPreference: 'high-performance',
     });
-    renderer.setSize(width, height);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+    /**
+     * Độ phân giải render bám theo kích thước CSS của khung, KHÔNG theo
+     * `devicePixelRatio`.
+     *
+     * Trong OBS và TikTok Live Studio `devicePixelRatio` luôn bằng 1, nên công
+     * thức cũ `min(devicePixelRatio, 2)` khiến canvas render đúng bằng kích
+     * thước CSS rồi bị phần mềm phát sóng phóng to lên — đó là nguyên nhân hình
+     * bị mờ và rỗ. Giờ khung đã cố định 1080×1920, nên render đúng số pixel đó
+     * là đủ nét, và `renderQuality` cho phép nhân lên nếu máy đủ khoẻ.
+     */
+    renderer.setPixelRatio(renderQuality);
+    renderer.setSize(width, height, false);
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.35;
+    renderer.toneMappingExposure = 1.0;
     container.appendChild(renderer.domElement);
 
     // 2. Texture & Asset Loaders
     const textureLoader = new THREE.TextureLoader();
 
     // 3. Lighting System
-    const ambientLight = new THREE.AmbientLight(0x281a42, 2.0);
+    const ambientLight = new THREE.AmbientLight(0x281a42, 1.15);
     scene.add(ambientLight);
 
-    const stageKeyLight = new THREE.DirectionalLight(0xa060ff, 2.5);
+    const stageKeyLight = new THREE.DirectionalLight(0xa060ff, 1.4);
     stageKeyLight.position.set(0, 16, -2);
     scene.add(stageKeyLight);
 
-    const beatPointLight = new THREE.PointLight(0x00f0ff, 3.0, 30);
+    const beatPointLight = new THREE.PointLight(0x00f0ff, 1.7, 30);
     beatPointLight.position.set(0, 7, -3);
     scene.add(beatPointLight);
 
@@ -181,36 +274,55 @@ export function DiscoThreeStage({ engine, videoUrl, isMuted = true }: DiscoThree
     scene.add(speakerLeft);
     scene.add(speakerRight);
 
-    // 8. VIP Podiums for Top 2 & Top 3 Dancers (Middle of Dance Floor)
-    // 8.1 Left VIP Podium (Top 2 Gifter)
-    const leftPodiumGeo = new THREE.CylinderGeometry(1.6, 1.85, 0.95, 32);
-    const leftPodiumMat = new THREE.MeshStandardMaterial({ color: 0x0e1428, roughness: 0.15, metalness: 0.85 });
-    const leftPodium = new THREE.Mesh(leftPodiumGeo, leftPodiumMat);
-    leftPodium.position.set(-4.2, 0.48, -3.5);
-    scene.add(leftPodium);
+    // 8. Bục vinh danh Top 3, đặt ngay trước sân khấu DJ.
+    //
+    // Thay cho hai bục tròn từng đứng rời rạc giữa sàn: chúng chắn tầm nhìn từ
+    // khán giả lên sân khấu, và tách Top 2 với Top 3 ra hai phía khiến không ai
+    // đọc được thứ hạng. Một bục liền ba chỗ thì thứ tự tự nó rõ ràng.
+    //
+    // Cao 0.55 so với sân khấu DJ cao 1.3 — cố ý thấp hơn để không che DJ.
+    const podiumGroup = new THREE.Group();
+    scene.add(podiumGroup);
 
-    const leftPodiumRing = new THREE.Mesh(
-      new THREE.RingGeometry(1.55, 1.68, 32),
-      new THREE.MeshBasicMaterial({ color: 0x00f0ff, side: THREE.DoubleSide })
+    const podiumBody = new THREE.Mesh(
+      new THREE.BoxGeometry(TOP_PODIUM.width, TOP_PODIUM.height, TOP_PODIUM.depth),
+      new THREE.MeshStandardMaterial({ color: 0x120b20, roughness: 0.18, metalness: 0.85 })
     );
-    leftPodiumRing.rotation.x = -Math.PI / 2;
-    leftPodiumRing.position.set(-4.2, 0.96, -3.5);
-    scene.add(leftPodiumRing);
+    podiumBody.position.set(0, TOP_PODIUM.height / 2, TOP_PODIUM.z);
+    podiumGroup.add(podiumBody);
 
-    // 8.2 Right VIP Podium (Top 3 Gifter)
-    const rightPodiumGeo = new THREE.CylinderGeometry(1.6, 1.85, 0.95, 32);
-    const rightPodiumMat = new THREE.MeshStandardMaterial({ color: 0x280e1a, roughness: 0.15, metalness: 0.85 });
-    const rightPodium = new THREE.Mesh(rightPodiumGeo, rightPodiumMat);
-    rightPodium.position.set(4.2, 0.48, -3.5);
-    scene.add(rightPodium);
+    /*
+      Dải neon ở MẶT TRƯỚC bục, không phải trên mặt bục.
 
-    const rightPodiumRing = new THREE.Mesh(
-      new THREE.RingGeometry(1.55, 1.68, 32),
-      new THREE.MeshBasicMaterial({ color: 0xff007f, side: THREE.DoubleSide })
+      Bản đầu đặt một khối hộp phủ kín mặt trên, và vì nó dùng `MeshBasicMaterial`
+      màu hồng chói nên cả mặt bục thành một tấm hồng phẳng — ảnh chụp cho thấy
+      rõ. Một dải mỏng ở cạnh trước cho đúng cảm giác đèn viền sân khấu mà không
+      nuốt mất mặt bục.
+    */
+    const podiumTrim = new THREE.Mesh(
+      new THREE.PlaneGeometry(TOP_PODIUM.width, 0.16),
+      new THREE.MeshBasicMaterial({ color: 0xff007f })
     );
-    rightPodiumRing.rotation.x = -Math.PI / 2;
-    rightPodiumRing.position.set(4.2, 0.96, -3.5);
-    scene.add(rightPodiumRing);
+    podiumTrim.position.set(0, TOP_PODIUM.height * 0.62, TOP_PODIUM.z + TOP_PODIUM.depth / 2 + 0.01);
+    podiumGroup.add(podiumTrim);
+
+    // Ba vòng sáng đánh dấu chỗ đứng — vàng / bạc / đồng theo hạng, để khán giả
+    // đọc được thứ hạng mà không cần chữ.
+    const podiumSlotRings = TOP_PODIUM.slotX.map((slotX, index) => {
+      const ring = new THREE.Mesh(
+        new THREE.RingGeometry(0.92, 1.05, 32),
+        new THREE.MeshBasicMaterial({
+          color: TOP_PODIUM.rankColors[index],
+          side: THREE.DoubleSide,
+          transparent: true,
+          opacity: 0.9,
+        })
+      );
+      ring.rotation.x = -Math.PI / 2;
+      ring.position.set(slotX, TOP_PODIUM.height + 0.02, TOP_PODIUM.z);
+      podiumGroup.add(ring);
+      return ring;
+    });
 
     // 9. Center Stage LED Screen (Behind DJ Booth)
     const videoCanvas = document.createElement('canvas');
@@ -239,6 +351,29 @@ export function DiscoThreeStage({ engine, videoUrl, isMuted = true }: DiscoThree
     centerScreen.position.set(0, 5.2, -2.8);
     if (!ytId) {
       scene.add(centerScreen);
+    }
+
+    /**
+     * Lớp phủ làm dịu màn LED.
+     *
+     * Video phát ở hết độ sáng làm nhân vật và chữ phía trước bị chìm. Một lớp
+     * tối mỏng ngay trước màn kéo video lùi lại mà vẫn giữ nguyên nội dung.
+     *
+     * Bán kính 22.9 (màn là 23) để nằm về phía người xem. `depthWrite: false`
+     * để nó không chắn những gì được vẽ sau nó trong cùng khung hình.
+     */
+    const ledDimGeo = new THREE.CylinderGeometry(22.9, 22.9, 9.2, 36, 1, true, Math.PI * 0.62, Math.PI * 0.30);
+    const ledDimMat = new THREE.MeshBasicMaterial({
+      color: 0x000000,
+      side: THREE.BackSide,
+      transparent: true,
+      opacity: ledDim,
+      depthWrite: false,
+    });
+    const ledDimMesh = new THREE.Mesh(ledDimGeo, ledDimMat);
+    ledDimMesh.position.set(0, 5.2, -2.8);
+    if (!ytId) {
+      scene.add(ledDimMesh);
     }
 
     // Center Screen Glowing Neon Frame
@@ -344,19 +479,29 @@ export function DiscoThreeStage({ engine, videoUrl, isMuted = true }: DiscoThree
       floorBeamMeshes.push({ mesh: fMesh, baseAngle: fAngle, speed: (f % 2 === 0 ? 1 : -1) * 0.9 });
     }
 
-    // 11. Dynamic Top 5 Character Spotlights (Volumetric Beams + Floor Glow Rings + Point Lights)
-    const top5Colors = [0xffd700, 0x00f0ff, 0xff007f, 0xb026ff, 0x00ff88];
+    /*
+      11. Đèn rọi cho Top 3 (chùm sáng thể tích + vòng sáng dưới chân + đèn điểm).
+
+      Trước đây có năm đèn, rọi cả hạng 4 và hạng 5 đang đứng lẫn trong đám đông.
+      Năm chùm sáng cùng lúc làm sân khấu trắng xoá và mất hẳn ý nghĩa "được rọi
+      đèn" — thứ đáng lẽ phải là phần thưởng cho ba người dẫn đầu. Giờ đúng ba
+      đèn, đúng ba người đứng trên bục, màu trùng với vòng đánh dấu ô đứng.
+    */
+    const PODIUM_SPOTLIGHT_COUNT = TOP_PODIUM.rankColors.length;
+
+    /** Vàng, bạc, đồng — cùng bộ màu với vòng sáng trên bục. */
+    const podiumSpotColors = TOP_PODIUM.rankColors;
     const top5SpotlightGroup = new THREE.Group();
     scene.add(top5SpotlightGroup);
 
-    interface Top5SpotlightEntry {
+    interface PodiumSpotlightEntry {
       beamMesh: THREE.Mesh;
       floorRing: THREE.Mesh;
       pointLight: THREE.PointLight;
       color: number;
     }
 
-    const top5Spotlights: Top5SpotlightEntry[] = [];
+    const top5Spotlights: PodiumSpotlightEntry[] = [];
 
     // Glowing circular floor texture for spotlight projection
     const spotDiscCanvas = document.createElement('canvas');
@@ -374,8 +519,8 @@ export function DiscoThreeStage({ engine, videoUrl, isMuted = true }: DiscoThree
     }
     const spotDiscTex = new THREE.CanvasTexture(spotDiscCanvas);
 
-    for (let i = 0; i < 5; i++) {
-      const hex = top5Colors[i];
+    for (let i = 0; i < PODIUM_SPOTLIGHT_COUNT; i++) {
+      const hex = podiumSpotColors[i];
 
       // Volumetric spotlight cone: NARROW at ceiling (radiusBottom = 0.08), COMPACT at floor (radiusTop = 1.15)
       const beamGeo = new THREE.CylinderGeometry(1.15, 0.08, 1, 24, 1, true);
@@ -384,7 +529,8 @@ export function DiscoThreeStage({ engine, videoUrl, isMuted = true }: DiscoThree
       const beamMat = new THREE.MeshBasicMaterial({
         color: hex,
         transparent: true,
-        opacity: 0.35,
+        // Giảm từ 0.35: cộng dồn ba chùm chồng nhau ở giữa bục là đủ chói.
+        opacity: 0.22,
         blending: THREE.AdditiveBlending,
         side: THREE.DoubleSide,
         depthWrite: false,
@@ -398,7 +544,7 @@ export function DiscoThreeStage({ engine, videoUrl, isMuted = true }: DiscoThree
         map: spotDiscTex,
         color: hex,
         transparent: true,
-        opacity: 0.55,
+        opacity: 0.34,
         blending: THREE.AdditiveBlending,
         depthWrite: false,
         side: THREE.DoubleSide,
@@ -409,7 +555,7 @@ export function DiscoThreeStage({ engine, videoUrl, isMuted = true }: DiscoThree
       top5SpotlightGroup.add(floorRing);
 
       // Real Point Light illuminating character directly
-      const pointLight = new THREE.PointLight(hex, 2.8, 8, 1.6);
+      const pointLight = new THREE.PointLight(hex, 1.5, 8, 1.6);
       pointLight.visible = false;
       top5SpotlightGroup.add(pointLight);
 
@@ -555,7 +701,7 @@ export function DiscoThreeStage({ engine, videoUrl, isMuted = true }: DiscoThree
     };
 
     const badgeTextureCache = new Map<string, THREE.CanvasTexture>();
-    const getBadgeTexture = (name: string, points: number, rankType: 'dj' | 'top2' | 'top3' | 'top4' | 'top5' | 'normal', color: string): THREE.CanvasTexture => {
+    const getBadgeTexture = (name: string, points: number, rankType: 'dj' | 'top1' | 'top2' | 'top3' | 'top4' | 'top5' | 'normal', color: string): THREE.CanvasTexture => {
       const key = `${name}_${points}_${rankType}`;
       if (badgeTextureCache.has(key)) return badgeTextureCache.get(key)!;
 
@@ -572,20 +718,26 @@ export function DiscoThreeStage({ engine, videoUrl, isMuted = true }: DiscoThree
         let bgGrad = 'rgba(10, 10, 20, 0.88)';
 
         if (rankType === 'dj') {
-          title = `👑 TOP 1 DJ: ${name} (${points || 10}đ)`;
+          // DJ LiveNova không tham gia đua quà nên huy hiệu không có điểm.
+          title = `🎧 DJ LiveNova`;
+          badgeColor = '#ffffff';
+          borderColor = '#b026ff';
+          bgGrad = 'rgba(20, 8, 35, 0.94)';
+        } else if (rankType === 'top1') {
+          title = `🥇 TOP 1: ${name} (${points}đ)`;
           badgeColor = '#ffd700';
           borderColor = '#ffd700';
           bgGrad = 'rgba(35, 25, 0, 0.94)';
         } else if (rankType === 'top2') {
-          title = `🥈 TOP 2 VIP: ${name} (${points}đ)`;
-          badgeColor = '#00f0ff';
-          borderColor = '#00f0ff';
-          bgGrad = 'rgba(0, 25, 35, 0.94)';
+          title = `🥈 TOP 2: ${name} (${points}đ)`;
+          badgeColor = '#c0c8d8';
+          borderColor = '#c0c8d8';
+          bgGrad = 'rgba(20, 24, 32, 0.94)';
         } else if (rankType === 'top3') {
-          title = `🥉 TOP 3 VIP: ${name} (${points}đ)`;
-          badgeColor = '#ff007f';
-          borderColor = '#ff007f';
-          bgGrad = 'rgba(35, 0, 25, 0.94)';
+          title = `🥉 TOP 3: ${name} (${points}đ)`;
+          badgeColor = '#cd7f32';
+          borderColor = '#cd7f32';
+          bgGrad = 'rgba(32, 18, 6, 0.94)';
         } else if (rankType === 'top4') {
           title = `🌟 TOP 4 VIP: ${name} (${points}đ)`;
           badgeColor = '#b026ff';
@@ -847,29 +999,38 @@ export function DiscoThreeStage({ engine, videoUrl, isMuted = true }: DiscoThree
         floorTexture.needsUpdate = true;
       }
 
-      // 18.2 Beat-synced Point Light & Strobe
-      let beatInt = Math.max(0.8, Math.sin(nowSec * 10) ** 3 * 3.5);
+      /*
+        18.2 Đèn nhịp và đèn chớp.
+
+        Các con số ở đây GHI ĐÈ giá trị lúc khởi tạo mỗi khung hình, nên hạ sáng
+        mà chỉ sửa chỗ khởi tạo thì không có tác dụng gì. Toàn bộ đã hạ khoảng
+        45%: sân khấu trước đây trắng xoá, làm nhân vật và chữ bị chìm.
+
+        Đỉnh lúc có hiệu ứng (chớp, pháo hoa) vẫn cao hơn nền rõ rệt — cần giữ
+        khoảng cách đó thì khoảnh khắc tặng quà mới còn sức nặng.
+      */
+      let beatInt = Math.max(0.45, Math.sin(nowSec * 10) ** 3 * 1.9);
       if (smokeActive || isSmokeBlast) {
-        beatInt *= 2.0; 
+        beatInt *= 1.7;
       }
       beatPointLight.intensity = beatInt;
 
       if (isStrobe) {
-        ambientLight.intensity = (Math.floor(nowSec * 20) % 2 === 0) ? 4.0 : 0.5;
+        ambientLight.intensity = (Math.floor(nowSec * 20) % 2 === 0) ? 2.2 : 0.35;
       } else {
-        ambientLight.intensity = 2.0;
+        ambientLight.intensity = 1.15;
       }
 
       if (isFirework) {
         if (Math.random() < 0.1) {
           stageKeyLight.color.setHSL(Math.random(), 1.0, 0.5);
-          stageKeyLight.intensity = 5.0;
+          stageKeyLight.intensity = 2.8;
         } else {
-          stageKeyLight.intensity = THREE.MathUtils.lerp(stageKeyLight.intensity, 2.5, dt * 5);
+          stageKeyLight.intensity = THREE.MathUtils.lerp(stageKeyLight.intensity, 1.4, dt * 5);
         }
       } else {
         stageKeyLight.color.setHex(0xa060ff);
-        stageKeyLight.intensity = 2.5;
+        stageKeyLight.intensity = 1.4;
       }
 
       // 18.3 Render Center Video Screen
@@ -1018,11 +1179,22 @@ export function DiscoThreeStage({ engine, videoUrl, isMuted = true }: DiscoThree
         (sparkPoints.material as THREE.PointsMaterial).opacity = 0.7;
       }
 
-      // 18.9 Update Dancers, Top 1 DJ, Top 2 & Top 3 VIP Podiums, and Top 4-5 Floor VIPs
+      // 18.9 Cập nhật vị trí: DJ LiveNova ở booth, Top 3 trên bục, còn lại trên sàn.
+      //
+      // `getPodiumDancers` đã loại DJ khỏi bảng xếp hạng, nên DJ không thể chiếm
+      // ô giữa bục — và ngược lại, không người xem nào lên được ghế DJ.
+      const podiumDancers = engine.getPodiumDancers();
+      const podiumRankById = new Map<string, number>(
+        podiumDancers.map((d, index) => [d.id, index]),
+      );
+
+      // Vòng sáng chỉ bật ở ô có người. Một bục sáng cả ba ô mà chỉ đứng một
+      // người trông như hai người vừa biến mất.
+      podiumSlotRings.forEach((ring, index) => {
+        ring.visible = index < podiumDancers.length;
+      });
+
       const topDancers = engine.getTopDancers(5);
-      const top1 = topDancers[0] || null;
-      const top2 = topDancers[1] || null;
-      const top3 = topDancers[2] || null;
       const top4 = topDancers[3] || null;
       const top5 = topDancers[4] || null;
 
@@ -1032,7 +1204,9 @@ export function DiscoThreeStage({ engine, videoUrl, isMuted = true }: DiscoThree
       const isDjPovFirstPerson = engine.isDjPovFirstPerson === true;
 
       // Track 3D target coordinates of Top 5 dancers for Spotlights
-      const top5Coords: ({ x: number; y: number; z: number; floorY: number; isDj: boolean } | null)[] = [null, null, null, null, null];
+      // Chỉ ba ô bục mới có đèn rọi — xem chú thích ở phần dựng đèn.
+      const top5Coords: ({ x: number; y: number; z: number; floorY: number; isDj: boolean } | null)[] =
+        new Array(PODIUM_SPOTLIGHT_COUNT).fill(null);
 
       activeDancers.forEach((dancer) => {
         currentIds.add(dancer.id);
@@ -1063,14 +1237,15 @@ export function DiscoThreeStage({ engine, videoUrl, isMuted = true }: DiscoThree
           dancerMeshesMap.set(dancer.id, entry);
         }
 
-        // Determine Role and Position in 3D Space
-        const isTop1 = top1 && top1.id === dancer.id;
-        const isTop2 = top2 && top2.id === dancer.id;
-        const isTop3 = top3 && top3.id === dancer.id;
+        // Vai trò và vị trí trong không gian 3D
+        const podiumRank = podiumRankById.get(dancer.id);
+        const isOnPodium = podiumRank !== undefined;
         const isTop4 = top4 && top4.id === dancer.id;
         const isTop5 = top5 && top5.id === dancer.id;
 
-        const isCurrentDj = dancer.isDj || isTop1;
+        // Chỉ DJ LiveNova mới đứng ở booth. Trước đây điều kiện là
+        // `dancer.isDj || isTop1`, nên người dẫn đầu bảng quà chiếm luôn chỗ DJ.
+        const isCurrentDj = dancer.id === engine.currentDjId;
 
         if (isDjPovFirstPerson && isCurrentDj) {
           entry.spriteMesh.visible = false;
@@ -1088,26 +1263,20 @@ export function DiscoThreeStage({ engine, videoUrl, isMuted = true }: DiscoThree
         let scale = 1.85 * (dancer.scale || 1);
 
         if (isCurrentDj) {
-          // Elevated Top 1 DJ Booth Position
+          // Ghế DJ sau bàn — chỗ cố định của DJ LiveNova
           posX = 0;
           posY = 2.55;
           posZ = -11.0;
           floorY = 2.05;
           scale = 2.3;
-        } else if (isTop2) {
-          // Left VIP Stage Podium (Top 2 Gifter)
-          posX = -4.2;
-          posY = 1.95;
-          posZ = -3.5;
-          floorY = 1.25;
-          scale = 2.2;
-        } else if (isTop3) {
-          // Right VIP Stage Podium (Top 3 Gifter)
-          posX = 4.2;
-          posY = 1.95;
-          posZ = -3.5;
-          floorY = 1.25;
-          scale = 2.2;
+        } else if (isOnPodium) {
+          // Bục vinh danh: hạng 1 ở giữa, hạng 2 bên trái, hạng 3 bên phải
+          posX = TOP_PODIUM.slotX[podiumRank];
+          posY = TOP_PODIUM.height + 1.0;
+          posZ = TOP_PODIUM.z;
+          floorY = TOP_PODIUM.height;
+          // Hạng nhất to hơn hai hạng còn lại một chút cho dễ nhận ra
+          scale = podiumRank === 0 ? 2.3 : 2.1;
         } else {
           // Audience Dancers scattered on Dance Floor in layered depth
           posX = (dancer.x - 0.5) * 18;
@@ -1117,12 +1286,10 @@ export function DiscoThreeStage({ engine, videoUrl, isMuted = true }: DiscoThree
           floorY = 0.05;
         }
 
-        // Save coordinates for Top 5 Spotlights
-        if (isTop1) top5Coords[0] = { x: posX, y: posY, z: posZ, floorY, isDj: true };
-        else if (isTop2) top5Coords[1] = { x: posX, y: posY, z: posZ, floorY, isDj: false };
-        else if (isTop3) top5Coords[2] = { x: posX, y: posY, z: posZ, floorY, isDj: false };
-        else if (isTop4) top5Coords[3] = { x: posX, y: posY, z: posZ, floorY, isDj: false };
-        else if (isTop5) top5Coords[4] = { x: posX, y: posY, z: posZ, floorY, isDj: false };
+        // Lưu toạ độ cho đèn rọi — chỉ người trên bục mới được rọi
+        if (isOnPodium) {
+          top5Coords[podiumRank] = { x: posX, y: posY, z: posZ, floorY, isDj: false };
+        }
 
         // Natural club rhythm bobbing & jump physics (aligned with 128 BPM beat)
         const bob = Math.abs(Math.sin(nowSec * 4.2 + (dancer.danceOffset || 0))) * 0.14;
@@ -1134,7 +1301,8 @@ export function DiscoThreeStage({ engine, videoUrl, isMuted = true }: DiscoThree
 
         // Frame animation at natural 7.5 fps pace
         const frameIdx = Math.floor(nowSec * 7.5 + (dancer.danceOffset || 0)) % 10;
-        const spriteId = (isTop2 || isTop3) ? 'hanhan_video_dance' : dancer.spriteId;
+        // Hạng 2 và 3 dùng chung một sprite nổi bật; hạng 1 giữ nhân vật riêng.
+        const spriteId = podiumRank === 1 || podiumRank === 2 ? 'hanhan_video_dance' : dancer.spriteId;
         const tex = getSpriteTexture(spriteId, frameIdx);
         if (tex) {
           entry.spriteMesh.material.map = tex;
@@ -1142,11 +1310,24 @@ export function DiscoThreeStage({ engine, videoUrl, isMuted = true }: DiscoThree
         }
 
         // Badge Position, Scale & Beat-Synced Flashing Pulse
-        const badgePulse = 1.0 + (isTop1 ? 0.12 : 0.06) * Math.abs(Math.sin(nowSec * 8 + (dancer.danceOffset || 0)));
+        const badgePulse = 1.0 + (podiumRank === 0 ? 0.12 : 0.06) * Math.abs(Math.sin(nowSec * 8 + (dancer.danceOffset || 0)));
         entry.badgeMesh.position.set(entry.spriteMesh.position.x, entry.spriteMesh.position.y + scale * 0.58, entry.spriteMesh.position.z);
         entry.badgeMesh.scale.set(2.5 * badgePulse, 0.82 * badgePulse, 1);
 
-        const rankType = isCurrentDj ? 'dj' : isTop2 ? 'top2' : isTop3 ? 'top3' : isTop4 ? 'top4' : isTop5 ? 'top5' : 'normal';
+        // Hạng trên bục: 0 → top1, 1 → top2, 2 → top3. DJ có huy hiệu riêng.
+        const rankType = isCurrentDj
+          ? 'dj'
+          : podiumRank === 0
+            ? 'top1'
+            : podiumRank === 1
+              ? 'top2'
+              : podiumRank === 2
+                ? 'top3'
+                : isTop4
+                  ? 'top4'
+                  : isTop5
+                    ? 'top5'
+                    : 'normal';
         const badgeTex = getBadgeTexture(dancer.name, dancer.points || 0, rankType, dancer.color);
         entry.badgeMesh.material.map = badgeTex;
         entry.badgeMesh.material.needsUpdate = true;
@@ -1170,8 +1351,8 @@ export function DiscoThreeStage({ engine, videoUrl, isMuted = true }: DiscoThree
         badgeMat.opacity = THREE.MathUtils.lerp(badgeMat.opacity, targetOpacity, dt * 7);
       });
 
-      // 18.9.5 Direct Spotlights Following Top 5 Dancers in Real-Time
-      for (let s = 0; s < 5; s++) {
+      // 18.9.5 Đèn rọi bám theo ba người trên bục
+      for (let s = 0; s < PODIUM_SPOTLIGHT_COUNT; s++) {
         const spot = top5Spotlights[s];
         const coord = top5Coords[s];
 
@@ -1203,11 +1384,11 @@ export function DiscoThreeStage({ engine, videoUrl, isMuted = true }: DiscoThree
           spot.floorRing.position.set(coord.x, coord.floorY, coord.z);
           const ringPulse = 1.0 + Math.sin(nowSec * 7 + s) * 0.08;
           spot.floorRing.scale.set(ringPulse, ringPulse, 1);
-          (spot.floorRing.material as THREE.MeshBasicMaterial).opacity = 0.5 + Math.sin(nowSec * 6 + s) * 0.15;
+          (spot.floorRing.material as THREE.MeshBasicMaterial).opacity = 0.3 + Math.sin(nowSec * 6 + s) * 0.09;
 
           // Point light directly illuminating the Top character
           spot.pointLight.position.set(coord.x, coord.y + 1.2, coord.z + 0.3);
-          spot.pointLight.intensity = 2.4 + Math.sin(nowSec * 8 + s) * 0.5;
+          spot.pointLight.intensity = 1.3 + Math.sin(nowSec * 8 + s) * 0.28;
         } else {
           spot.beamMesh.visible = false;
           spot.floorRing.visible = false;
@@ -1243,9 +1424,17 @@ export function DiscoThreeStage({ engine, videoUrl, isMuted = true }: DiscoThree
         // Automated Concert Director Angles
         const shot = engine.currentShotType;
         if (shot === 'DJ_POV') {
-          // Point of View of the DJ looking down from Booth onto VIP Podiums & Crowd
-          targetCamPos.set(0, 2.8, -10.8);
-          targetLookAt.set(0, 0.3, 2);
+          /*
+            Góc nhìn từ chỗ DJ xuống bục Top 3 và đám đông.
+
+            Bộ số cũ nhắm vào (y 0.3, z 2) — tức là chấm giữa MẶT SÀN ở phía
+            trước, từ hồi bục vinh danh còn nằm tận z = -8.6. Sau khi bục dời ra
+            z = -3.6, cú máy này chúi hẳn xuống: sân khấu tụt xuống mép dưới còn
+            hai phần ba khung là sàn tối. Giờ nhắm vào ngang tầm người đứng trên
+            bục, nên bục nằm giữa khung.
+          */
+          targetCamPos.set(0, 3.4, -9.4);
+          targetLookAt.set(0, 1.55, -3.2);
         } else if (shot === 'SPOTLIGHT_ZOOM') {
           // Dynamic Spotlight Zoom on target dancer
           const targetEntry = engine.spotlightTargetId ? dancerMeshesMap.get(engine.spotlightTargetId) : null;
@@ -1266,8 +1455,15 @@ export function DiscoThreeStage({ engine, videoUrl, isMuted = true }: DiscoThree
           // FRONT_STAGE - Wide Grand Panoramic View with Gentle Subtle Lateral Sway (75%-80% Vertical TikTok Coverage)
           const swayX = Math.sin(nowSec * 0.22) * (isPortraitNow ? 1.4 : 2.0);
           const swayY = Math.cos(nowSec * 0.18) * 0.25;
-          targetCamPos.set(swayX, (isPortraitNow ? 6.6 : 5.2) + swayY, (isPortraitNow ? 17.2 : 14.8));
-          targetLookAt.set(swayX * 0.35, (isPortraitNow ? 1.8 : 1.2), -3.2);
+          /*
+            Khung dọc: camera thấp và gần, ngắm hơi CHẾCH LÊN.
+
+            Điểm ngắm phải cao hơn camera, không thấp hơn. Đặt thấp hơn thì ống
+            kính chúi xuống và phần khung phía dưới toàn là khoảng sàn trống giữa
+            camera với đám đông — đúng thứ đã thấy trong ảnh chụp.
+          */
+          targetCamPos.set(swayX, (isPortraitNow ? 3.2 : 5.2) + swayY, (isPortraitNow ? 10.6 : 14.8));
+          targetLookAt.set(swayX * 0.35, (isPortraitNow ? 3.6 : 1.2), -3.2);
         }
       }
 
@@ -1284,11 +1480,12 @@ export function DiscoThreeStage({ engine, videoUrl, isMuted = true }: DiscoThree
       if (!container) return;
       width = container.clientWidth || 800;
       height = container.clientHeight || 600;
-      const isPortrait = width < height;
-      camera.fov = isPortrait ? 78 : 56;
+      const preset =
+        width < height ? CAMERA_PRESETS.portrait : CAMERA_PRESETS.landscape;
+      camera.fov = preset.fov;
       camera.aspect = width / height;
       camera.updateProjectionMatrix();
-      renderer.setSize(width, height);
+      renderer.setSize(width, height, false);
     };
     window.addEventListener('resize', handleResize);
 
