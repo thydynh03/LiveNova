@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { Icon } from '../../../components/ui/Icon';
-import { previewTts } from '../../../lib/api-client';
+import { api, previewTts } from '../../../lib/api-client';
 import { useToast } from '../../../components/ui/Toast';
 import { describeError } from '../../../lib/describe-error';
 
@@ -80,32 +80,29 @@ export default function TtsPage() {
     }
   }, []);
 
-  // Save/load settings from localStorage
+  /**
+   * Cài đặt giọng đọc, lấy từ server.
+   *
+   * Trước đây chỗ này đọc `localStorage`. Vấn đề không chỉ là mất khi đổi máy:
+   * khi phát sóng, `rule-engine.service` đọc cài đặt từ bảng `TtsSettings` trong
+   * cơ sở dữ liệu — nên giọng người dùng chọn ở đây KHÔNG phải giọng thực sự đọc
+   * bình luận trên sóng. Giờ cả hai nhìn vào một chỗ.
+   */
   useEffect(() => {
-    if (typeof window === 'undefined') return;
-    try {
-      const saved = localStorage.getItem('livenova_tts_config');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (parsed.speed) setSpeed(parsed.speed);
-        if (parsed.pitch) setPitch(parsed.pitch);
-        if (parsed.voiceId) setSelectedVoiceId(parsed.voiceId);
-      }
-    } catch {
-      // Ignore
-    }
-  }, []);
+    api
+      .get<{ voiceId: string; rate: number; pitch: number }>('/tts/settings')
+      .then((cfg) => {
+        if (cfg.voiceId) setSelectedVoiceId(cfg.voiceId);
+        if (typeof cfg.rate === 'number') setSpeed(cfg.rate);
+        if (typeof cfg.pitch === 'number') setPitch(cfg.pitch);
+      })
+      .catch((err) => toast.error('Không tải được cài đặt giọng đọc', describeError(err)));
+  }, [toast]);
 
   const saveConfig = (newVoice: string, newSpeed: number, newPitch: number) => {
-    if (typeof window === 'undefined') return;
-    try {
-      localStorage.setItem(
-        'livenova_tts_config',
-        JSON.stringify({ voiceId: newVoice, speed: newSpeed, pitch: newPitch }),
-      );
-    } catch {
-      // Ignore
-    }
+    api
+      .patch('/tts/settings', { voiceId: newVoice, rate: newSpeed, pitch: newPitch })
+      .catch((err) => toast.error('Không lưu được cài đặt giọng đọc', describeError(err)));
   };
 
   const stopAllAudio = () => {

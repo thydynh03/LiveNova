@@ -179,14 +179,62 @@ hồng phẳng (đã đổi thành dải mỏng ở cạnh trước).
 
 ---
 
-## 6. Phần chưa làm
+## 6. Giai đoạn 3, 4, 5 — bổ sung
 
-Nêu rõ để không nhầm là đã xong:
+### 6.1 Tách trang Disco (Giai đoạn 4)
 
-- **Giai đoạn 4** — tách `app/(dashboard)/disco/page.tsx` (1886 dòng) thành các panel
-  và bố cục tab. Chưa động tới.
-- **Giai đoạn 3, phần migrate** — bộ component đã dựng
-  ([primitives.tsx](apps/web/components/ui/primitives.tsx)) nhưng chưa thay thế hơn 1000
-  khối `style={{}}` hiện có. Bố cục đáp ứng và ngăn kéo điều hướng thì đã xong.
-- **Giai đoạn 5, phần onboarding và chuyển cấu hình lên server** — nhóm sidebar đã xong,
-  hai phần còn lại chưa.
+| Tệp | Dòng |
+|---|---|
+| `app/(dashboard)/disco/page.tsx` — chỉ còn bố cục và state tab | **89** (trước: 1932) |
+| `components/disco/use-disco-controller.ts` — toàn bộ logic, không JSX | 528 |
+| `components/disco/scenarios.ts` — bốn kịch bản mô tả bằng dữ liệu | 222 |
+| `components/disco/panels/*.tsx` — sáu khu giao diện | 771 |
+
+Bố cục mới: sân khấu 9:16 dính bên trái, panel điều khiển theo tab bên phải.
+Tab **Kiểm thử** đứng cuối, tách khỏi luồng vận hành để không bấm nhầm khi đang live.
+
+Hai chỗ trùng lặp lớn được gộp lại:
+
+- **Mười hai hàm mô phỏng** gần như giống hệt nhau (chỉ khác nội dung comment hoặc
+  tên quà) → một hàm `simulate(payload, log)` nhận tham số.
+- **Bốn kịch bản** là bốn nhánh `if` với `setTimeout` lồng nhau, mỗi bước tự tay đẩy
+  timer vào một mảng ref → bảng dữ liệu `{ at, log, run }` cộng một bộ chạy duy nhất.
+  Bộ chạy mới dọn timer khi rời trang, việc bản cũ hay quên.
+
+### 6.2 Bộ component và bố cục đáp ứng (Giai đoạn 3)
+
+`components/ui/primitives.tsx`: `Button`, `Input`, `Textarea`, `Field`, `Card`,
+`Badge`, `Tabs`, `TabPanel`, `Switch`. Toàn bộ trang Disco đã chuyển sang dùng bộ này.
+
+Kiểm tra tràn ngang (`node scripts/ui-evidence.mjs`):
+
+| Kích thước | Kết quả |
+|---|---|
+| Desktop 1440×900 | **PASS** — scrollW 1440 / clientW 1440 |
+| Tablet 820×1180 | **PASS** — scrollW 820 / clientW 820 |
+| Mobile 390×844 | **PASS** — scrollW 390 / clientW 390 |
+
+Dưới 1024px sidebar thu thành ngăn kéo có nền mờ, đóng bằng Escape hoặc bấm ra ngoài.
+Khi đóng nó nhận `visibility: hidden` chứ không chỉ trượt ra ngoài màn hình — nếu không,
+người dùng Tab sẽ lạc vào một danh sách liên kết vô hình.
+
+### 6.3 Onboarding và cấu hình trên server (Giai đoạn 5)
+
+- **Checklist ba bước** trên dashboard (liên kết kênh → tạo overlay → đặt kịch bản),
+  đứng trên các ô số và tự biến mất khi xong cả ba.
+- **Cấu hình sàn nhảy** chuyển sang `PATCH /overlays/:id/config`, ghi gộp nhịp 600ms
+  vì thanh trượt độ mờ bắn hàng chục sự kiện mỗi giây. `localStorage` chỉ còn là bộ nhớ
+  đệm khởi động nhanh. Giá trị đọc từ server được kiểm từng trường một, không ép kiểu
+  cả cục — `config` là JSON tuỳ ý và một giá trị sai kiểu sẽ làm hỏng sân khấu giữa live.
+- **Cài đặt giọng đọc**: phát hiện bảng `TtsSettings` đã tồn tại và
+  `rule-engine.service.ts:296` đọc nó mỗi khi đọc bình luận trên sóng, nhưng chưa từng
+  có route nào để giao diện đọc hay ghi — nên trang Giọng đọc lưu vào `localStorage`, và
+  **giọng người dùng chọn không phải giọng thực sự phát trên sóng**. Đã thêm
+  `GET /tts/settings` và `PATCH /tts/settings`, trang Giọng đọc nối vào đó.
+
+---
+
+## 7. Phần chưa làm
+
+- **Migrate phần còn lại sang bộ component** — trang Disco đã chuyển xong; `admin`,
+  `battle/simulator`, `TeamBattleConfigEditor`, `RuleModal` vẫn dùng inline style.

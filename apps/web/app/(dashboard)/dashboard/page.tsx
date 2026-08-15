@@ -7,6 +7,10 @@ import { useApi } from '../../../lib/use-api';
 import { useEventsSocket } from '../../../lib/use-events-socket';
 import { LiveFeed, LIVE_FEED_LIMIT } from '../../../components/live-feed/LiveFeed';
 import { ErrorState } from '../../../components/common/States';
+import {
+  OnboardingChecklist,
+  buildOnboardingSteps,
+} from '../../../components/common/OnboardingChecklist';
 import { Icon, type IconName } from '../../../components/ui/Icon';
 import type { CreditBalance, Rule, Overlay, Channel } from '../../../lib/types';
 
@@ -163,6 +167,16 @@ export default function DashboardPage() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
       <h1 className="page-title">Tổng quan</h1>
+
+      {/* Đứng trên các ô số: với tài khoản trống thì mọi con số đều bằng 0 và
+          thứ người dùng cần là biết làm gì trước, không phải nhìn số 0. */}
+      <OnboardingChecklist
+        steps={buildOnboardingSteps({
+          hasChannel: (channels.data ?? []).length > 0,
+          hasOverlay: (overlays.data ?? []).length > 0,
+          hasRule: (rules.data ?? []).length > 0,
+        })}
+      />
 
       {firstError && (
         <div className="card">
