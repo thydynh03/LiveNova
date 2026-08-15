@@ -173,6 +173,59 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
   return <input ref={ref} style={{ ...CONTROL_BASE, ...SIZE_STYLE[size], ...style }} {...rest} />;
 });
 
+export interface SelectProps extends Omit<React.SelectHTMLAttributes<HTMLSelectElement>, 'size'> {
+  size?: ControlSize;
+}
+
+export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select(
+  { size = 'md', style, children, ...rest },
+  ref,
+) {
+  return (
+    <select
+      ref={ref}
+      style={{
+        ...CONTROL_BASE,
+        ...SIZE_STYLE[size],
+        // Chừa chỗ cho mũi tên gốc của trình duyệt: `appearance` để nguyên vì
+        // danh sách chọn tự vẽ trông ổn tới khi gặp màn cảm ứng và trình đọc
+        // màn hình, rồi hỏng theo những cách khó thấy.
+        paddingRight: '2rem',
+        cursor: 'pointer',
+        ...style,
+      }}
+      {...rest}
+    >
+      {children}
+    </select>
+  );
+});
+
+/**
+ * Nút chỉ có biểu tượng.
+ *
+ * Bắt buộc có `label`: một nút chỉ mang hình vẽ mà không có tên thì trình đọc
+ * màn hình đọc ra là "button", vô nghĩa. Nhãn cũng dùng làm tooltip.
+ */
+export function IconButton({
+  label,
+  children,
+  style,
+  ...rest
+}: Omit<ButtonProps, 'children'> & { label: string; children: React.ReactNode }) {
+  return (
+    <Button
+      aria-label={label}
+      title={label}
+      variant={rest.variant ?? 'ghost'}
+      style={{ width: 36, height: 36, padding: 0, flex: 'none', ...style }}
+      {...rest}
+    >
+      {children}
+    </Button>
+  );
+}
+
 export const Textarea = forwardRef<HTMLTextAreaElement, React.TextareaHTMLAttributes<HTMLTextAreaElement>>(
   function Textarea({ style, ...rest }, ref) {
     return (

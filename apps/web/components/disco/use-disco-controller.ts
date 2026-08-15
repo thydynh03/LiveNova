@@ -8,11 +8,7 @@ import { useEventsSocket } from '../../lib/use-events-socket';
 import { useToast } from '../ui/Toast';
 import { copyText } from '../../lib/copy-text';
 import { describeError } from '../../lib/describe-error';
-import {
-  DEFAULT_FRAME_WIDTH,
-  DEFAULT_FRAME_HEIGHT,
-  DEFAULT_LED_DIM,
-} from '../overlays/FixedFrame';
+import { DEFAULT_LED_DIM } from '../overlays/FixedFrame';
 import { DiscoEngine } from './disco-engine';
 import { applyDiscoAction, type DiscoSyncPayload } from './apply-disco-action';
 import { SCENARIOS, findScenario, type ScenarioId, type ScenarioContext } from './scenarios';
@@ -107,6 +103,22 @@ const CAMERA_MS = {
 
 type CameraShot = keyof typeof CAMERA_MS;
 
+/**
+ * Các khung hình chọn được cho overlay.
+ *
+ * Dọc 9:16 là mặc định vì đó là khung của TikTok. Ngang 16:9 dành cho người phát
+ * qua OBS lên YouTube hay Facebook, còn vuông 1:1 cho ô nhúng nhỏ. Kích thước đi
+ * kèm ngay đây để ô hướng dẫn và tham số URL không thể nói hai con số khác nhau.
+ */
+export const FRAME_OPTIONS = [
+  { id: '9:16', label: 'Dọc 9:16', hint: 'TikTok · mặc định', width: 1080, height: 1920 },
+  { id: '16:9', label: 'Ngang 16:9', hint: 'OBS · YouTube', width: 1920, height: 1080 },
+  { id: '1:1', label: 'Vuông 1:1', hint: 'Ô nhúng nhỏ', width: 1080, height: 1080 },
+] as const;
+
+export type FrameRatioId = (typeof FRAME_OPTIONS)[number]['id'];
+
+const LS_RATIO = 'livenova_disco_ratio';
 const LS_VIDEO = 'livenova_disco_video_url';
 const LS_MUSIC = 'livenova_disco_current_music';
 const LS_TITLE = 'livenova_disco_current_title';
@@ -119,6 +131,7 @@ export function useDiscoController() {
   const [publicToken, setPublicToken] = useState<string | null>(null);
   const [overlayId, setOverlayId] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [ratio, setRatioState] = useState<FrameRatioId>('9:16');
 
   // ── Media ─────────────────────────────────────────────────────────────────
   const [musicUrl, setMusicUrl] = useState('');
@@ -208,6 +221,11 @@ export function useDiscoController() {
    */
   useEffect(() => {
     if (typeof window === 'undefined') return;
+    const savedRatio = localStorage.getItem(LS_RATIO);
+    if (FRAME_OPTIONS.some((o) => o.id === savedRatio)) {
+      setRatioState(savedRatio as FrameRatioId);
+    }
+
     const savedVideo = localStorage.getItem(LS_VIDEO);
     if (savedVideo) setDjVideoUrl(savedVideo);
     const savedMusic = localStorage.getItem(LS_MUSIC);
@@ -500,9 +518,29 @@ export function useDiscoController() {
     const params = new URLSearchParams();
     if (publicToken) params.set('token', publicToken);
     if (djVideoUrl.trim()) params.set('video', djVideoUrl);
+    // 9:16 là mặc định của overlay nên bỏ qua cho link ngắn gọn.
+    if (ratio !== '9:16') params.set('ratio', ratio);
     const query = params.toString();
     return query ? `${origin}/overlays/disco?${query}` : `${origin}/overlays/disco`;
-  }, [publicToken, djVideoUrl]);
+  }, [publicToken, djVideoUrl, ratio]);
+
+  /**
+   * Đổi khung hình.
+   *
+   * Chỉ lưu cục bộ chứ không đẩy lên overlay: khung hình là thuộc tính của cái
+   * link đã dán vào OBS, không phải trạng thái phát sóng. Đổi ở đây rồi chép lại
+   * link mới — đổi ngầm dưới chân một Browser Source đang chạy sẽ làm khung hình
+   * nhảy giữa buổi live.
+   */
+  const setRatio = useCallback((next: FrameRatioId) => {
+    setRatioState(next);
+    if (typeof window !== 'undefined') localStorage.setItem(LS_RATIO, next);
+  }, []);
+
+  const frame = useMemo(
+    () => FRAME_OPTIONS.find((o) => o.id === ratio) ?? FRAME_OPTIONS[0],
+    [ratio],
+  );
 
   const copyUrl = useCallback(async () => {
     if ((await copyText(overlayUrl)) === 'copied') {
@@ -517,13 +555,13 @@ export function useDiscoController() {
   }, [overlayUrl, toast]);
 
   const copySize = useCallback(async () => {
-    const size = `${DEFAULT_FRAME_WIDTH}x${DEFAULT_FRAME_HEIGHT}`;
+    const size = `${frame.width}x${frame.height}`;
     if ((await copyText(size)) === 'copied') {
       toast.success(`Đã chép ${size}`, 'Dán vào ô Width × Height của Browser Source.');
     } else {
       toast.info(`Kích thước cần đặt: ${size}`, 'Nhập tay vào Browser Source.');
     }
-  }, [toast]);
+  }, [frame, toast]);
 
   return {
     engine,
@@ -550,6 +588,7 @@ export function useDiscoController() {
 
     // phát sóng
     overlayUrl, copyUrl, copySize, copied, hasOverlay: Boolean(overlayId),
+    ratio, setRatio, frame, frameOptions: FRAME_OPTIONS,
   };
 }
 

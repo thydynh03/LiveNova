@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import type { TeamBattleConfig, BattleTeamConfig, BattleActionTier } from '@livenova/shared';
 import { TEMPLATE_LIMITS, validateTeamBattleConfig } from '@livenova/shared';
 import { Icon } from '../ui/Icon';
+import { Input, Select } from '../ui/primitives';
 
 interface TeamBattleConfigEditorProps {
   value: TeamBattleConfig;
@@ -379,7 +380,7 @@ export function TeamBattleConfigEditor({
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
                     <div>
                       <label htmlFor={`team-name-${idx}`} style={smallLabelStyle}>Tên phe</label>
-                      <input
+                      <Input
                         id={`team-name-${idx}`}
                         value={team.name}
                         onChange={(e) => updateTeam(idx, { name: e.target.value })}
@@ -390,7 +391,7 @@ export function TeamBattleConfigEditor({
                     </div>
                     <div>
                       <label htmlFor={`team-key-${idx}`} style={smallLabelStyle}>Mã định danh (Key)</label>
-                      <input
+                      <Input
                         id={`team-key-${idx}`}
                         value={team.key}
                         onChange={(e) => updateTeam(idx, { key: e.target.value.trim().toLowerCase() })}
@@ -406,7 +407,7 @@ export function TeamBattleConfigEditor({
                     <div>
                       <label style={smallLabelStyle}>Màu chủ đạo</label>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                        <input
+                        <Input
                           type="color"
                           value={team.color || '#a78bfa'}
                           onChange={(e) => updateTeam(idx, { color: e.target.value })}
@@ -446,7 +447,7 @@ export function TeamBattleConfigEditor({
                     <div>
                       <label htmlFor={`team-castle-${idx}`} style={smallLabelStyle}>Mã Asset lâu đài</label>
                       {availableAssetKeys.length > 0 ? (
-                        <select
+                        <Select
                           id={`team-castle-${idx}`}
                           value={team.castleAsset || ''}
                           onChange={(e) => updateTeam(idx, { castleAsset: e.target.value || undefined })}
@@ -457,9 +458,9 @@ export function TeamBattleConfigEditor({
                           {availableAssetKeys.map((k) => (
                             <option key={k} value={k}>{k}</option>
                           ))}
-                        </select>
+                        </Select>
                       ) : (
-                        <input
+                        <Input
                           id={`team-castle-${idx}`}
                           value={team.castleAsset || ''}
                           onChange={(e) => updateTeam(idx, { castleAsset: e.target.value.trim() || undefined })}
@@ -526,7 +527,7 @@ export function TeamBattleConfigEditor({
 
                     {/* Add gift input & quick tags */}
                     <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
-                      <input
+                      <Input
                         value={newGiftInputs[idx] || ''}
                         onChange={(e) =>
                           setNewGiftInputs((prev) => ({ ...prev, [idx]: e.target.value }))
@@ -619,7 +620,7 @@ export function TeamBattleConfigEditor({
                   Mỗi lượt Tim (Like)
                 </label>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <input
+                  <Input
                     id="power-like"
                     type="number"
                     min={0}
@@ -644,7 +645,7 @@ export function TeamBattleConfigEditor({
                   Mỗi lượt Chia sẻ (Share)
                 </label>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <input
+                  <Input
                     id="power-share"
                     type="number"
                     min={0}
@@ -669,7 +670,7 @@ export function TeamBattleConfigEditor({
                   Lượt Theo dõi (Follow)
                 </label>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <input
+                  <Input
                     id="power-follow"
                     type="number"
                     min={0}
@@ -707,7 +708,7 @@ export function TeamBattleConfigEditor({
               <div>
                 <label htmlFor="energy-capacity" style={smallLabelStyle}>Sức chứa bình (Capacity)</label>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <input
+                  <Input
                     id="energy-capacity"
                     type="number"
                     min={5}
@@ -732,7 +733,7 @@ export function TeamBattleConfigEditor({
               <div>
                 <label htmlFor="energy-refill" style={smallLabelStyle}>Tốc độ hồi năng lượng (Refill)</label>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <input
+                  <Input
                     id="energy-refill"
                     type="number"
                     step={0.1}
@@ -820,7 +821,7 @@ export function TeamBattleConfigEditor({
               </p>
             </div>
 
-            <select
+            <Select
               value={value.freeEventMaxAction || ''}
               onChange={(e) => onChange({ ...value, freeEventMaxAction: e.target.value })}
               disabled={disabled}
@@ -831,7 +832,7 @@ export function TeamBattleConfigEditor({
                   {a.key} (ngưỡng ≥ {a.minPower})
                 </option>
               ))}
-            </select>
+            </Select>
           </div>
 
           {/* Action tiers list */}
@@ -853,7 +854,7 @@ export function TeamBattleConfigEditor({
                 >
                   <div>
                     <label style={smallLabelStyle}>Ngưỡng Xu/Power</label>
-                    <input
+                    <Input
                       type="number"
                       min={1}
                       value={action.minPower}
@@ -867,7 +868,7 @@ export function TeamBattleConfigEditor({
 
                   <div>
                     <label style={smallLabelStyle}>Mã hành động (Key)</label>
-                    <input
+                    <Input
                       value={action.key}
                       onChange={(e) =>
                         updateActionTier(idx, { key: e.target.value.trim().toLowerCase() })
@@ -881,7 +882,7 @@ export function TeamBattleConfigEditor({
                   <div>
                     <label style={smallLabelStyle}>Mã hiệu ứng (Asset key)</label>
                     {availableAssetKeys.length > 0 ? (
-                      <select
+                      <Select
                         value={action.asset || ''}
                         onChange={(e) =>
                           updateActionTier(idx, { asset: e.target.value || undefined })
@@ -893,9 +894,9 @@ export function TeamBattleConfigEditor({
                         {availableAssetKeys.map((k) => (
                           <option key={k} value={k}>{k}</option>
                         ))}
-                      </select>
+                      </Select>
                     ) : (
-                      <input
+                      <Input
                         value={action.asset || ''}
                         onChange={(e) =>
                           updateActionTier(idx, { asset: e.target.value.trim() || undefined })
@@ -947,7 +948,7 @@ export function TeamBattleConfigEditor({
                 Thời lượng trận đấu (Duration)
               </label>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.4rem' }}>
-                <input
+                <Input
                   id="battle-duration"
                   type="number"
                   min={60}
@@ -1011,7 +1012,7 @@ export function TeamBattleConfigEditor({
               <label htmlFor="battle-top-donors" style={smallLabelStyle}>
                 Số vị trí TOP DONATE hiển thị
               </label>
-              <input
+              <Input
                 id="battle-top-donors"
                 type="number"
                 min={1}

@@ -24,7 +24,9 @@ export function StagePreview({ c }: { c: DiscoController }) {
         style={{
           position: 'relative',
           width: '100%',
-          aspectRatio: '9 / 16',
+          // Bám theo khung đang chọn: bản xem trước phải cho thấy đúng thứ khán
+          // giả sẽ thấy, nếu không nó chỉ là một hình dạng khác gây hiểu nhầm.
+          aspectRatio: `${c.frame.width} / ${c.frame.height}`,
           maxHeight: '68vh',
           margin: '0 auto',
           borderRadius: 'var(--radius)',

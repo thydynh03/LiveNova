@@ -2,8 +2,7 @@
 
 import React from 'react';
 import { Icon } from '../../ui/Icon';
-import { Button, Card, Input } from '../../ui/primitives';
-import { DEFAULT_FRAME_WIDTH, DEFAULT_FRAME_HEIGHT } from '../../overlays/FixedFrame';
+import { Button, Card, Field, Input } from '../../ui/primitives';
 import type { DiscoController } from '../use-disco-controller';
 
 /**
@@ -23,6 +22,37 @@ export function OutputPanel({ c }: { c: DiscoController }) {
         </span>
       }
     >
+      {/*
+        Chọn khung hình.
+
+        Trước đây chỉ có khung dọc, và cách duy nhất để lấy khung ngang là tự gõ
+        `?ratio=16:9` vào cuối link — thứ không ai biết trừ khi đọc mã nguồn.
+      */}
+      <Field
+        label="Khung hình"
+        hint="Quyết định tỉ lệ và kích thước bạn cần đặt cho Browser Source."
+      >
+        {() => (
+          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+            {c.frameOptions.map((opt) => (
+              <Button
+                key={opt.id}
+                variant={c.ratio === opt.id ? 'primary' : 'secondary'}
+                aria-pressed={c.ratio === opt.id}
+                onClick={() => c.setRatio(opt.id)}
+              >
+                <span style={{ display: 'grid', textAlign: 'left', lineHeight: 1.25 }}>
+                  <span>{opt.label}</span>
+                  <span style={{ fontSize: '0.7rem', fontWeight: 400, opacity: 0.8 }}>
+                    {opt.width} × {opt.height}
+                  </span>
+                </span>
+              </Button>
+            ))}
+          </div>
+        )}
+      </Field>
+
       <div
         style={{
           display: 'flex',
@@ -49,14 +79,13 @@ export function OutputPanel({ c }: { c: DiscoController }) {
                 color: 'hsl(var(--primary))',
               }}
             >
-              {DEFAULT_FRAME_WIDTH} × {DEFAULT_FRAME_HEIGHT}
+              {c.frame.width} × {c.frame.height}
             </Button>{' '}
             — rồi <b>không kéo giãn</b>.
           </p>
           <p style={{ margin: '0.35rem 0 0', color: 'hsl(var(--muted-foreground))' }}>
-            Sàn nhảy luôn vẽ ở đúng khung dọc 9:16 này. Kéo giãn nguồn sẽ phóng to ảnh đã
-            vẽ và làm hình mờ đi. Cần khung ngang cho OBS? Thêm <code>?ratio=16:9</code> vào
-            cuối link.
+            Sàn nhảy luôn vẽ ở đúng khung {c.frame.label.toLowerCase()} này. Kéo giãn nguồn
+            sẽ phóng to ảnh đã vẽ và làm hình mờ đi. Đổi khung ở trên rồi chép lại link mới.
           </p>
         </div>
       </div>

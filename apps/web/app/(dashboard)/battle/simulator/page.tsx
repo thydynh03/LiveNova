@@ -8,6 +8,7 @@ import { useToast } from '../../../../components/ui/Toast';
 import { describeError } from '../../../../lib/describe-error';
 import { copyText } from '../../../../lib/copy-text';
 import { Icon } from '../../../../components/ui/Icon';
+import { Input } from '../../../../components/ui/primitives';
 import { useAuth } from '../../../../context/AuthContext';
 
 export default function BattleSimulatorPage() {
@@ -600,7 +601,7 @@ export default function BattleSimulatorPage() {
             <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 700, marginBottom: '0.5rem', color: 'hsl(var(--foreground))' }}>
               Tên khán giả Giả lập
             </label>
-            <input
+            <Input
               type="text"
               value={sender}
               onChange={(e) => setSender(e.target.value)}
