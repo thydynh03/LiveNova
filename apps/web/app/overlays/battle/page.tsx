@@ -77,155 +77,143 @@ interface IsometricTowerProps {
   goal: number;
 }
 
+// 4-Tier Color Gradients (Đậm -> Nhạt -> Đậm -> Nhạt theo độ cao)
+const RED_TIERS = [
+  { left: ['#c0152f', '#8c071a'], right: ['#78000f', '#47000b'], top: ['#ff4d68', '#c0152f'], line: 'rgba(255,140,160,0.5)', topStroke: '#ff99ab' },
+  { left: ['#e11d48', '#a80c29'], right: ['#8f071f', '#570010'], top: ['#ff6680', '#e11d48'], line: 'rgba(255,160,180,0.6)', topStroke: '#ffb3c0' },
+  { left: ['#f43f5e', '#be123c'], right: ['#a30d27', '#690013'], top: ['#ff859b', '#f43f5e'], line: 'rgba(255,180,200,0.7)', topStroke: '#ffccd4' },
+  { left: ['#fb7185', '#d62443'], right: ['#b81230', '#7a0017'], top: ['#ffa3b4', '#fb7185'], line: 'rgba(255,200,220,0.8)', topStroke: '#ffe4e8' },
+];
+
+const BLUE_TIERS = [
+  { left: ['#0284c7', '#0369a1'], right: ['#075985', '#0c4a6e'], top: ['#38bdf8', '#0284c7'], line: 'rgba(140,225,255,0.5)', topStroke: '#bbf0ff' },
+  { left: ['#0ea5e9', '#0284c7'], right: ['#0369a1', '#075985'], top: ['#7dd3fc', '#0ea5e9'], line: 'rgba(160,235,255,0.6)', topStroke: '#d1f5ff' },
+  { left: ['#38bdf8', '#0ea5e9'], right: ['#0284c7', '#0369a1'], top: ['#bae6fd', '#38bdf8'], line: 'rgba(180,245,255,0.7)', topStroke: '#e0f7ff' },
+  { left: ['#7dd3fc', '#38bdf8'], right: ['#0ea5e9', '#0284c7'], top: ['#e0f2fe', '#7dd3fc'], line: 'rgba(210,250,255,0.8)', topStroke: '#f0faff' },
+];
+
 function IsometricTower({ character, bricks }: IsometricTowerProps) {
   const isRonaldo = character === 'ronaldo';
-  const SLAB_H = 22; // Height of each slab in SVG px
-  const BASE_Y = 270; // Bottom baseline
+  const tiers = isRonaldo ? RED_TIERS : BLUE_TIERS;
+  
+  // Compact Square Isometric Geometry (Trụ Vuông Chuẩn)
+  const SLAB_H = 19; // Chiều cao mỗi phiến gạch
+  const BASE_Y = 265; // Đáy tháp
+  const CX = 60; // Tọa độ đỉnh nhọn trung tâm
+  const LX = 14; // Góc trái (dX = -46)
+  const RX = 106; // Góc phải (dX = +46)
+  const DY = 23; // Độ dốc isometric 2.5D (tương đương góc ~26.5°)
   
   return (
     <div className="iso-tower-wrap">
       <svg 
-        viewBox="0 0 160 320" 
+        viewBox="0 0 120 300" 
         className="iso-tower-svg"
       >
         <defs>
-          {/* Red Team (Ronaldo) Gradients */}
-          <linearGradient id="rTopGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="#ff7088" />
-            <stop offset="45%" stopColor="#ff4765" />
-            <stop offset="100%" stopColor="#d61f3a" />
-          </linearGradient>
-          <linearGradient id="rLeftGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="#e81e3b" />
-            <stop offset="60%" stopColor="#bd1129" />
-            <stop offset="100%" stopColor="#870517" />
-          </linearGradient>
-          <linearGradient id="rRightGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="#960d20" />
-            <stop offset="60%" stopColor="#6e0514" />
-            <stop offset="100%" stopColor="#45000a" />
-          </linearGradient>
-
-          {/* Blue Team (Messi) Gradients */}
-          <linearGradient id="mTopGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="#9ee8ff" />
-            <stop offset="45%" stopColor="#54c7ff" />
-            <stop offset="100%" stopColor="#0e8fe3" />
-          </linearGradient>
-          <linearGradient id="mLeftGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="#1491e8" />
-            <stop offset="60%" stopColor="#0870b8" />
-            <stop offset="100%" stopColor="#00487d" />
-          </linearGradient>
-          <linearGradient id="mRightGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="#005696" />
-            <stop offset="60%" stopColor="#003d6b" />
-            <stop offset="100%" stopColor="#00223d" />
-          </linearGradient>
-
-          <filter id="isoTowerShadow" x="-20%" y="-20%" width="140%" height="140%">
-            <feDropShadow dx="0" dy="8" stdDeviation="6" floodColor="#000000" floodOpacity="0.8" />
+          <filter id="isoTowerShadow" x="-25%" y="-25%" width="150%" height="150%">
+            <feDropShadow dx="0" dy="8" stdDeviation="6" floodColor="#000000" floodOpacity="0.85" />
           </filter>
         </defs>
 
         <g filter="url(#isoTowerShadow)">
-          {/* Foundation Cap when empty */}
+          {/* Móng trụ vuông khi chưa có gạch */}
           {bricks.length === 0 && (
             <g opacity="0.35">
               <polygon 
-                points={`58,${BASE_Y - 10} 154,${BASE_Y + 6} 102,${BASE_Y + 22} 6,${BASE_Y + 6}`}
-                fill={isRonaldo ? "url(#rTopGrad)" : "url(#mTopGrad)"}
-                stroke={isRonaldo ? "#ffa8b8" : "#c7f2ff"}
+                points={`${CX},${BASE_Y - DY} ${RX},${BASE_Y} ${CX},${BASE_Y + DY} ${LX},${BASE_Y}`}
+                fill={tiers[0].top[0]}
+                stroke={tiers[0].topStroke}
                 strokeWidth="1.5"
               />
               <polygon 
-                points={`6,${BASE_Y + 6} 102,${BASE_Y + 22} 102,${BASE_Y + 36} 6,${BASE_Y + 20}`}
-                fill={isRonaldo ? "url(#rLeftGrad)" : "url(#mLeftGrad)"}
-                stroke="#1a0004"
+                points={`${LX},${BASE_Y} ${CX},${BASE_Y + DY} ${CX},${BASE_Y + DY + SLAB_H} ${LX},${BASE_Y + SLAB_H}`}
+                fill={tiers[0].left[0]}
+                stroke="#000"
                 strokeWidth="1"
               />
               <polygon 
-                points={`102,${BASE_Y + 22} 154,${BASE_Y + 6} 154,${BASE_Y + 20} 102,${BASE_Y + 36}`}
-                fill={isRonaldo ? "url(#rRightGrad)" : "url(#mRightGrad)"}
-                stroke="#1a0004"
+                points={`${CX},${BASE_Y + DY} ${RX},${BASE_Y} ${RX},${BASE_Y + SLAB_H} ${CX},${BASE_Y + DY + SLAB_H}`}
+                fill={tiers[0].right[0]}
+                stroke="#000"
                 strokeWidth="1"
               />
             </g>
           )}
 
-          {/* Slabs rendered from bottom to top */}
+          {/* Các tầng gạch vuông xếp chồng từ dưới lên */}
           {bricks.map((br, index) => {
             const y = BASE_Y - index * SLAB_H;
             const isTop = index === bricks.length - 1;
-            const topFill = isRonaldo ? "url(#rTopGrad)" : "url(#mTopGrad)";
-            const leftFill = isRonaldo ? "url(#rLeftGrad)" : "url(#mLeftGrad)";
-            const rightFill = isRonaldo ? "url(#rRightGrad)" : "url(#mRightGrad)";
-            const seamColor = isRonaldo ? "#380007" : "#00162e";
-            const topStroke = isRonaldo ? "#ffb3c0" : "#d1f5ff";
+            
+            // Biến thiên màu sắc theo độ cao: Đậm -> Nhạt -> Đậm -> Nhạt (chu kỳ 4)
+            const tierIdx = index % 4;
+            const tier = tiers[tierIdx];
+            const seamColor = isRonaldo ? '#2e0005' : '#001224';
 
             return (
               <g 
                 key={br.id} 
                 className={br.falling ? "iso-slab-falling" : ""}
-                style={{ transformOrigin: `80px ${y + 12}px` }}
+                style={{ transformOrigin: `${CX}px ${y + DY}px` }}
               >
-                {/* 1. Left-Front Face (Bright, slopes down to center ridge) */}
+                {/* 1. Mặt Trước - Trái (Hình bình hành nghiêng dốc xuống giữa) */}
                 <polygon
-                  points={`6,${y + 6} 102,${y + 22} 102,${y + 22 + SLAB_H} 6,${y + 6 + SLAB_H}`}
-                  fill={leftFill}
+                  points={`${LX},${y} ${CX},${y + DY} ${CX},${y + DY + SLAB_H} ${LX},${y + SLAB_H}`}
+                  fill={tier.left[0]}
                   stroke={seamColor}
-                  strokeWidth="1.2"
+                  strokeWidth="1"
                 />
 
-                {/* 2. Right-Side Face (Shadow, slopes up from center ridge) */}
+                {/* 2. Mặt Hông - Phải (Hình bình hành nghiêng dốc lên sau, bóng tối) */}
                 <polygon
-                  points={`102,${y + 22} 154,${y + 6} 154,${y + 6 + SLAB_H} 102,${y + 22 + SLAB_H}`}
-                  fill={rightFill}
+                  points={`${CX},${y + DY} ${RX},${y} ${RX},${y + SLAB_H} ${CX},${y + DY + SLAB_H}`}
+                  fill={tier.right[0]}
                   stroke={seamColor}
-                  strokeWidth="1.2"
+                  strokeWidth="1"
                 />
 
-                {/* 3. Center Ridge Vertical Highlight Line */}
+                {/* 3. Đường viền rãnh nổi giữa (Gờ trụ 3D) */}
                 <line
-                  x1="102" y1={y + 22}
-                  x2="102" y2={y + 22 + SLAB_H}
-                  stroke={isRonaldo ? "rgba(255,140,160,0.6)" : "rgba(140,225,255,0.6)"}
+                  x1={CX} y1={y + DY}
+                  x2={CX} y2={y + DY + SLAB_H}
+                  stroke={tier.line}
                   strokeWidth="1.2"
                 />
 
-                {/* 4. Left Edge Highlight Line */}
+                {/* 4. Đường viền mép trái (Ánh sáng hắt vào) */}
                 <line
-                  x1="6" y1={y + 6}
-                  x2="6" y2={y + 6 + SLAB_H}
-                  stroke={isRonaldo ? "rgba(255,180,195,0.7)" : "rgba(180,240,255,0.7)"}
+                  x1={LX} y1={y}
+                  x2={LX} y2={y + SLAB_H}
+                  stroke={tier.line}
                   strokeWidth="1.2"
                 />
 
-                {/* 5. Top Diamond Face (Rendered for topmost slab) */}
+                {/* 5. Nóc vuông Kim Cương Isometric (Hiển thị cho tầng trên cùng) */}
                 {isTop && (
                   <polygon
-                    points={`58,${y - 10} 154,${y + 6} 102,${y + 22} 6,${y + 6}`}
-                    fill={topFill}
-                    stroke={topStroke}
+                    points={`${CX},${y - DY} ${RX},${y} ${CX},${y + DY} ${LX},${y}`}
+                    fill={tier.top[0]}
+                    stroke={tier.topStroke}
                     strokeWidth="1.8"
                   />
                 )}
 
-                {/* Donor text / avatar along the left-front face */}
+                {/* Tên người tặng gọn gàng dọc theo mặt trước bên trái */}
                 {br.donorName && (
-                  <g transform={`translate(16, ${y + 19}) rotate(9.5)`}>
+                  <g transform={`translate(${LX + 4}, ${y + 8}) rotate(26.5)`}>
                     <text
                       x="0"
                       y="0"
                       fill="#ffffff"
-                      fontSize="9.5"
+                      fontSize="8"
                       fontWeight="900"
                       fontFamily="'Segoe UI', sans-serif"
                       style={{
                         filter: 'drop-shadow(0 1px 2px #000)',
                       }}
                     >
-                      {br.donorName.length > 11 ? br.donorName.slice(0, 10) + '…' : br.donorName}
+                      {br.donorName.length > 9 ? br.donorName.slice(0, 8) + '…' : br.donorName}
                     </text>
                   </g>
                 )}
