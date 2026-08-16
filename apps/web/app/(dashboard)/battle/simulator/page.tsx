@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import React, { useState, useEffect, useCallback, Suspense } from 'react';
 import { api } from '../../../../lib/api-client';
@@ -8,6 +8,7 @@ import { useToast } from '../../../../components/ui/Toast';
 import { describeError } from '../../../../lib/describe-error';
 import { copyText } from '../../../../lib/copy-text';
 import { Icon } from '../../../../components/ui/Icon';
+import { VsConfig } from '../../../../components/battle/VsConfig';
 import { Input } from '../../../../components/ui/primitives';
 import { useAuth } from '../../../../context/AuthContext';
 
@@ -932,6 +933,11 @@ export default function BattleSimulatorPage() {
             </div>
           </div>
         </div>
+      </div>
+
+      {/* ── VS CONFIGURATION ──────────────────────────────────────────────── */}
+      <div className="card" style={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', padding: '1rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+        <VsConfig />
       </div>
     </div>
   );

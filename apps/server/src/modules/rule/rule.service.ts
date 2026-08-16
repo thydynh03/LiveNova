@@ -214,6 +214,83 @@ export class RuleService {
   }
 
   private static readonly FALLBACK_PRESETS: Record<string, CreateRuleDto[]> = {
+    'vs-battle-game': [
+      {
+        name: 'Đấu trường VS - Comment "1" → Ronaldo',
+        enabled: true,
+        priority: 0,
+        conditions: {
+          eventType: [LiveEventType.COMMENT],
+          keywords: ['1'],
+        },
+        actions: [
+          {
+            type: RuleActionType.GAME_BATTLE_ACTION,
+            payload: {
+              character: 'ronaldo',
+              bricks: 1,
+              actionKey: 'comment_brick_ronaldo',
+            },
+          },
+        ],
+        continueMatching: false,
+        cooldownMs: 0,
+      },
+      {
+        name: 'Đấu trường VS - Comment "2" → Messi',
+        enabled: true,
+        priority: 0,
+        conditions: {
+          eventType: [LiveEventType.COMMENT],
+          keywords: ['2'],
+        },
+        actions: [
+          {
+            type: RuleActionType.GAME_BATTLE_ACTION,
+            payload: {
+              character: 'messi',
+              bricks: 1,
+              actionKey: 'comment_brick_messi',
+            },
+          },
+        ],
+        continueMatching: false,
+        cooldownMs: 0,
+      },
+      {
+        name: 'Đấu trường VS - Ronaldo (Hoa Hồng)',
+        enabled: true,
+        priority: 1,
+        conditions: { eventType: [LiveEventType.GIFT], giftName: 'Rose' },
+        actions: [
+          {
+            type: RuleActionType.GAME_BATTLE_ACTION,
+            payload: {
+              character: 'ronaldo',
+              bricks: 1,
+              actionKey: 'rose_brick',
+            },
+          },
+        ],
+      },
+      {
+        name: 'Đấu trường VS - Messi (Galaxy)',
+        enabled: true,
+        priority: 1,
+        conditions: { eventType: [LiveEventType.GIFT], giftName: 'Galaxy' },
+        actions: [
+          {
+            type: RuleActionType.GAME_BATTLE_ACTION,
+            payload: {
+              character: 'messi',
+              bricks: 5,
+              actionKey: 'galaxy_brick',
+            },
+          },
+        ],
+      },
+    ],
+
     'blackout-troll': [
       {
         name: 'Troll Che Màn Hình 5s',

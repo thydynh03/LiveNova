@@ -11,6 +11,13 @@ export interface PresetLibraryModalProps {
 
 const PRESETS_LIST = [
   {
+    id: 'vs-battle-game',
+    title: '⚔️ Đấu trường Đặt Gạch (Ronaldo vs Messi)',
+    description: 'Tặng Hoa hồng đặt gạch cho Ronaldo, tặng Galaxy đặt 5 gạch cho Messi vào sàn đấu!',
+    badge: '🔥 Game Mới',
+  },
+
+  {
     id: 'blackout-troll',
     title: '🙈 Troll Streamer - Che Màn Hình 5s khi được Donate',
     description: 'Mỗi khi khán giả donate quà TikTok LIVE, màn hình live bị đen xì 5s gây ức chế cực hài!',
@@ -106,24 +113,30 @@ export function PresetLibraryModal({ onClose, onSuccess }: PresetLibraryModalPro
       style={{
         position: 'fixed',
         inset: 0,
-        background: 'hsl(20 8% 11% / 0.45)',
+        background: 'rgba(0, 0, 0, 0.65)',
+        backdropFilter: 'blur(4px)',
         zIndex: 300,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        padding: '1.5rem',
+        padding: '1.25rem',
+      }}
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
       }}
     >
       <div
         className="card"
         style={{
           width: '100%',
-          maxWidth: '640px',
+          maxWidth: '680px',
+          maxHeight: 'min(88vh, 760px)',
           borderRadius: 'var(--radius-lg)',
           border: '1px solid hsl(var(--border))',
+          background: 'hsl(var(--card))',
           display: 'flex',
           flexDirection: 'column',
-          boxShadow: 'var(--shadow-lg)',
+          boxShadow: '0 20px 50px rgba(0,0,0,0.5)',
           overflow: 'hidden',
         }}
       >
@@ -135,28 +148,52 @@ export function PresetLibraryModal({ onClose, onSuccess }: PresetLibraryModalPro
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
+            flexShrink: 0,
+            background: 'hsl(var(--card))',
           }}
         >
           <div>
-            <h2 style={{ fontSize: '1.25rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <h2 style={{ fontSize: '1.2rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '0.5rem', margin: 0, color: 'hsl(var(--foreground))' }}>
               <Icon name="spark" size={22} />
-              Mẫu có sẵn
+              Kho Mẫu Có Sẵn
             </h2>
-            <p style={{ fontSize: '0.8rem', color: 'hsl(var(--muted-foreground))', marginTop: '0.2rem' }}>
-              Chọn một mẫu là chạy được ngay. Sửa lại câu chữ cho giống giọng bạn lúc nào cũng được.
+            <p style={{ fontSize: '0.8rem', color: 'hsl(var(--muted-foreground))', margin: '0.25rem 0 0' }}>
+              Chọn một mẫu là kích hoạt dùng được ngay. Bạn có thể tùy chỉnh lại theo ý thích sau.
             </p>
           </div>
           <button
             onClick={onClose}
-            style={{ background: 'none', border: 'none', color: 'hsl(var(--muted-foreground))', fontSize: '1.5rem', cursor: 'pointer' }}
+            type="button"
+            style={{
+              background: 'hsl(var(--background))',
+              border: '1px solid hsl(var(--border))',
+              borderRadius: '50%',
+              width: 32,
+              height: 32,
+              display: 'grid',
+              placeItems: 'center',
+              color: 'hsl(var(--muted-foreground))',
+              cursor: 'pointer',
+              transition: 'all 0.15s ease',
+            }}
           >
-            <Icon name="close" size={18} />
+            <Icon name="close" size={16} />
           </button>
         </div>
 
-        <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+        {/* Scrollable Body */}
+        <div
+          style={{
+            padding: '1.25rem 1.5rem',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '0.875rem',
+            overflowY: 'auto',
+            flex: 1,
+          }}
+        >
           {error && (
-            <div style={{ padding: '0.75rem', borderRadius: 'var(--radius)', background: 'hsl(var(--destructive) / 0.08)', color: 'hsl(var(--destructive))', fontSize: '0.9rem' }}>
+            <div style={{ padding: '0.75rem', borderRadius: 'var(--radius)', background: 'hsl(var(--destructive) / 0.12)', color: 'hsl(var(--destructive))', fontSize: '0.85rem', fontWeight: 600 }}>
               {error}
             </div>
           )}
@@ -165,7 +202,7 @@ export function PresetLibraryModal({ onClose, onSuccess }: PresetLibraryModalPro
             <div
               key={p.id}
               style={{
-                padding: '1.25rem',
+                padding: '1rem 1.25rem',
                 borderRadius: 'var(--radius)',
                 background: 'hsl(var(--background))',
                 border: '1px solid hsl(var(--border))',
@@ -173,33 +210,36 @@ export function PresetLibraryModal({ onClose, onSuccess }: PresetLibraryModalPro
                 alignItems: 'center',
                 justifyContent: 'space-between',
                 gap: '1rem',
+                transition: 'border-color 0.15s ease',
               }}
             >
-              <div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.3rem' }}>
-                  <strong style={{ fontSize: '1rem' }}>{p.title}</strong>
-                  {/* One neutral badge style. The three presets used to be
-                      rose, purple and blue, which read as three unrelated
-                      products rather than three options in one list. */}
-                  <span className="pill">{p.badge}</span>
+              <div style={{ flex: 1 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem', flexWrap: 'wrap' }}>
+                  <strong style={{ fontSize: '0.95rem', color: 'hsl(var(--foreground))' }}>{p.title}</strong>
+                  <span className="pill" style={{ fontSize: '0.7rem' }}>{p.badge}</span>
                 </div>
-                <p style={{ fontSize: '0.85rem', color: 'hsl(var(--muted-foreground))', margin: 0 }}>{p.description}</p>
+                <p style={{ fontSize: '0.8rem', color: 'hsl(var(--muted-foreground))', margin: 0, lineHeight: 1.4 }}>
+                  {p.description}
+                </p>
               </div>
 
               <button
+                type="button"
                 onClick={() => handleApplyPreset(p.id)}
                 disabled={applying !== null}
                 style={{
-                  padding: '0.55rem 1.1rem',
+                  padding: '0.5rem 1rem',
                   borderRadius: 'var(--radius)',
                   background: 'hsl(var(--primary))',
                   color: 'hsl(var(--primary-foreground))',
                   border: 'none',
-                  fontWeight: 600,
-                  fontSize: '0.85rem',
+                  fontWeight: 700,
+                  fontSize: '0.82rem',
                   cursor: applying !== null ? 'not-allowed' : 'pointer',
                   whiteSpace: 'nowrap',
                   opacity: applying === p.id ? 0.7 : 1,
+                  boxShadow: '0 2px 8px hsl(var(--primary) / 0.25)',
+                  flexShrink: 0,
                 }}
               >
                 {applying === p.id ? 'Đang thêm…' : 'Dùng mẫu này'}

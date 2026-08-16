@@ -41,6 +41,8 @@ export enum OverlayType {
   LEADERBOARD = 'leaderboard',
   TOP_VIEWER = 'top_viewer',
   ROOM_ENTRY = 'room_entry',
+  GAME_BATTLE = 'game_battle',
+  STAGE = 'stage',
 }
 
 export enum UserRole {
