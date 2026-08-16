@@ -505,35 +505,81 @@ function BattleOverlayContent() {
           display: block;
         }
 
-        /* Dynamic Draggable Positioned Progress HUD Layer */
-        .dynamic-hud {
+                /* Dynamic Positioned Separate Progress HUD for Each Side */
+        .hud-container {
           position: absolute;
-          left: 12px;
-          right: 12px;
+          left: 10px;
+          right: 10px;
           z-index: 25;
-          display: flex;
-          flex-direction: column;
-          background: rgba(0,0,0,0.85);
-          padding: 8px 12px;
-          border-radius: 8px;
-          backdrop-filter: blur(8px);
-          border: 1px solid rgba(255,255,255,0.2);
-          box-shadow: 0 8px 24px rgba(0,0,0,0.8);
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 12px;
+          pointer-events: none;
         }
 
-        .prow { 
-          display:grid; 
-          grid-template-columns:1fr 1fr; 
-          gap: 12px; 
+        .team-hud {
+          display: flex;
+          flex-direction: column;
+          gap: 5px;
+          background: rgba(0, 0, 0, 0.88);
+          padding: 8px 12px;
+          border-radius: 8px;
+          backdrop-filter: blur(10px);
+          box-shadow: 0 8px 24px rgba(0, 0, 0, 0.8);
         }
-        .pbwrap { display:flex; flex-direction:column; gap:4px; }
-        .pbtrack { height:12px; border-radius:6px; background:rgba(255,255,255,.18); overflow:hidden; box-shadow: inset 0 2px 4px rgba(0,0,0,0.6); }
-        .pbfill { height:100%; border-radius:6px; transition:width .35s cubic-bezier(.4,0,.2,1); }
-        .pbfill.r { background:linear-gradient(90deg,#cc0000,#ff4444); box-shadow:0 0 14px #ff4444; }
-        .pbfill.m { background:linear-gradient(90deg,#0055ff,#3399ff); box-shadow:0 0 14px #3399ff; }
-        .plbl { font-size:12px; font-weight:900; letter-spacing:1px; }
-        .plbl.r { color:#ff4444; }
-        .plbl.m { color:#3399ff; text-align:right; }
+        .team-hud.r {
+          border: 1.5px solid rgba(220, 20, 60, 0.6);
+          box-shadow: 0 4px 20px rgba(220, 20, 60, 0.25), inset 0 1px 0 rgba(255, 100, 100, 0.3);
+        }
+        .team-hud.m {
+          border: 1.5px solid rgba(0, 153, 255, 0.6);
+          box-shadow: 0 4px 20px rgba(0, 153, 255, 0.25), inset 0 1px 0 rgba(100, 200, 255, 0.3);
+        }
+
+        .hud-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          font-family: 'Bebas Neue', 'Montserrat', sans-serif;
+          letter-spacing: 1px;
+        }
+        .hud-title {
+          font-size: 14px;
+          font-weight: 900;
+        }
+        .hud-title.r { color: #ff5566; text-shadow: 0 0 10px rgba(255, 50, 50, 0.6); }
+        .hud-title.m { color: #55aaff; text-shadow: 0 0 10px rgba(50, 150, 255, 0.6); }
+
+        .hud-score {
+          font-size: 14px;
+          font-weight: 900;
+        }
+        .hud-score.r { color: #ffffff; text-shadow: 0 0 8px #ff4444; }
+        .hud-score.m { color: #ffffff; text-shadow: 0 0 8px #3399ff; }
+
+        .hud-track {
+          width: 100%;
+          height: 12px;
+          border-radius: 6px;
+          background: rgba(255, 255, 255, 0.12);
+          overflow: hidden;
+          box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.8);
+          border: 1px solid rgba(255, 255, 255, 0.15);
+        }
+
+        .hud-fill {
+          height: 100%;
+          border-radius: 5px;
+          transition: width 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .hud-fill.r {
+          background: linear-gradient(90deg, #8B0000, #DC143C, #FF3344);
+          box-shadow: 0 0 14px #ff3344;
+        }
+        .hud-fill.m {
+          background: linear-gradient(90deg, #023468, #0066cc, #3399ff);
+          box-shadow: 0 0 14px #3399ff;
+        }
 
         /* Dynamic Custom Badges */
         .custom-badge {
@@ -843,16 +889,33 @@ function BattleOverlayContent() {
           {rightName}
         </div>
 
-        {/* Layer 3: Custom Draggable Progress HUD */}
-        <div className="dynamic-hud" style={{ top: `${hudY}%` }}>
-          <div className="prow">
-            <div className="pbwrap">
-              <div className="plbl r">🧱 {ronaldoCount} / {goal}</div>
-              <div className="pbtrack"><div className="pbfill r" style={{width:`${Math.min(100,(ronaldoCount/goal)*100)}%`}}/></div>
+                {/* Layer 3: Separate Progress HUD for Each Side */}
+        <div className="hud-container" style={{ top: `${hudY}%` }}>
+          {/* Left Progress Box (Ronaldo) */}
+          <div className="team-hud r">
+            <div className="hud-header">
+              <span className="hud-title r">🧱 {leftName}</span>
+              <span className="hud-score r">{ronaldoCount} / {goal}</span>
             </div>
-            <div className="pbwrap" style={{alignItems:'flex-end'}}>
-              <div className="plbl m">🧱 {messiCount} / {goal}</div>
-              <div className="pbtrack"><div className="pbfill m" style={{width:`${Math.min(100,(messiCount/goal)*100)}%`}}/></div>
+            <div className="hud-track">
+              <div
+                className="hud-fill r"
+                style={{ width: `${Math.min(100, (ronaldoCount / goal) * 100)}%` }}
+              />
+            </div>
+          </div>
+
+          {/* Right Progress Box (Messi) */}
+          <div className="team-hud m">
+            <div className="hud-header">
+              <span className="hud-title m">🧱 {rightName}</span>
+              <span className="hud-score m">{messiCount} / {goal}</span>
+            </div>
+            <div className="hud-track">
+              <div
+                className="hud-fill m"
+                style={{ width: `${Math.min(100, (messiCount / goal) * 100)}%` }}
+              />
             </div>
           </div>
         </div>
