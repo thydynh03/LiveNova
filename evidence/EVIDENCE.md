@@ -234,6 +234,31 @@ người dùng Tab sẽ lạc vào một danh sách liên kết vô hình.
 
 ---
 
+## 7. An toàn bản quyền âm thanh
+
+Overlay từng mặc định **bật tiếng**, cố ý để âm thanh YouTube phát thẳng ra sóng.
+Nhưng như vậy là phát nhạc có bản quyền lên TikTok — hệ thống quét vân tay âm thanh
+của họ bắt được, thường tắt tiếng buổi live trước rồi kết thúc live nếu lặp lại.
+
+Ba thay đổi:
+
+- Overlay **mặc định tắt tiếng**. Ai chủ động muốn phát tiếng vẫn bật được bằng
+  `?audio=1`, nhưng phải tự gõ vào.
+- Công tắc "Phát tiếng của video lên sóng" hiện cảnh báo **khi và chỉ khi đang bật** —
+  hiện thường trực thì nó thành dòng chữ vàng người dùng học cách phớt lờ.
+- Bỏ mẫu video YouTube khỏi danh sách gợi ý. Dán link vào ô nhập vẫn được nếu ai đó
+  thật sự muốn; chỉ là không đề xuất nữa. Mẫu nhạc còn lại đều là Pixabay, miễn phí
+  bản quyền.
+
+| Khẳng định | Kết quả |
+|---|---|
+| Mặc định overlay tắt tiếng | **PASS** |
+| Chỉ `?audio=1` mới bật tiếng | **PASS** |
+
+Đây là thiết lập an toàn nên nó được canh bằng test (`E3b`), không chỉ bằng trí nhớ.
+
+---
+
 ## 7. Phần chưa làm
 
 - **Migrate phần còn lại sang bộ component** — trang Disco đã chuyển xong; `admin`,

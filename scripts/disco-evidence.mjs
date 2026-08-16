@@ -104,6 +104,40 @@ try {
   }
 
   // ───────────────────────────────────────────────────────────────────────────
+  // E3b — Overlay phải IM LẶNG theo mặc định.
+  //
+  //      Phát nhạc có bản quyền lên TikTok là cách nhanh nhất để buổi live bị
+  //      tắt tiếng rồi bị kết thúc. Đây là thiết lập an toàn nên nó đáng được
+  //      canh bằng test, không chỉ bằng trí nhớ.
+  // ───────────────────────────────────────────────────────────────────────────
+  {
+    const ctx = await browser.newContext({ viewport: { width: 540, height: 960 } });
+    const page = await ctx.newPage();
+
+    const readMuted = async (url) => {
+      await page.goto(url, { waitUntil: 'domcontentloaded' });
+      await settle(page, 3000);
+      // Video nền là <iframe> YouTube khi có link YouTube; không có thì sân khấu
+      // vẽ bằng WebGL và chẳng có gì phát tiếng cả.
+      return page.evaluate(() => {
+        const iframe = document.querySelector('iframe[src*="youtube"]');
+        if (iframe) return /[?&]mute=1/.test(iframe.getAttribute('src'));
+        const media = Array.from(document.querySelectorAll('video, audio'));
+        return media.length === 0 || media.every((m) => m.muted);
+      });
+    };
+
+    const yt = 'https://www.youtube.com/watch?v=kYbgc0wSrnM';
+    const defaultMuted = await readMuted(`${BASE}/overlays/disco?video=${encodeURIComponent(yt)}`);
+    const optInUnmuted = await readMuted(`${BASE}/overlays/disco?audio=1&video=${encodeURIComponent(yt)}`);
+
+    record('E3b', 'Overlay im lặng theo mặc định', { defaultMuted, unmutedWithAudioParam: !optInUnmuted });
+    check('mặc định overlay TẮT tiếng', defaultMuted, true);
+    check('chỉ ?audio=1 mới bật tiếng', optInUnmuted, false);
+    await ctx.close();
+  }
+
+  // ───────────────────────────────────────────────────────────────────────────
   // E4 — Nghiệp vụ: DJ giữ ghế, Top 3 lên bục, bảng quà không có DJ.
   //      Đọc thẳng trạng thái engine — pixel không nói được ai đang ở đâu.
   // ───────────────────────────────────────────────────────────────────────────

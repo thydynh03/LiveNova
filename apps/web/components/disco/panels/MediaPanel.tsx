@@ -113,12 +113,44 @@ export function MediaPanel({ c }: { c: DiscoController }) {
           </Button>
         </div>
 
-        <Switch
-          checked={!c.isDjVideoMuted}
-          onChange={(on) => c.setMuted(!on)}
-          label="Phát tiếng của video"
-          hint="Bật khi dùng video YouTube làm nhạc nền thay cho trình phát bên dưới."
-        />
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+          <Switch
+            checked={!c.isDjVideoMuted}
+            onChange={(on) => c.setMuted(!on)}
+            label="Phát tiếng của video lên sóng"
+            hint="Mặc định tắt. Overlay im lặng thì buổi live không bao giờ dính bản quyền âm thanh."
+          />
+
+          {/*
+            Cảnh báo chỉ hiện khi công tắc đang bật.
+
+            Hiện thường trực thì nó thành một dòng chữ vàng người dùng học cách
+            phớt lờ; hiện đúng lúc họ vừa bật thứ gây rủi ro thì họ mới đọc.
+          */}
+          {!c.isDjVideoMuted && (
+            <div
+              role="status"
+              style={{
+                display: 'flex',
+                alignItems: 'flex-start',
+                gap: '0.5rem',
+                padding: '0.625rem 0.75rem',
+                borderRadius: 'var(--radius-sm)',
+                border: '1px solid hsl(var(--warning) / 0.4)',
+                background: 'hsl(var(--warning) / 0.12)',
+                fontSize: '0.8125rem',
+                lineHeight: 1.5,
+              }}
+            >
+              <Icon name="warning" size={16} />
+              <span>
+                Tiếng của video sẽ phát thẳng lên TikTok. Nếu là nhạc có bản quyền, TikTok
+                có thể tắt tiếng hoặc <b>kết thúc buổi live</b> của bạn. An toàn hơn: để
+                overlay im lặng và phát nhạc không bản quyền từ máy qua OBS.
+              </span>
+            </div>
+          )}
+        </div>
 
         <Field
           label={`Độ mờ màn LED — ${Math.round(c.ledDim * 100)}%`}

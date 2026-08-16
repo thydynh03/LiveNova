@@ -28,9 +28,19 @@ function DiscoOverlayContent() {
 
   const engine = useMemo(() => new DiscoEngine(), []);
   const [activeVideo, setActiveVideo] = useState<string>(customVideo || '');
-  // Mặc định BẬT tiếng để âm thanh YouTube phát thẳng trong TikTok Live Studio / OBS.
+  /**
+   * Mặc định TẮT tiếng.
+   *
+   * Bản trước mặc định bật, cố ý để âm thanh YouTube phát thẳng ra sóng. Nhưng
+   * như vậy là phát nhạc có bản quyền lên TikTok, và hệ thống quét vân tay âm
+   * thanh của họ bắt được — thường tắt tiếng buổi live trước, rồi kết thúc live
+   * nếu lặp lại. Một overlay im lặng thì không bao giờ gây ra chuyện đó.
+   *
+   * Ai chủ động muốn phát tiếng vẫn bật được bằng `?audio=1`, nhưng phải tự gõ
+   * vào — mặc định không đẩy ai vào rủi ro mà họ không biết mình đang nhận.
+   */
   const [isMuted, setIsMuted] = useState<boolean>(
-    audioParam === '0' || audioParam === 'false',
+    !(audioParam === '1' || audioParam === 'true'),
   );
   const [ledDim, setLedDim] = useState<number>(DEFAULT_LED_DIM);
 

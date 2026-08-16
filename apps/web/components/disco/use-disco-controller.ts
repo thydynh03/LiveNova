@@ -66,17 +66,24 @@ function readDiscoConfig(raw: unknown): DiscoOverlayConfig {
   };
 }
 
-/** Mẫu video nền gợi ý cho màn LED. */
+/**
+ * Mẫu video nền gợi ý cho màn LED.
+ *
+ * Cố ý KHÔNG còn mẫu YouTube nào. Gợi ý một video ca nhạc YouTube là mời người
+ * dùng phát nhạc có bản quyền lên sóng TikTok, và hệ thống quét vân tay âm thanh
+ * của họ bắt được — hậu quả rơi vào tài khoản của streamer, không phải của ta.
+ * Dán link YouTube vào ô nhập vẫn được nếu ai đó thật sự muốn; chỉ là ta không
+ * đề xuất nó nữa.
+ */
 export const VIDEO_PRESETS = [
   { label: 'Mặc định (visualizer)', url: '' },
-  { label: 'YouTube DJ club', url: 'https://www.youtube.com/watch?v=kYbgc0wSrnM' },
   {
     label: 'Neon cyber loop',
     url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4',
   },
 ] as const;
 
-/** Mẫu nhạc sàn gợi ý. */
+/** Mẫu nhạc sàn gợi ý. Đều là nguồn miễn phí bản quyền (Pixabay). */
 export const MUSIC_PRESETS = [
   {
     label: 'Vinahouse Future Beat',

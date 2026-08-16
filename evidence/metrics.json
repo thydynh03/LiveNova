@@ -40,6 +40,14 @@
     }
   },
   {
+    "id": "E3b",
+    "title": "Overlay im lặng theo mặc định",
+    "data": {
+      "defaultMuted": true,
+      "unmutedWithAudioParam": true
+    }
+  },
+  {
     "id": "E4",
     "title": "Nghiệp vụ: ghế DJ, bục Top 3, luật quà",
     "data": {
