@@ -77,79 +77,100 @@ interface IsometricTowerProps {
   goal: number;
 }
 
-// 4-Tier Color Gradients (Đậm -> Nhạt -> Đậm -> Nhạt theo độ cao)
-const RED_TIERS = [
-  { left: ['#c0152f', '#8c071a'], right: ['#78000f', '#47000b'], top: ['#ff4d68', '#c0152f'], line: 'rgba(255,140,160,0.5)', topStroke: '#ff99ab' },
-  { left: ['#e11d48', '#a80c29'], right: ['#8f071f', '#570010'], top: ['#ff6680', '#e11d48'], line: 'rgba(255,160,180,0.6)', topStroke: '#ffb3c0' },
-  { left: ['#f43f5e', '#be123c'], right: ['#a30d27', '#690013'], top: ['#ff859b', '#f43f5e'], line: 'rgba(255,180,200,0.7)', topStroke: '#ffccd4' },
-  { left: ['#fb7185', '#d62443'], right: ['#b81230', '#7a0017'], top: ['#ffa3b4', '#fb7185'], line: 'rgba(255,200,220,0.8)', topStroke: '#ffe4e8' },
+// Bảng màu REDS chính xác từ hình mẫu (DarkRed -> LightSalmon)
+const RED_PALETTE = [
+  { base: '#8B0000', shadow: '#540000', highlight: '#b81414', stroke: '#ff6666' }, // DarkRed (139,0,0)
+  { base: '#B22222', shadow: '#701111', highlight: '#d93636', stroke: '#ff7a7a' }, // FireBrick (178,34,34)
+  { base: '#DC143C', shadow: '#8c0a22', highlight: '#f03a5e', stroke: '#ff8da2' }, // Crimson (220,20,60)
+  { base: '#FF0000', shadow: '#a60000', highlight: '#ff4d4d', stroke: '#ffa6a6' }, // Red (255,0,0)
+  { base: '#CD5C5C', shadow: '#823434', highlight: '#df7e7e', stroke: '#ffc2c2' }, // IndianRed (205,92,92)
+  { base: '#FA8072', shadow: '#a64a3f', highlight: '#fca297', stroke: '#ffe0db' }, // Salmon (250,128,114)
+  { base: '#E9967A', shadow: '#96523d', highlight: '#f1b4a0', stroke: '#ffded4' }, // DarkSalmon (233,150,122)
+  { base: '#F08080', shadow: '#9c4545', highlight: '#f7abab', stroke: '#ffe6e6' }, // LightCoral (240,128,128)
+  { base: '#FFA07A', shadow: '#ab5737', highlight: '#ffbea6', stroke: '#ffffff' }, // LightSalmon (255,160,122)
 ];
 
-const BLUE_TIERS = [
-  { left: ['#0284c7', '#0369a1'], right: ['#075985', '#0c4a6e'], top: ['#38bdf8', '#0284c7'], line: 'rgba(140,225,255,0.5)', topStroke: '#bbf0ff' },
-  { left: ['#0ea5e9', '#0284c7'], right: ['#0369a1', '#075985'], top: ['#7dd3fc', '#0ea5e9'], line: 'rgba(160,235,255,0.6)', topStroke: '#d1f5ff' },
-  { left: ['#38bdf8', '#0ea5e9'], right: ['#0284c7', '#0369a1'], top: ['#bae6fd', '#38bdf8'], line: 'rgba(180,245,255,0.7)', topStroke: '#e0f7ff' },
-  { left: ['#7dd3fc', '#38bdf8'], right: ['#0ea5e9', '#0284c7'], top: ['#e0f2fe', '#7dd3fc'], line: 'rgba(210,250,255,0.8)', topStroke: '#f0faff' },
+// Bảng màu BLUES chính xác từ hình mẫu (Navy -> IceBlue)
+const BLUE_PALETTE = [
+  { base: '#023468', shadow: '#011c38', highlight: '#0455a8', stroke: '#4da6ff' }, // #023468
+  { base: '#005B9A', shadow: '#003357', highlight: '#007ece', stroke: '#66c2ff' }, // #005B9A
+  { base: '#006699', shadow: '#003957', highlight: '#008ecc', stroke: '#66ccff' }, // #006699
+  { base: '#006994', shadow: '#003b54', highlight: '#0094cf', stroke: '#80d4ff' }, // #006994
+  { base: '#008080', shadow: '#004747', highlight: '#00b3b3', stroke: '#80ffff' }, // #008080
+  { base: '#08BBB6', shadow: '#056b68', highlight: '#24e3de', stroke: '#a6ffff' }, // #08BBB6
+  { base: '#40E0D0', shadow: '#1f8278', highlight: '#73ede1', stroke: '#c2fff7' }, // #40E0D0
+  { base: '#82CAFA', shadow: '#437699', highlight: '#b0dffc', stroke: '#e0f3ff' }, // #82CAFA
+  { base: '#89D0F0', shadow: '#467d96', highlight: '#b5e3f7', stroke: '#e8f7ff' }, // #89D0F0
+  { base: '#AED8E6', shadow: '#5c808c', highlight: '#d0ecf5', stroke: '#ffffff' }, // #AED8E6
 ];
+
+// Hàm sóng Ping-Pong (Đậm -> Nhạt -> Đậm -> Nhạt theo độ cao)
+function getPaletteColor(palette: typeof RED_PALETTE, index: number) {
+  const n = palette.length;
+  const period = 2 * (n - 1);
+  const mod = index % period;
+  const idx = mod < n ? mod : period - mod;
+  return palette[idx];
+}
 
 function IsometricTower({ character, bricks }: IsometricTowerProps) {
   const isRonaldo = character === 'ronaldo';
-  const tiers = isRonaldo ? RED_TIERS : BLUE_TIERS;
+  const palette = isRonaldo ? RED_PALETTE : BLUE_PALETTE;
   
-  // Compact Square Isometric Geometry (Trụ Vuông Chuẩn)
+  // Góc nghiêng bẻ sang phải nhiều hơn (68% mặt trước trái, 32% mặt hông phải)
   const SLAB_H = 19; // Chiều cao mỗi phiến gạch
   const BASE_Y = 265; // Đáy tháp
-  const CX = 60; // Tọa độ đỉnh nhọn trung tâm
-  const LX = 14; // Góc trái (dX = -46)
-  const RX = 106; // Góc phải (dX = +46)
-  const DY = 23; // Độ dốc isometric 2.5D (tương đương góc ~26.5°)
+  const LX = 8; // Góc trái (8)
+  const CX = 86; // Gờ giữa lệch sang phải (dX = +78)
+  const RX = 122; // Góc phải (dX = +36)
+  const TX = 44; // Đỉnh nóc (44)
+  const DY = 19; // Độ dốc isometric
   
   return (
     <div className="iso-tower-wrap">
       <svg 
-        viewBox="0 0 120 300" 
+        viewBox="0 0 130 300" 
         className="iso-tower-svg"
       >
         <defs>
           <filter id="isoTowerShadow" x="-25%" y="-25%" width="150%" height="150%">
-            <feDropShadow dx="0" dy="8" stdDeviation="6" floodColor="#000000" floodOpacity="0.85" />
+            <feDropShadow dx="2" dy="8" stdDeviation="6" floodColor="#000000" floodOpacity="0.85" />
           </filter>
         </defs>
 
         <g filter="url(#isoTowerShadow)">
-          {/* Móng trụ vuông khi chưa có gạch */}
+          {/* Móng trụ khi chưa có gạch */}
           {bricks.length === 0 && (
             <g opacity="0.35">
               <polygon 
-                points={`${CX},${BASE_Y - DY} ${RX},${BASE_Y} ${CX},${BASE_Y + DY} ${LX},${BASE_Y}`}
-                fill={tiers[0].top[0]}
-                stroke={tiers[0].topStroke}
+                points={`${TX},${BASE_Y - DY} ${RX},${BASE_Y} ${CX},${BASE_Y + DY} ${LX},${BASE_Y}`}
+                fill={palette[0].highlight}
+                stroke={palette[0].stroke}
                 strokeWidth="1.5"
               />
               <polygon 
                 points={`${LX},${BASE_Y} ${CX},${BASE_Y + DY} ${CX},${BASE_Y + DY + SLAB_H} ${LX},${BASE_Y + SLAB_H}`}
-                fill={tiers[0].left[0]}
+                fill={palette[0].base}
                 stroke="#000"
                 strokeWidth="1"
               />
               <polygon 
                 points={`${CX},${BASE_Y + DY} ${RX},${BASE_Y} ${RX},${BASE_Y + SLAB_H} ${CX},${BASE_Y + DY + SLAB_H}`}
-                fill={tiers[0].right[0]}
+                fill={palette[0].shadow}
                 stroke="#000"
                 strokeWidth="1"
               />
             </g>
           )}
 
-          {/* Các tầng gạch vuông xếp chồng từ dưới lên */}
+          {/* Các tầng gạch xếp chồng theo độ cao với biến thiên màu sắc lặp lại */}
           {bricks.map((br, index) => {
             const y = BASE_Y - index * SLAB_H;
             const isTop = index === bricks.length - 1;
             
-            // Biến thiên màu sắc theo độ cao: Đậm -> Nhạt -> Đậm -> Nhạt (chu kỳ 4)
-            const tierIdx = index % 4;
-            const tier = tiers[tierIdx];
-            const seamColor = isRonaldo ? '#2e0005' : '#001224';
+            // Lấy màu sắc từ bảng màu theo quy luật Ping-Pong (Đậm -> Nhạt -> Đậm -> Nhạt)
+            const item = getPaletteColor(palette, index);
+            const seamColor = isRonaldo ? 'rgba(40,0,5,0.75)' : 'rgba(0,18,36,0.75)';
 
             return (
               <g 
@@ -157,63 +178,63 @@ function IsometricTower({ character, bricks }: IsometricTowerProps) {
                 className={br.falling ? "iso-slab-falling" : ""}
                 style={{ transformOrigin: `${CX}px ${y + DY}px` }}
               >
-                {/* 1. Mặt Trước - Trái (Hình bình hành nghiêng dốc xuống giữa) */}
+                {/* 1. Mặt Trước - Trái (Rộng ~68%, nghiêng dốc xuống gờ giữa) */}
                 <polygon
                   points={`${LX},${y} ${CX},${y + DY} ${CX},${y + DY + SLAB_H} ${LX},${y + SLAB_H}`}
-                  fill={tier.left[0]}
+                  fill={item.base}
                   stroke={seamColor}
-                  strokeWidth="1"
+                  strokeWidth="1.2"
                 />
 
-                {/* 2. Mặt Hông - Phải (Hình bình hành nghiêng dốc lên sau, bóng tối) */}
+                {/* 2. Mặt Hông - Phải (Hẹp ~32%, nghiêng dốc lên sau, bóng tối) */}
                 <polygon
                   points={`${CX},${y + DY} ${RX},${y} ${RX},${y + SLAB_H} ${CX},${y + DY + SLAB_H}`}
-                  fill={tier.right[0]}
+                  fill={item.shadow}
                   stroke={seamColor}
-                  strokeWidth="1"
+                  strokeWidth="1.2"
                 />
 
-                {/* 3. Đường viền rãnh nổi giữa (Gờ trụ 3D) */}
+                {/* 3. Đường viền gờ giữa (Center Ridge Line) */}
                 <line
                   x1={CX} y1={y + DY}
                   x2={CX} y2={y + DY + SLAB_H}
-                  stroke={tier.line}
+                  stroke={item.stroke}
                   strokeWidth="1.2"
                 />
 
-                {/* 4. Đường viền mép trái (Ánh sáng hắt vào) */}
+                {/* 4. Đường viền mép trái (Left Highlight Edge) */}
                 <line
                   x1={LX} y1={y}
                   x2={LX} y2={y + SLAB_H}
-                  stroke={tier.line}
+                  stroke={item.stroke}
                   strokeWidth="1.2"
                 />
 
-                {/* 5. Nóc vuông Kim Cương Isometric (Hiển thị cho tầng trên cùng) */}
+                {/* 5. Nóc Kim Cương Isometric (Hiển thị cho tầng trên cùng) */}
                 {isTop && (
                   <polygon
-                    points={`${CX},${y - DY} ${RX},${y} ${CX},${y + DY} ${LX},${y}`}
-                    fill={tier.top[0]}
-                    stroke={tier.topStroke}
+                    points={`${TX},${y - DY} ${RX},${y} ${CX},${y + DY} ${LX},${y}`}
+                    fill={item.highlight}
+                    stroke={item.stroke}
                     strokeWidth="1.8"
                   />
                 )}
 
-                {/* Tên người tặng gọn gàng dọc theo mặt trước bên trái */}
+                {/* Tên người tặng gọn gàng nghiêng theo mặt trước bên trái */}
                 {br.donorName && (
-                  <g transform={`translate(${LX + 4}, ${y + 8}) rotate(26.5)`}>
+                  <g transform={`translate(${LX + 6}, ${y + 6}) rotate(13.7)`}>
                     <text
                       x="0"
                       y="0"
                       fill="#ffffff"
-                      fontSize="8"
+                      fontSize="8.5"
                       fontWeight="900"
                       fontFamily="'Segoe UI', sans-serif"
                       style={{
                         filter: 'drop-shadow(0 1px 2px #000)',
                       }}
                     >
-                      {br.donorName.length > 9 ? br.donorName.slice(0, 8) + '…' : br.donorName}
+                      {br.donorName.length > 10 ? br.donorName.slice(0, 9) + '…' : br.donorName}
                     </text>
                   </g>
                 )}
