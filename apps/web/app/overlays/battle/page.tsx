@@ -924,7 +924,7 @@ function BattleOverlayContent() {
         <div className="interactive-arena">
           {/* Left Zone (Ronaldo) */}
           <div className="panel-zone r" title="Phe Ronaldo - nhấn Q để test">
-            <div className={`iso-tower-wrap${shakeLeft ? ' col-shake' : ''}`} style={{ bottom: `${100 - brickY}%` }}>
+            <div className="iso-tower-wrap" style={{ bottom: `${100 - brickY}%` }}>
               <IsometricTower character="ronaldo" bricks={ronaldoBricks} score={ronaldoCount} goal={goal} />
             </div>
             <div className="sbadge r" style={{ bottom: `${Math.max(10, 100 - brickY - 6)}%` }}>
@@ -937,7 +937,7 @@ function BattleOverlayContent() {
 
           {/* Right Zone (Messi) */}
           <div className="panel-zone m" title="Phe Messi - nhấn W để test">
-            <div className={`iso-tower-wrap${shakeRight ? ' col-shake' : ''}`} style={{ bottom: `${100 - brickY}%` }}>
+            <div className="iso-tower-wrap" style={{ bottom: `${100 - brickY}%` }}>
               <IsometricTower character="messi" bricks={messiBricks} score={messiCount} goal={goal} />
             </div>
             <div className="sbadge m" style={{ bottom: `${Math.max(10, 100 - brickY - 6)}%` }}>
