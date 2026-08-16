@@ -1,4 +1,4 @@
-﻿﻿﻿﻿'use client';
+﻿﻿﻿﻿﻿'use client';
 
 import React, {
   useCallback,
@@ -117,19 +117,22 @@ function IsometricTower({ character, bricks }: IsometricTowerProps) {
   const isRonaldo = character === 'ronaldo';
   const palette = isRonaldo ? RED_PALETTE : BLUE_PALETTE;
   
-  // Right-tilted isometric prism: left face wide, right face narrow, slabs flattened
-  const SLAB_H = 12; // Xẹp gạch mỏng lại
-  const BASE_Y = 230; // Đáy tháp
-  const LX = 8;  // Góc trái
-  const TX = 35; // Đỉnh nóc (lệch phải)
-  const CX = 76; // Gờ giữa - lệch phải: mặt trái chiếm ~65%, mặt phải ~35%
-  const RX = 108; // Góc phải
-  const DY = 14; // Độ dốc isometric (~11.6° bên trái, ~23.6° bên phải)
+  // Khối gạch 3D vuông chuẩn cân đối (True Square Isometric Block)
+  const SLAB_H = 15; // Chiều cao phiến gạch vừa vặn, chuẩn hình khối vuông
+  const BASE_Y = 235; // Đáy tháp
+  const LX = 14; // Góc trái
+  const TX = 46; // Đỉnh nóc
+  const CX = 58; // Gờ giữa (nghiêng nhẹ sang phải 58/104, tạo khối hộp vuông 3D)
+  const RX = 90; // Góc phải
+  const TY = 3;  // Độ cao đỉnh nóc
+  const LY = 16; // Độ cao góc trái
+  const CY = 29; // Độ cao gờ giữa
+  const RY = 16; // Độ cao góc phải
   
   return (
     <div className="iso-tower-wrap">
       <svg 
-        viewBox="0 0 116 280" 
+        viewBox="0 0 104 280" 
         className="iso-tower-svg"
       >
         <defs>
@@ -143,19 +146,19 @@ function IsometricTower({ character, bricks }: IsometricTowerProps) {
           {bricks.length === 0 && (
             <g opacity="0.35">
               <polygon 
-                points={`${TX},${BASE_Y} ${RX},${BASE_Y + DY} ${CX},${BASE_Y + 2 * DY} ${LX},${BASE_Y + DY}`}
+                points={`${TX},${BASE_Y + TY} ${RX},${BASE_Y + RY} ${CX},${BASE_Y + CY} ${LX},${BASE_Y + LY}`}
                 fill={palette[0].top}
                 stroke={palette[0].stroke}
                 strokeWidth="1.2"
               />
               <polygon 
-                points={`${LX},${BASE_Y + DY} ${CX},${BASE_Y + 2 * DY} ${CX},${BASE_Y + 2 * DY + SLAB_H} ${LX},${BASE_Y + DY + SLAB_H}`}
+                points={`${LX},${BASE_Y + LY} ${CX},${BASE_Y + CY} ${CX},${BASE_Y + CY + SLAB_H} ${LX},${BASE_Y + LY + SLAB_H}`}
                 fill={palette[0].base}
                 stroke="#000"
                 strokeWidth="1"
               />
               <polygon 
-                points={`${CX},${BASE_Y + 2 * DY} ${RX},${BASE_Y + DY} ${RX},${BASE_Y + DY + SLAB_H} ${CX},${BASE_Y + 2 * DY + SLAB_H}`}
+                points={`${CX},${BASE_Y + CY} ${RX},${BASE_Y + RY} ${RX},${BASE_Y + RY + SLAB_H} ${CX},${BASE_Y + CY + SLAB_H}`}
                 fill={palette[0].shadow}
                 stroke="#000"
                 strokeWidth="1"
@@ -176,19 +179,19 @@ function IsometricTower({ character, bricks }: IsometricTowerProps) {
               <g 
                 key={br.id} 
                 className={br.falling ? "iso-slab-falling" : ""}
-                style={{ transformOrigin: `${CX}px ${y + 2 * DY}px` }}
+                style={{ transformOrigin: `${CX}px ${y + CY}px` }}
               >
-                {/* 1. Mặt Trước - Trái (Hình bình hành vuông dốc xuống gờ giữa) */}
+                {/* 1. Mặt Trước - Trái (Khối gạch vuông nhìn chéo) */}
                 <polygon
-                  points={`${LX},${y + DY} ${CX},${y + 2 * DY} ${CX},${y + 2 * DY + SLAB_H} ${LX},${y + DY + SLAB_H}`}
+                  points={`${LX},${y + LY} ${CX},${y + CY} ${CX},${y + CY + SLAB_H} ${LX},${y + LY + SLAB_H}`}
                   fill={item.base}
                   stroke={seamColor}
                   strokeWidth="1"
                 />
 
-                {/* 2. Mặt Hông - Phải (Hình bình hành vuông dốc lên sau, bóng tối) */}
+                {/* 2. Mặt Hông - Phải (Đổ bóng 3D chiều sâu) */}
                 <polygon
-                  points={`${CX},${y + 2 * DY} ${RX},${y + DY} ${RX},${y + DY + SLAB_H} ${CX},${y + 2 * DY + SLAB_H}`}
+                  points={`${CX},${y + CY} ${RX},${y + RY} ${RX},${y + RY + SLAB_H} ${CX},${y + CY + SLAB_H}`}
                   fill={item.shadow}
                   stroke={seamColor}
                   strokeWidth="1"
@@ -196,24 +199,24 @@ function IsometricTower({ character, bricks }: IsometricTowerProps) {
 
                 {/* 3. Đường gờ giữa (Center Ridge Line) */}
                 <line
-                  x1={CX} y1={y + 2 * DY}
-                  x2={CX} y2={y + 2 * DY + SLAB_H}
+                  x1={CX} y1={y + CY}
+                  x2={CX} y2={y + CY + SLAB_H}
                   stroke={item.stroke}
                   strokeWidth="1"
                 />
 
                 {/* 4. Mép trái (Left Edge Highlight) */}
                 <line
-                  x1={LX} y1={y + DY}
-                  x2={LX} y2={y + DY + SLAB_H}
+                  x1={LX} y1={y + LY}
+                  x2={LX} y2={y + LY + SLAB_H}
                   stroke={item.stroke}
                   strokeWidth="1"
                 />
 
-                {/* 5. Nóc Kim Cương Isometric (Hiển thị cho tầng trên cùng, 4 cạnh vuông đều) */}
+                {/* 5. Nóc Kim Cương Isometric (Hiển thị cho tầng trên cùng) */}
                 {isTop && (
                   <polygon
-                    points={`${TX},${y} ${RX},${y + DY} ${CX},${y + 2 * DY} ${LX},${y + DY}`}
+                    points={`${TX},${y + TY} ${RX},${y + RY} ${CX},${y + CY} ${LX},${y + LY}`}
                     fill={item.top}
                     stroke={item.stroke}
                     strokeWidth="1.6"
@@ -222,13 +225,13 @@ function IsometricTower({ character, bricks }: IsometricTowerProps) {
 
                 {/* Tên người tặng đặt căn giữa chuẩn xác bên trong mặt trước gạch */}
                 {br.donorName && (
-                  <g transform={`translate(42, ${y + DY + DY / 2 + SLAB_H / 2}) rotate(11.6)`}>
+                  <g transform={`translate(36, ${y + (LY + CY) / 2 + SLAB_H / 2}) rotate(16.46)`}>
                     <text
                       x="0"
                       y="0"
                       textAnchor="middle"
                       fill="#ffffff"
-                      fontSize="7.2"
+                      fontSize="7.4"
                       fontWeight="900"
                       fontFamily="'Montserrat', 'Segoe UI', sans-serif"
                       style={{
@@ -284,6 +287,8 @@ function BattleOverlayContent() {
   const [shakeRight, setShakeRight] = useState(false);
 
   const brickIdRef = useRef(0);
+  const totalRonaldoRef = useRef(0);
+  const totalMessiRef = useRef(0);
   const pendingRonaldo = useRef(0);
   const pendingMessi = useRef(0);
   const phaseRef = useRef<GamePhase>('playing');
@@ -349,6 +354,7 @@ function BattleOverlayContent() {
     const setCount = isRonaldo ? setRonaldoCount : setMessiCount;
     const pendingRef = isRonaldo ? pendingRonaldo : pendingMessi;
     const setShake = isRonaldo ? setShakeLeft : setShakeRight;
+    const totalRef = isRonaldo ? totalRonaldoRef : totalMessiRef;
     const currentOffset = pendingRef.current;
     pendingRef.current += count;
 
@@ -357,18 +363,18 @@ function BattleOverlayContent() {
       setTimeout(() => {
         if (phaseRef.current !== 'playing') return;
         const id = `b${brickIdRef.current++}`;
+        const globalIndex = totalRef.current++;
         playBrickThud(color);
 
+        // 1. Thêm đúng 1 viên gạch độc lập lên đỉnh (không lồng trong setCount)
+        setBricks(prevBricks => {
+          const trimmed = prevBricks.length >= MAX_VISIBLE_BRICKS ? prevBricks.slice(1) : prevBricks;
+          return [...trimmed, { id, globalIndex, falling: true, donorName, donorAvatar }];
+        });
+
+        // 2. Tăng điểm độc lập
         setCount(prev => {
           const next = prev + 1;
-          const globalIndex = next - 1; // 0, 1, 2, ... thứ tự số gạch tích lũy để đổi màu sóng liên tục
-
-          setBricks(prevBricks => {
-            // Khi đủ 10 viên gạch, gạch cũ nhất ở đáy (index 0) bị đẩy/đè xuống, gạch mới luôn ở trên đỉnh
-            const trimmed = prevBricks.length >= MAX_VISIBLE_BRICKS ? prevBricks.slice(1) : prevBricks;
-            return [...trimmed, { id, globalIndex, falling: true, donorName, donorAvatar }];
-          });
-
           if (next >= goal) {
             setTimeout(() => {
               setPhase(character === 'ronaldo' ? 'ronaldo_wins' : 'messi_wins');
@@ -387,13 +393,14 @@ function BattleOverlayContent() {
     }
     setTimeout(() => { pendingRef.current = Math.max(0, pendingRef.current - count); },
       (currentOffset + count) * BRICK_STAGGER_MS + BRICK_FALL_MS + 100);
-  }, [goal]);
+  }, [goal, playWinFanfare]);
 
   useEffect(() => {
     document.body.style.backgroundColor = 'transparent';
     document.documentElement.style.backgroundColor = 'transparent';
 
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.repeat) return;
       if (e.key === '1' || e.key === 'q' || e.key === 'Q') {
         addBricks('ronaldo', 1, '@Fan_CR7');
       } else if (e.key === '2' || e.key === 'w' || e.key === 'W') {
@@ -408,6 +415,7 @@ function BattleOverlayContent() {
         setRonaldoCount(0); setMessiCount(0);
         setPhase('playing');
         pendingRonaldo.current = 0; pendingMessi.current = 0;
+        totalRonaldoRef.current = 0; totalMessiRef.current = 0;
       }
     };
 
