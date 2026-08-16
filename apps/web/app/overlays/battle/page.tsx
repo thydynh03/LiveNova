@@ -1,4 +1,4 @@
-﻿﻿'use client';
+﻿﻿﻿﻿'use client';
 
 import React, {
   useCallback,
@@ -271,7 +271,15 @@ function BattleOverlayContent() {
   const [ronaldoCount, setRonaldoCount] = useState(0);
   const [messiCount, setMessiCount] = useState(0);
   const [phase, setPhase] = useState<GamePhase>('playing');
-  const [confetti] = useState(() => makeConfetti(CONFETTI_COUNT));
+  const [confetti, setConfetti] = useState<ReturnType<typeof makeConfetti>>([]);
+
+  useEffect(() => {
+    if (phase !== 'playing') {
+      setConfetti(makeConfetti(CONFETTI_COUNT));
+    } else {
+      setConfetti([]);
+    }
+  }, [phase]);
   const [shakeLeft, setShakeLeft] = useState(false);
   const [shakeRight, setShakeRight] = useState(false);
 
@@ -916,8 +924,18 @@ function BattleOverlayContent() {
 }
 
 export default function BattleOverlayPage() {
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted) {
+    return <div style={{ width: '100vw', height: '100vh', background: 'transparent' }} />;
+  }
+
   return (
-    <Suspense fallback={<div>Đang tải Overlay...</div>}>
+    <Suspense fallback={<div style={{ width: '100vw', height: '100vh', background: 'transparent' }} />}>
       <BattleOverlayContent />
     </Suspense>
   );
