@@ -400,114 +400,138 @@ function BattleOverlayContent() {
           padding: 16px;
         }
 
-        /* Brick Columns with Customizable Bottom Offset */
+                /* ─── ISOMETRIC 3D BRICK COLUMN & TILES (Matches Reference Image) ─── */
         .bcol { 
-          position:absolute; 
-          width: clamp(105px, 28vw, 155px); 
+          position: absolute; 
+          width: clamp(120px, 32vw, 175px); 
           display: flex; 
           flex-direction: column-reverse; 
           align-items: stretch; 
           z-index: 15; 
-          max-height: 45vh;
-          overflow: hidden;
+          max-height: 52vh;
+          overflow: visible;
+          filter: drop-shadow(0 8px 22px rgba(0,0,0,0.85));
         }
-        .panel-zone.r .bcol { right: 12px; }
-        .panel-zone.m .bcol { left: 12px; }
+                .panel-zone.r .bcol { left: 50%; transform: translateX(-50%); }
+        .panel-zone.m .bcol { left: 50%; transform: translateX(-50%); }
+        .panel-zone.r .sbadge { left: 50%; transform: translateX(-50%); }
+        .panel-zone.m .sbadge { left: 50%; transform: translateX(-50%); }
 
         @keyframes brickFall { 
-          0%{transform:translateY(-60vh) scaleY(0.8);opacity:0} 
-          55%{transform:translateY(5px) scaleY(1.04);opacity:1} 
-          75%{transform:translateY(-2px) scaleY(0.98)} 
-          100%{transform:translateY(0) scaleY(1);opacity:1} 
+          0%{transform:translateY(-50vh) scale(0.9);opacity:0} 
+          60%{transform:translateY(4px) scale(1.02);opacity:1} 
+          80%{transform:translateY(-2px) scale(0.99)} 
+          100%{transform:translateY(0) scale(1);opacity:1} 
         }
         
         .brick { 
-          height: clamp(28px, 4.2vh, 38px); 
-          border-radius: 5px 5px 3px 3px; 
-          margin: 2px 0 0; 
+          height: clamp(22px, 3.2vh, 28px); 
+          margin-top: -1px;
           display: flex;
           align-items: center;
           padding: 0 8px;
           gap: 6px;
-          overflow: hidden;
           position: relative;
+          box-sizing: border-box;
         }
-        .brick::before {
-          content: '';
-          position: absolute;
-          top: 0; left: 0; right: 0;
-          height: 35%;
-          background: linear-gradient(to bottom, rgba(255,255,255,0.22), rgba(255,255,255,0));
-          border-radius: 5px 5px 0 0;
-          pointer-events: none;
-          z-index: 2;
-        }
-        .brick > * { position: relative; z-index: 3; }
         .brick.falling { animation:brickFall ${BRICK_FALL_MS}ms cubic-bezier(.34,1.56,.64,1) both; }
         
+        /* 3D Isometric Red Slab (Ronaldo) */
         .brick.rb { 
-          background: linear-gradient(180deg, #ff6644 0%, #cc1100 45%, #8a0a00 100%); 
-          border-top: 2px solid #ff9977;
-          border-bottom: 3px solid #550800;
-          border-left: 1.5px solid #dd3311;
-          border-right: 1.5px solid #990d00;
-          box-shadow: 0 4px 0 0 #440600, 0 6px 18px rgba(220,30,0,0.8), inset 0 -2px 4px rgba(0,0,0,0.3);
+          background: linear-gradient(180deg, #d61834 0%, #a80e22 55%, #7a0817 100%); 
+          border-left: 4px solid #ff4d66;
+          border-right: 5px solid #4a000b;
+          border-bottom: 2px solid #360007;
+          border-top: 1px solid rgba(255,140,160,0.5);
+          box-shadow: inset 0 1px 0 rgba(255,200,210,0.4), 0 3px 6px rgba(0,0,0,0.6);
         }
+        
+        /* 3D Isometric Blue Slab (Messi) */
         .brick.mb { 
-          background: linear-gradient(180deg, #55aaff 0%, #0055cc 45%, #003388 100%); 
-          border-top: 2px solid #88ccff;
-          border-bottom: 3px solid #002266;
-          border-left: 1.5px solid #1166ee;
-          border-right: 1.5px solid #0044aa;
-          box-shadow: 0 4px 0 0 #001844, 0 6px 18px rgba(0,100,220,0.8), inset 0 -2px 4px rgba(0,0,0,0.3);
+          background: linear-gradient(180deg, #0984e3 0%, #0066b8 55%, #004580 100%); 
+          border-left: 4px solid #6ad0f5;
+          border-right: 5px solid #002244;
+          border-bottom: 2px solid #00152b;
+          border-top: 1px solid rgba(180,235,255,0.5);
+          box-shadow: inset 0 1px 0 rgba(210,245,255,0.4), 0 3px 6px rgba(0,0,0,0.6);
+        }
+
+        /* 3D Isometric Top Roof Cap */
+        .iso-top-cap {
+          position: absolute;
+          top: -16px;
+          left: -4px;
+          right: -5px;
+          height: 16px;
+          pointer-events: none;
+          z-index: 10;
+        }
+        .iso-top-cap.r {
+          background: linear-gradient(135deg, #ff7a8c 0%, #ff4757 50%, #c91834 100%);
+          border-top: 2px solid #ffa3af;
+          border-left: 2px solid #ff7a8c;
+          border-right: 2px solid #800818;
+          clip-path: polygon(14% 0%, 86% 0%, 100% 100%, 0% 100%);
+          box-shadow: 0 -4px 12px rgba(255,70,90,0.6);
+        }
+        .iso-top-cap.m {
+          background: linear-gradient(135deg, #a0e6ff 0%, #54c3f5 50%, #0984e3 100%);
+          border-top: 2px solid #d4f4ff;
+          border-left: 2px solid #a0e6ff;
+          border-right: 2px solid #004580;
+          clip-path: polygon(14% 0%, 86% 0%, 100% 100%, 0% 100%);
+          box-shadow: 0 -4px 12px rgba(100,200,255,0.6);
         }
 
         .brick-avatar {
-          width: 20px;
-          height: 20px;
+          width: 17px;
+          height: 17px;
           border-radius: 50%;
           object-fit: cover;
-          border: 1px solid #ffffff;
+          border: 1px solid rgba(255,255,255,0.8);
           flex-shrink: 0;
+          box-shadow: 0 1px 3px rgba(0,0,0,0.5);
         }
         .brick-avatar-placeholder {
-          font-size: 14px;
+          font-size: 11px;
           line-height: 1;
           flex-shrink: 0;
+          opacity: 0.85;
         }
         .brick-donor-name {
-          font-size: clamp(9px, 2.2vw, 11px);
+          font-size: clamp(8.5px, 2vw, 10.5px);
           font-weight: 800;
           color: #ffffff;
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
-          text-shadow: 0 1px 3px rgba(0,0,0,0.9);
-          letter-spacing: 0.5px;
+          text-shadow: 0 1px 2px rgba(0,0,0,0.9);
+          letter-spacing: 0.3px;
         }
 
-        @keyframes colShake { 
-          0%{transform:translateX(0)} 
-          20%{transform:translateX(-5px)} 
-          40%{transform:translateX(5px)} 
-          60%{transform:translateX(-3px)} 
-          80%{transform:translateX(3px)} 
-          100%{transform:translateX(0)} 
+                @keyframes colShake { 
+          0%{transform: translateX(-50%)} 
+          20%{transform: translateX(calc(-50% - 6px))} 
+          40%{transform: translateX(calc(-50% + 6px))} 
+          60%{transform: translateX(calc(-50% - 3px))} 
+          80%{transform: translateX(calc(-50% + 3px))} 
+          100%{transform: translateX(-50%)} 
         }
-        .col-shake { animation:colShake .28s ease-in-out; }
+        .col-shake { animation: colShake .28s ease-in-out; }
 
         .sbadge { 
-          position:absolute; 
-          font-size:clamp(.8rem, 2.2vw, 1.1rem); 
-          font-weight:900; 
-          letter-spacing:1px; 
-          padding:4px 10px; 
-          border-radius:20px; 
-          z-index:16; 
-          backdrop-filter:blur(8px);
+          position: absolute; 
+          font-family: 'Bebas Neue', 'Impact', sans-serif;
+          font-size: clamp(1rem, 3vw, 1.3rem); 
+          letter-spacing: 1.5px; 
+          padding: 2px 10px; 
+          border-radius: 6px; 
+          z-index: 16; 
+          backdrop-filter: blur(6px);
+          box-shadow: 0 4px 12px rgba(0,0,0,0.8);
         }
-        .sbadge.r { right:12px; color:#ff4444; background:rgba(180,0,0,.6); border:1px solid rgba(255,50,50,.8); }
-        .sbadge.m { left:12px; color:#44aaff; background:rgba(0,50,180,.6); border:1px solid rgba(50,120,255,.8); }
+        .sbadge.r { right: 12px; color: #ffffff; background: rgba(214, 24, 52, 0.9); border: 1.5px solid #ff7a8c; }
+        .sbadge.m { left: 12px; color: #ffffff; background: rgba(9, 132, 227, 0.9); border: 1.5px solid #70d3ff; }
 
         /* ─── RONALDO SIUUU CELEBRATION MODAL ─── */
         .wov { 
@@ -641,8 +665,11 @@ function BattleOverlayContent() {
           {/* Left Zone */}
           <div className="panel-zone r" onClick={() => addBricks('ronaldo', 1, '@Fan_CR7')} title={`Bấm để test +1 gạch ${leftName}`}>
             <div className={`bcol${shakeLeft?' col-shake':''}`} style={{ bottom: `${100 - brickY}%` }}>
-              {ronaldoBricks.map(br=>(
-                <div key={br.id} className={`brick rb${br.falling?' falling':''}`}>
+              {ronaldoBricks.map((br, index) => (
+                <div key={br.id} className={`brick rb${br.falling ? ' falling' : ''}`}>
+                  {index === ronaldoBricks.length - 1 && (
+                    <div className="iso-top-cap r" />
+                  )}
                   {br.donorAvatar ? (
                     <img src={br.donorAvatar} alt="" className="brick-avatar" />
                   ) : (
@@ -663,8 +690,11 @@ function BattleOverlayContent() {
           {/* Right Zone */}
           <div className="panel-zone m" onClick={() => addBricks('messi', 1, '@Fan_M10')} title={`Bấm để test +1 gạch ${rightName}`}>
             <div className={`bcol${shakeRight?' col-shake':''}`} style={{ bottom: `${100 - brickY}%` }}>
-              {messiBricks.map(br=>(
-                <div key={br.id} className={`brick mb${br.falling?' falling':''}`}>
+              {messiBricks.map((br, index) => (
+                <div key={br.id} className={`brick mb${br.falling ? ' falling' : ''}`}>
+                  {index === messiBricks.length - 1 && (
+                    <div className="iso-top-cap m" />
+                  )}
                   {br.donorAvatar ? (
                     <img src={br.donorAvatar} alt="" className="brick-avatar" />
                   ) : (
