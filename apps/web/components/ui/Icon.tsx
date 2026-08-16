@@ -57,9 +57,11 @@ import {
   DotsSixVertical,
   Info,
   MusicNotes,
+  UploadSimple,
 } from '@phosphor-icons/react';
 
 export const ICONS = {
+  upload: UploadSimple,
   broadcast: Broadcast,
   billing: CreditCard,
   gift: Gift,

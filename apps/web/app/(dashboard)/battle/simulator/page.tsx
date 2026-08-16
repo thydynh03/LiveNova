@@ -5,6 +5,7 @@ import { api } from '../../../../lib/api-client';
 import { BattleState, BattleTeamState, BATTLE_MAP_PRESETS } from '@livenova/shared';
 import { BattleOverlayContent } from '../../../../components/battle/BattleOverlayContent';
 import { Icon } from '../../../../components/ui/Icon';
+import { VsConfig } from '../../../../components/battle/VsConfig';
 import { useAuth } from '../../../../context/AuthContext';
 
 export default function BattleSimulatorPage() {
@@ -924,6 +925,11 @@ export default function BattleSimulatorPage() {
             </div>
           </div>
         </div>
+      </div>
+
+      {/* ── VS CONFIGURATION ──────────────────────────────────────────────── */}
+      <div className="card" style={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', padding: '1rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+        <VsConfig />
       </div>
     </div>
   );
