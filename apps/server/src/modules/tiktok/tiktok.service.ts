@@ -122,17 +122,23 @@ export class TiktokService implements OnModuleInit, OnModuleDestroy {
       }
     }
 
-    live.on('chat', (data: any) => {
-      const text = data.comment || data.content || '';
+    const onChat = (data: any) => {
+      const text = data.comment || data.content || data.text || '';
+      const userIdent = identity(data);
+      this.logger.log(`[TikTok LIVE Chat] @${targetHandle} - ${userIdent.senderDisplayName} (@${userIdent.senderUsername}): "${text}"`);
       this.emitEvent({
         id: uuidv4(),
         type: LiveEventType.COMMENT,
         channelId,
-        ...identity(data.user),
+        ...userIdent,
         content: text,
         occurredAt: toDate(data.createTime || data.timestamp),
       });
-    });
+    };
+
+    live.on('chat', onChat);
+    live.on('comment', onChat);
+    live.on('message', onChat);
 
     live.on('gift', (data: any) => {
       if (data.giftType === 1 && !data.repeatEnd) return;
@@ -140,12 +146,14 @@ export class TiktokService implements OnModuleInit, OnModuleDestroy {
       const repeats = data.repeatCount > 0 ? data.repeatCount : 1;
       const unitValue = data.diamondCount > 0 ? data.diamondCount : 1;
       const giftName = data.giftName || data.giftDetails?.giftName || data.gift?.name || 'Quà';
+      const userIdent = identity(data);
+      this.logger.log(`[TikTok LIVE Gift] @${targetHandle} - ${userIdent.senderDisplayName} tặng ${repeats}x ${giftName} (${unitValue * repeats} xu)`);
 
       this.emitEvent({
         id: uuidv4(),
         type: LiveEventType.GIFT,
         channelId,
-        ...identity(data.user),
+        ...userIdent,
         giftName,
         giftCoinValue: unitValue * repeats,
         occurredAt: toDate(data.createTime || data.timestamp),
@@ -158,18 +166,31 @@ export class TiktokService implements OnModuleInit, OnModuleDestroy {
         id: uuidv4(),
         type: LiveEventType.LIKE,
         channelId,
-        ...identity(data.user),
+        ...identity(data),
         content: `Thả ${likeCount} tim`,
         occurredAt: toDate(data.createTime || data.timestamp),
       });
     });
 
     live.on('member', (data: any) => {
+      const userIdent = identity(data);
+      this.logger.log(`[TikTok LIVE Member/Join] @${targetHandle} - ${userIdent.senderDisplayName} (@${userIdent.senderUsername}) vào phòng live`);
       this.emitEvent({
         id: uuidv4(),
         type: LiveEventType.JOIN,
         channelId,
-        ...identity(data.user),
+        ...userIdent,
+        occurredAt: toDate(data.createTime || data.timestamp),
+      });
+    });
+
+    live.on('roomUser', (data: any) => {
+      const userIdent = identity(data);
+      this.emitEvent({
+        id: uuidv4(),
+        type: LiveEventType.JOIN,
+        channelId,
+        ...userIdent,
         occurredAt: toDate(data.createTime || data.timestamp),
       });
     });
@@ -180,7 +201,7 @@ export class TiktokService implements OnModuleInit, OnModuleDestroy {
         id: uuidv4(),
         type: isFollow ? LiveEventType.FOLLOW : LiveEventType.SHARE,
         channelId,
-        ...identity(data.user),
+        ...identity(data),
         occurredAt: toDate(data.createTime || data.timestamp),
       });
     });
@@ -313,12 +334,35 @@ export class TiktokService implements OnModuleInit, OnModuleDestroy {
 }
 
 /** Viewer identity, with the same fallbacks applied everywhere. */
-function identity(user: { nickname?: string; uniqueId?: string; displayId?: string } | undefined) {
-  const username = user?.displayId || user?.uniqueId || 'unknown';
-  const name = user?.nickname || username || 'Khán giả';
+function identity(data: any) {
+  const user = data?.user || data;
+  const username =
+    data?.uniqueId ||
+    user?.uniqueId ||
+    data?.displayId ||
+    user?.displayId ||
+    data?.userId ||
+    user?.userId ||
+    'unknown';
+  const name =
+    data?.nickname ||
+    user?.nickname ||
+    data?.displayName ||
+    user?.displayName ||
+    username ||
+    'Khán giả';
+  const avatar =
+    data?.profilePictureUrl ||
+    user?.profilePictureUrl ||
+    data?.avatarUrl ||
+    user?.avatarUrl ||
+    data?.userDetails?.profilePictureUrls?.[0] ||
+    user?.userDetails?.profilePictureUrls?.[0] ||
+    user?.profilePictureUrls?.[0];
   return {
     senderUsername: username,
     senderDisplayName: name,
+    senderAvatar: avatar,
   };
 }
 

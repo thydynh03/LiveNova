@@ -37,7 +37,8 @@ export class TiktokController {
     @Param('channelId', ParseUUIDPipe) channelId: string,
   ) {
     const channel = await this.channelService.assertOwnedAndVerified(userId, channelId);
-    await this.tiktokService.connect(channel.id, channel.platformChannelId);
+    const handle = channel.handle || channel.platformChannelId;
+    await this.tiktokService.connect(channel.id, handle);
     return { status: 'connected', channelId: channel.id };
   }
 

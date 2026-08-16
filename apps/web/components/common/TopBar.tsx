@@ -236,7 +236,13 @@ function EmergencyStop({
   );
 }
 
-export function TopBar() {
+export function TopBar({
+  navOpen = false,
+  onToggleNav,
+}: {
+  navOpen?: boolean;
+  onToggleNav?: () => void;
+}) {
   const { data: credit } = useApi<CreditBalance>('/credits/balance');
   const { data: sessions, reload: reloadSessions } = useApi<SessionState>('/tiktok/sessions');
 
@@ -256,6 +262,30 @@ export function TopBar() {
         background: 'hsl(var(--card))',
       }}
     >
+      {/* Chỉ hiện dưới 1024px, khi sidebar đã thu thành ngăn kéo. Ẩn/hiện bằng
+          CSS chứ không bằng JS để không lệch một khung hình lúc tải trang. */}
+      <button
+        type="button"
+        className="ln-nav-toggle"
+        onClick={onToggleNav}
+        aria-expanded={navOpen}
+        aria-label={navOpen ? 'Đóng menu điều hướng' : 'Mở menu điều hướng'}
+        style={{
+          alignItems: 'center',
+          justifyContent: 'center',
+          width: 40,
+          height: 40,
+          flex: 'none',
+          borderRadius: 'var(--radius-sm)',
+          border: '1px solid hsl(var(--border))',
+          background: 'hsl(var(--background))',
+          color: 'hsl(var(--foreground))',
+          cursor: 'pointer',
+        }}
+      >
+        <Icon name={navOpen ? 'close' : 'menu'} size={20} />
+      </button>
+
       <DestinationSearch />
 
       <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>

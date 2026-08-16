@@ -11,6 +11,16 @@ export interface DiscoStageViewProps {
   trackTitle?: string;
   isMuted?: boolean;
   enableAudio?: boolean;
+  /** Độ mờ lớp phủ màn LED, 0 = trong suốt, 1 = đen kịt. */
+  ledDim?: number;
+  /** Hệ số nhân độ phân giải render 3D. */
+  renderQuality?: number;
+}
+
+function getYouTubeId(url: string): string | null {
+  if (!url) return null;
+  const match = url.match(/(?:youtube\.com\/(?:[^/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?/\s]{11})/i);
+  return match ? match[1] : null;
 }
 
 export default function DiscoStageView({
@@ -20,12 +30,16 @@ export default function DiscoStageView({
   trackTitle = '',
   isMuted = true,
   enableAudio = true,
+  ledDim = 0.28,
+  renderQuality = 1,
 }: DiscoStageViewProps) {
   const [activeVideoUrl, setActiveVideoUrl] = useState(videoUrl);
   const [activeMusicUrl, setActiveMusicUrl] = useState(musicUrl);
   const [activeTrackTitle, setActiveTrackTitle] = useState(trackTitle);
-  const [showTrackToast, setShowTrackToast] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  const trimmedVideoUrl = (activeVideoUrl || '').trim();
+  const ytId = getYouTubeId(trimmedVideoUrl);
 
   // Sync prop updates
   useEffect(() => {
@@ -56,8 +70,6 @@ export default function DiscoStageView({
           }
           if (data.trackTitle !== undefined) {
             setActiveTrackTitle(data.trackTitle);
-            setShowTrackToast(true);
-            setTimeout(() => setShowTrackToast(false), 5000);
           }
           if (data.videoUrl !== undefined) {
             setActiveVideoUrl(data.videoUrl);
@@ -69,6 +81,28 @@ export default function DiscoStageView({
       };
     }
   }, []);
+
+  const [isPortrait, setIsPortrait] = useState<boolean>(false);
+  const [topDancers, setTopDancers] = useState<any[]>([]);
+
+  useEffect(() => {
+    const checkPortrait = () => {
+      setIsPortrait(typeof window !== 'undefined' && window.innerWidth < window.innerHeight);
+    };
+    checkPortrait();
+    window.addEventListener('resize', checkPortrait);
+    return () => window.removeEventListener('resize', checkPortrait);
+  }, []);
+
+  useEffect(() => {
+    const update = () => {
+      // Bục vinh danh, đã loại DJ — xem chú thích ở khối hiển thị bên dưới.
+      setTopDancers(engine.getPodiumDancers());
+    };
+    update();
+    const interval = setInterval(update, 500);
+    return () => clearInterval(interval);
+  }, [engine]);
 
   // Play audio when activeMusicUrl changes and audio is enabled
   useEffect(() => {
@@ -100,88 +134,146 @@ export default function DiscoStageView({
         />
       )}
 
-      {/* Floating Now Playing Track Toast */}
-      {(showTrackToast || activeTrackTitle) && (
-        <div
-          style={{
-            position: 'absolute',
-            top: '16px',
-            left: '50%',
-            transform: 'translateX(-50%)',
-            zIndex: 40,
-            background: 'rgba(5, 5, 12, 0.85)',
-            backdropFilter: 'blur(12px)',
-            border: '1px solid rgba(0, 240, 255, 0.4)',
-            boxShadow: '0 0 25px rgba(0, 240, 255, 0.25)',
-            borderRadius: '24px',
-            padding: '6px 16px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            color: '#fff',
-            fontSize: '13px',
-            fontWeight: 700,
-            pointerEvents: 'none',
-          }}
-        >
-          <span style={{ fontSize: '16px' }}>🎵</span>
-          <span style={{ color: '#00f0ff' }}>ĐANG PHÁT:</span>
-          <span style={{ color: '#fff', maxWidth: '280px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {activeTrackTitle || 'EDM Club Mix'}
-          </span>
-        </div>
-      )}
-
-      {/* Floating Top DJ & VIP Podium Leaderboard Badge */}
+      {/* Ultra-Compact Minimalist Broadcast HUD (Top Bar - Non-intrusive, 0 obstruction) */}
       <div
         style={{
           position: 'absolute',
-          top: '16px',
-          right: '16px',
+          top: '10px',
+          left: '12px',
+          right: '12px',
           zIndex: 40,
-          background: 'rgba(10, 8, 20, 0.88)',
-          backdropFilter: 'blur(14px)',
-          border: '1px solid rgba(255, 215, 0, 0.45)',
-          boxShadow: '0 0 25px rgba(255, 215, 0, 0.3)',
-          borderRadius: '14px',
-          padding: '10px 14px',
           display: 'flex',
-          flexDirection: 'column',
-          gap: '6px',
-          color: '#fff',
-          fontSize: '11px',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          gap: '8px',
           pointerEvents: 'none',
-          minWidth: '170px',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 800, color: '#ffd700', fontSize: '11px' }}>
-          <span>👑</span>
-          <span>BẢNG TOP VIP &amp; DJ</span>
+        {/* Left: Stream Ready & Now Playing Track Pill */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            padding: '4px 10px',
+            borderRadius: '20px',
+            background: 'rgba(5, 5, 15, 0.75)',
+            border: '1px solid rgba(0, 240, 255, 0.35)',
+            backdropFilter: 'blur(10px)',
+            color: '#fff',
+            fontSize: '11px',
+            fontWeight: 600,
+            boxShadow: '0 2px 10px rgba(0,0,0,0.4)',
+          }}
+        >
+          <span style={{ width: '7px', height: '7px', borderRadius: '50%', backgroundColor: '#00ff88', boxShadow: '0 0 6px #00ff88' }} />
+          <span>Sẵn sàng</span>
+          <span style={{ color: 'rgba(255,255,255,0.4)' }}>|</span>
+          <span style={{ color: '#00f0ff' }}>🎵 {activeTrackTitle || 'EDM Club Mix'}</span>
         </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-          {engine.getTopDancers(3).map((dancer, idx) => (
-            <div key={dancer.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
-              <span style={{
-                color: idx === 0 ? '#ffd700' : idx === 1 ? '#00f0ff' : '#ff007f',
-                fontWeight: 700,
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
-                maxWidth: '120px'
-              }}>
-                {idx === 0 ? '👑 TOP 1 DJ: ' : idx === 1 ? '🥈 BỤC TOP 2: ' : '🥉 BỤC TOP 3: '}{dancer.name}
-              </span>
-              <span style={{ color: '#fff', fontWeight: 800, fontSize: '10px' }}>
-                {dancer.points || (dancer.isDj ? 10 : 0)}đ
-              </span>
-            </div>
-          ))}
+
+        {/* Right: Slim Compact VIP & DJ Leaderboard Pill */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            padding: '4px 12px',
+            borderRadius: '20px',
+            background: 'rgba(10, 8, 22, 0.78)',
+            border: '1px solid rgba(255, 215, 0, 0.4)',
+            backdropFilter: 'blur(10px)',
+            color: '#fff',
+            fontSize: '11px',
+            fontWeight: 700,
+            boxShadow: '0 2px 12px rgba(255, 215, 0, 0.2)',
+          }}
+        >
+          {/*
+            Bảng quà, KHÔNG có DJ.
+
+            Trước đây ô này lấy `getTopDancers`, mà hàm đó tính cả DJ LiveNova —
+            nên DJ luôn chiếm hạng nhất với "10đ" dù DJ không hề nhận quà, và
+            khán giả tặng quà thật thì bị đẩy xuống hạng dưới. `getPodiumDancers`
+            loại DJ ra, đúng với việc DJ không tham gia đua quà.
+          */}
+          {topDancers.length === 0 ? (
+            <span style={{ color: 'rgba(255,255,255,0.75)' }}>Chưa có ai tặng quà</span>
+          ) : (
+            topDancers.slice(0, 3).map((dancer, index) => (
+              <React.Fragment key={dancer.id}>
+                {index > 0 && <span style={{ color: 'rgba(255,255,255,0.3)' }}>|</span>}
+                <span
+                  style={{
+                    color: ['#ffd700', '#c0c8d8', '#cd7f32'][index],
+                    maxWidth: index === 0 ? '120px' : '80px',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {['🥇', '🥈', '🥉'][index]} {dancer.name}
+                  {index === 0 ? ` (${dancer.points}đ)` : ''}
+                </span>
+              </React.Fragment>
+            ))
+          )}
         </div>
       </div>
 
-      {/* Full 3D Nightclub Scene via Three.js (Arena Floor, Top 2/3 VIP Podiums, DJ Booth, Moving Light Trusses & Curved 3D Video Wall) */}
+      {/* 3D Festival Mainstage Center Screen */}
+      {ytId && (
+        <div
+          style={{
+            position: 'absolute',
+            top: isPortrait ? '9%' : '5%',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            width: isPortrait ? '94%' : '58%',
+            aspectRatio: '16 / 9',
+            maxHeight: isPortrait ? '34%' : '56%',
+            zIndex: 3,
+            borderRadius: '16px',
+            overflow: 'hidden',
+            boxShadow: '0 0 50px rgba(0, 240, 255, 0.5)',
+            border: '2px solid rgba(0, 240, 255, 0.8)',
+            backgroundColor: '#000',
+            pointerEvents: 'none',
+          }}
+        >
+          <iframe
+            src={`https://www.youtube.com/embed/${ytId}?autoplay=1&mute=${isMuted ? 1 : 0}&loop=1&playlist=${ytId}&controls=0&showinfo=0&rel=0&modestbranding=1&enablejsapi=1`}
+            title="Main Center LED Screen"
+            style={{ width: '100%', height: '100%', border: 'none' }}
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+          />
+          {/*
+            Lớp phủ làm dịu màn LED, bản dành cho YouTube.
+
+            Khi nguồn là YouTube thì màn LED trong scene 3D bị gỡ đi và video
+            chạy bằng <iframe> ở tầng DOM, nên lớp phủ 3D không với tới được.
+            Đây là lớp tương đương, đặt đè lên iframe.
+          */}
+          <div
+            aria-hidden="true"
+            style={{
+              position: 'absolute',
+              inset: 0,
+              background: `rgba(0, 0, 0, ${ledDim})`,
+              pointerEvents: 'none',
+            }}
+          />
+        </div>
+      )}
+
       <div style={{ position: 'absolute', inset: 0, zIndex: 10 }}>
-        <DiscoThreeStage engine={engine} videoUrl={activeVideoUrl} isMuted={isMuted} />
+        <DiscoThreeStage
+          engine={engine}
+          videoUrl={activeVideoUrl}
+          isMuted={isMuted}
+          ledDim={ledDim}
+          renderQuality={renderQuality}
+        />
       </div>
     </div>
   );

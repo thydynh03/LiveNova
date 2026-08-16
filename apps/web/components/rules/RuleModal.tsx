@@ -2,6 +2,7 @@
 
 import React, { useState, useRef } from 'react';
 import { Icon } from '../ui/Icon';
+import { Button, IconButton, Input, Select } from '../ui/primitives';
 import {
   FLASHING_EFFECTS,
   StageEffectKind,
@@ -238,12 +239,9 @@ export function RuleModal({ rule, onClose, onSuccess }: RuleModalProps) {
             <Icon name="goal" size={22} />
             {isEditing ? 'Chỉnh sửa Luật Tự động' : 'Tạo Luật Tự động Mới'}
           </h2>
-          <button
-            onClick={onClose}
-            style={{ background: 'none', border: 'none', color: 'hsl(var(--muted-foreground))', fontSize: '1.5rem', cursor: 'pointer' }}
-          >
+          <IconButton label="Đóng" onClick={onClose}>
             <Icon name="close" size={18} />
-          </button>
+          </IconButton>
         </div>
 
         {/* Wizard Step Tabs */}
@@ -296,12 +294,12 @@ export function RuleModal({ rule, onClose, onSuccess }: RuleModalProps) {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
               <div>
                 <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 600 }}>Tên luật kích hoạt</label>
-                <input
+                <Input
                   type="text"
                   placeholder="VD: Kích hoạt Popup Video khi tặng Hoa Hồng"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  style={inputStyle}
+                  
                   required
                 />
               </div>
@@ -309,25 +307,25 @@ export function RuleModal({ rule, onClose, onSuccess }: RuleModalProps) {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                 <div>
                   <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 600 }}>Thứ tự ưu tiên (Priority)</label>
-                  <input
+                  <Input
                     type="number"
                     min={0}
                     max={1000}
                     value={priority}
                     onChange={(e) => setPriority(parseInt(e.target.value, 10) || 0)}
-                    style={inputStyle}
+                    
                   />
                   <span style={{ fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))' }}>Số nhỏ hơn xét trước</span>
                 </div>
                 <div>
                   <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 600 }}>Thời gian giãn cách (Cooldown)</label>
-                  <input
+                  <Input
                     type="number"
                     min={0}
                     max={3600}
                     value={cooldownSec}
                     onChange={(e) => setCooldownSec(parseInt(e.target.value, 10) || 0)}
-                    style={inputStyle}
+                    
                   />
                   <span style={{ fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))' }}>Thời gian chờ giữa 2 lần kích hoạt (giây)</span>
                 </div>
@@ -335,7 +333,7 @@ export function RuleModal({ rule, onClose, onSuccess }: RuleModalProps) {
 
               <div style={{ display: 'flex', gap: '1.5rem', marginTop: '0.5rem' }}>
                 <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
-                  <input
+                  <Input
                     type="checkbox"
                     checked={enabled}
                     onChange={(e) => setEnabled(e.target.checked)}
@@ -345,7 +343,7 @@ export function RuleModal({ rule, onClose, onSuccess }: RuleModalProps) {
                 </label>
 
                 <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
-                  <input
+                  <Input
                     type="checkbox"
                     checked={continueMatching}
                     onChange={(e) => setContinueMatching(e.target.checked)}
@@ -362,48 +360,48 @@ export function RuleModal({ rule, onClose, onSuccess }: RuleModalProps) {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
               <div>
                 <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 600 }}>Sự kiện kích hoạt (Event Type)</label>
-                <select value={eventType} onChange={(e) => setEventType(e.target.value)} style={{ ...inputStyle, background: '#18181b' }}>
+                <Select value={eventType} onChange={(e) => setEventType(e.target.value)} >
                   <option value="gift">Quà tặng (Gift)</option>
                   <option value="comment">Bình luận (Comment)</option>
                   <option value="like">Thả tim (Like Milestone)</option>
                   <option value="follow">Theo dõi mới (Follow)</option>
                   <option value="share">Chia sẻ stream (Share)</option>
                   <option value="join">Người xem vào phòng (Join)</option>
-                </select>
+                </Select>
               </div>
 
               {eventType === 'gift' && (
                 <div style={{ background: 'rgba(255,255,255,0.03)', padding: '1rem', borderRadius: 'var(--radius)', border: '1px solid hsl(var(--border))' }}>
                   <div style={{ marginBottom: '1rem' }}>
                     <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 500 }}>Tên quà tặng chính xác (Tùy chọn)</label>
-                    <input
+                    <Input
                       type="text"
                       placeholder="VD: Rose, Dragon, TikTok, Leon (Để trống nếu áp dụng cho mọi quà)"
                       value={giftName}
                       onChange={(e) => setGiftName(e.target.value)}
-                      style={inputStyle}
+                      
                     />
                   </div>
 
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                     <div>
                       <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 500 }}>Giá trị Xu tối thiểu (Min Coins)</label>
-                      <input
+                      <Input
                         type="number"
                         placeholder="VD: 1"
                         value={minCoinValue}
                         onChange={(e) => setMinCoinValue(e.target.value)}
-                        style={inputStyle}
+                        
                       />
                     </div>
                     <div>
                       <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 500 }}>Giá trị Xu tối đa (Max Coins)</label>
-                      <input
+                      <Input
                         type="number"
                         placeholder="VD: 9999"
                         value={maxCoinValue}
                         onChange={(e) => setMaxCoinValue(e.target.value)}
-                        style={inputStyle}
+                        
                       />
                     </div>
                   </div>
@@ -413,12 +411,12 @@ export function RuleModal({ rule, onClose, onSuccess }: RuleModalProps) {
               {eventType === 'comment' && (
                 <div>
                   <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 600 }}>Từ khóa bình luận (Phân cách bằng dấu phẩy)</label>
-                  <input
+                  <Input
                     type="text"
                     placeholder="VD: chao, hi, choigame, muaw"
                     value={keywords}
                     onChange={(e) => setKeywords(e.target.value)}
-                    style={inputStyle}
+                    
                   />
                   <span style={{ fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))' }}>Nếu viewer comment có chứa từ khóa này, luật sẽ kích hoạt</span>
                 </div>
@@ -474,7 +472,7 @@ export function RuleModal({ rule, onClose, onSuccess }: RuleModalProps) {
 
                   <div style={{ marginBottom: '1rem' }}>
                     <label style={{ display: 'block', marginBottom: '0.3rem', fontSize: '0.85rem' }}>Loại hành động</label>
-                    <select
+                    <Select
                       value={act.type}
                       onChange={(e) => updateActionType(idx, e.target.value)}
                       style={{ ...inputStyle, background: '#18181b', padding: '0.5rem' }}
@@ -483,7 +481,7 @@ export function RuleModal({ rule, onClose, onSuccess }: RuleModalProps) {
                       <option value="tts_read">Đọc giọng nói TTS (Text-to-Speech)</option>
                       <option value="game_battle_action">Gửi hiệu ứng vào Đấu trường Game</option>
                       <option value="effect">Hiệu ứng sân khấu (Khói, Pháo hoa, Kim tuyến…)</option>
-                    </select>
+                    </Select>
                   </div>
 
                   {act.type === 'media_popup' && (
@@ -491,7 +489,7 @@ export function RuleModal({ rule, onClose, onSuccess }: RuleModalProps) {
                       {/* Media Type / Troll Mode Selector */}
                       <div>
                         <label style={{ display: 'block', marginBottom: '0.3rem', fontSize: '0.85rem', fontWeight: 600 }}>Chế độ & Loại hiệu ứng</label>
-                        <select
+                        <Select
                           value={act.payload.mediaType || (act.payload.url === 'blackout' ? 'blackout' : act.payload.url === 'flashbang' ? 'flashbang' : 'image')}
                           onChange={(e) => {
                             const val = e.target.value;
@@ -508,7 +506,7 @@ export function RuleModal({ rule, onClose, onSuccess }: RuleModalProps) {
                           <option value="video">🎥 Video MP4 / WEBM Custom</option>
                           <option value="blackout">🙈 Troll Streamer: Che Màn Hình Đen Xì (Blackout 5s)</option>
                           <option value="flashbang">⚡ Troll Streamer: Màn Hình Trắng Chói (Flashbang 5s)</option>
-                        </select>
+                        </Select>
                       </div>
 
                       {/* Media Upload & URL (hidden if preset blackout/flashbang) */}
@@ -516,14 +514,14 @@ export function RuleModal({ rule, onClose, onSuccess }: RuleModalProps) {
                         <div>
                           <label style={{ display: 'block', marginBottom: '0.3rem', fontSize: '0.85rem' }}>Tệp Video / Ảnh (Upload lên Cloudinary hoặc dán Link)</label>
                           <div style={{ display: 'flex', gap: '0.5rem' }}>
-                            <input
+                            <Input
                               type="text"
                               placeholder="https://res.cloudinary.com/.../video.mp4"
                               value={act.payload.url || ''}
                               onChange={(e) => updateActionPayload(idx, 'url', e.target.value)}
                               style={{ ...inputStyle, flex: 1 }}
                             />
-                            <input
+                            <Input
                               ref={(el) => { fileInputRefs.current[idx] = el; }}
                               type="file"
                               accept="image/*,video/*"
@@ -556,7 +554,7 @@ export function RuleModal({ rule, onClose, onSuccess }: RuleModalProps) {
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.75rem' }}>
                         <div>
                           <label style={{ display: 'block', marginBottom: '0.3rem', fontSize: '0.8rem' }}>Vị trí hiển thị</label>
-                          <select
+                          <Select
                             value={act.payload.position || 'center'}
                             onChange={(e) => updateActionPayload(idx, 'position', e.target.value)}
                             style={{ ...inputStyle, background: '#18181b', padding: '0.5rem', fontSize: '0.85rem' }}
@@ -568,11 +566,11 @@ export function RuleModal({ rule, onClose, onSuccess }: RuleModalProps) {
                             <option value="top-right">Góc trên phải</option>
                             <option value="bottom-left">Góc dưới trái</option>
                             <option value="bottom-right">Góc dưới phải</option>
-                          </select>
+                          </Select>
                         </div>
                         <div>
                           <label style={{ display: 'block', marginBottom: '0.3rem', fontSize: '0.8rem' }}>Thời gian (Giây)</label>
-                          <input
+                          <Input
                             type="number"
                             min={1}
                             max={30}
@@ -583,7 +581,7 @@ export function RuleModal({ rule, onClose, onSuccess }: RuleModalProps) {
                         </div>
                         <div>
                           <label style={{ display: 'block', marginBottom: '0.3rem', fontSize: '0.8rem' }}>Âm lượng (0 - 100%)</label>
-                          <input
+                          <Input
                             type="number"
                             min={0}
                             max={100}
@@ -596,7 +594,7 @@ export function RuleModal({ rule, onClose, onSuccess }: RuleModalProps) {
 
                       <div>
                         <label style={{ display: 'block', marginBottom: '0.3rem', fontSize: '0.8rem' }}>Chú thích Caption (Hỗ trợ &#123;sender&#125;, &#123;gift&#125;, &#123;coins&#125;)</label>
-                        <input
+                        <Input
                           type="text"
                           placeholder="VD: Cảm ơn {sender} đã tặng {gift} ({coins} Xu)!"
                           value={act.payload.caption || ''}
@@ -610,7 +608,7 @@ export function RuleModal({ rule, onClose, onSuccess }: RuleModalProps) {
                   {act.type === 'tts_read' && (
                     <div>
                       <label style={{ display: 'block', marginBottom: '0.3rem', fontSize: '0.85rem' }}>Nội dung đọc (Hỗ trợ &#123;sender&#125;, &#123;gift&#125;, &#123;coins&#125;)</label>
-                      <input
+                      <Input
                         type="text"
                         placeholder="VD: Cảm ơn bạn {sender} đã ủng hộ livestream!"
                         value={act.payload.text || ''}
@@ -625,7 +623,7 @@ export function RuleModal({ rule, onClose, onSuccess }: RuleModalProps) {
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                         <div>
                           <label style={{ display: 'block', marginBottom: '0.3rem', fontSize: '0.85rem' }}>Loại hiệu ứng</label>
-                          <select
+                          <Select
                             value={act.payload.kind || StageEffectKind.CONFETTI}
                             onChange={(e) => updateActionPayload(idx, 'kind', e.target.value)}
                             style={{ ...inputStyle, background: '#18181b', padding: '0.5rem', fontSize: '0.85rem' }}
@@ -633,11 +631,11 @@ export function RuleModal({ rule, onClose, onSuccess }: RuleModalProps) {
                             {Object.values(StageEffectKind).map((kind) => (
                               <option key={kind} value={kind}>{EFFECT_LABELS[kind]}</option>
                             ))}
-                          </select>
+                          </Select>
                         </div>
                         <div>
                           <label style={{ display: 'block', marginBottom: '0.3rem', fontSize: '0.85rem' }}>Màu chủ đạo (Tùy chọn)</label>
-                          <input
+                          <Input
                             type="color"
                             value={act.payload.color || '#ff4d6d'}
                             onChange={(e) => updateActionPayload(idx, 'color', e.target.value)}
@@ -651,7 +649,7 @@ export function RuleModal({ rule, onClose, onSuccess }: RuleModalProps) {
                           <label style={{ display: 'block', marginBottom: '0.3rem', fontSize: '0.8rem' }}>
                             Thời lượng: {((act.payload.durationMs ?? STAGE_EFFECT_LIMITS.DEFAULT_DURATION_MS) / 1000).toFixed(1)}s
                           </label>
-                          <input
+                          <Input
                             type="range"
                             min={STAGE_EFFECT_LIMITS.MIN_DURATION_MS}
                             max={STAGE_EFFECT_LIMITS.MAX_DURATION_MS}
@@ -665,7 +663,7 @@ export function RuleModal({ rule, onClose, onSuccess }: RuleModalProps) {
                           <label style={{ display: 'block', marginBottom: '0.3rem', fontSize: '0.8rem' }}>
                             Cường độ: {Math.round((act.payload.intensity ?? STAGE_EFFECT_LIMITS.DEFAULT_INTENSITY) * 100)}%
                           </label>
-                          <input
+                          <Input
                             type="range"
                             min={0}
                             max={100}
@@ -678,7 +676,7 @@ export function RuleModal({ rule, onClose, onSuccess }: RuleModalProps) {
 
                       <div>
                         <label style={{ display: 'block', marginBottom: '0.3rem', fontSize: '0.8rem' }}>Chú thích Caption (Hỗ trợ &#123;sender&#125;, &#123;gift&#125;, &#123;coins&#125;)</label>
-                        <input
+                        <Input
                           type="text"
                           placeholder="VD: {sender} vừa đốt cháy sân khấu!"
                           value={act.payload.caption || ''}
@@ -721,7 +719,7 @@ export function RuleModal({ rule, onClose, onSuccess }: RuleModalProps) {
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                         <div>
                           <label style={{ display: 'block', marginBottom: '0.3rem', fontSize: '0.85rem' }}>Loại hiệu ứng (Game Action)</label>
-                          <select
+                          <Select
                             value={act.payload.actionKey || 'dragon'}
                             onChange={(e) => updateActionPayload(idx, 'actionKey', e.target.value)}
                             style={{ ...inputStyle, background: '#18181b', padding: '0.5rem', fontSize: '0.85rem' }}
@@ -732,11 +730,11 @@ export function RuleModal({ rule, onClose, onSuccess }: RuleModalProps) {
                             <option value="dragon">Gọi rồng (Dragon)</option>
                             <option value="cannon">Bắn đại bác (Cannon)</option>
                             <option value="meteor">Thiên thạch (Meteor)</option>
-                          </select>
+                          </Select>
                         </div>
                         <div>
                           <label style={{ display: 'block', marginBottom: '0.3rem', fontSize: '0.85rem' }}>Phe nhận hiệu ứng (Tùy chọn)</label>
-                          <input
+                          <Input
                             type="text"
                             placeholder="VD: cat, dog (Để trống để tự động)"
                             value={act.payload.teamKey || ''}
@@ -767,57 +765,23 @@ export function RuleModal({ rule, onClose, onSuccess }: RuleModalProps) {
             }}
           >
             {step > 1 ? (
-              <button
-                type="button"
-                onClick={() => setStep((s) => (s - 1) as any)}
-                style={{
-                  padding: '0.65rem 1.25rem',
-                  borderRadius: 'var(--radius)',
-                  background: 'rgba(255,255,255,0.08)',
-                  color: 'inherit',
-                  border: 'none',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                }}
-              >
+              <Button variant="secondary" onClick={() => setStep((s) => (s - 1) as any)}>
                 ← Quay lại
-              </button>
-            ) : <div />}
+              </Button>
+            ) : (
+              // Ô rỗng giữ nút bên phải bám mép phải khi chưa có nút Quay lại.
+              <div />
+            )}
 
             <div style={{ display: 'flex', gap: '0.75rem' }}>
               {step < 3 ? (
-                <button
-                  type="button"
-                  onClick={() => setStep((s) => (s + 1) as any)}
-                  style={{
-                    padding: '0.65rem 1.25rem',
-                    borderRadius: 'var(--radius)',
-                    background: 'hsl(var(--primary))',
-                    color: '#fff',
-                    border: 'none',
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                  }}
-                >
+                <Button variant="primary" onClick={() => setStep((s) => (s + 1) as any)}>
                   Tiếp theo →
-                </button>
+                </Button>
               ) : (
-                <button
-                  type="submit"
-                  disabled={submitting}
-                  style={{
-                    padding: '0.65rem 1.5rem',
-                    borderRadius: 'var(--radius)',
-                    background: 'hsl(var(--primary))',
-                    color: '#fff',
-                    border: 'none',
-                    fontWeight: 700,
-                    cursor: submitting ? 'not-allowed' : 'pointer',
-                    opacity: submitting ? 0.7 : 1,
-                  }}
-                >
-                  {submitting ? 'Đang lưu...' : isEditing ? 'Cập nhật Luật' : 'Tạo Luật Mới'}
-                </button>
+                <Button type="submit" variant="primary" loading={submitting}>
+                  {submitting ? 'Đang lưu…' : isEditing ? 'Cập nhật luật' : 'Tạo luật mới'}
+                </Button>
               )}
             </div>
           </div>

@@ -13,8 +13,13 @@ import {
   OVERLAY_STATE_EVENT,
   OverlayDispatchEvent,
   OverlayStateDispatch,
+  LiveEvent,
+  OverlayAction,
+  RuleActionType,
 } from '@livenova/shared';
+import { v4 as uuidv4 } from 'uuid';
 import { OverlayService } from '../overlay/overlay.service';
+import { ChannelService } from '../channel/channel.service';
 import { MetricsService } from '../../common/metrics/metrics.service';
 
 interface OverlaySocket extends Socket {
@@ -54,10 +59,12 @@ export class OverlayGateway implements OnGatewayConnection, OnGatewayDisconnect 
   server!: Server;
 
   private readonly logger = new Logger(OverlayGateway.name);
+  private readonly channelOwnerCache = new Map<string, string>();
 
   constructor(
     private readonly overlayService: OverlayService,
     private readonly metrics: MetricsService,
+    private readonly channelService?: ChannelService,
   ) {}
 
   /** Room holding every overlay belonging to one user. */
@@ -169,6 +176,50 @@ export class OverlayGateway implements OnGatewayConnection, OnGatewayDisconnect 
     this.server
       .to(OverlayGateway.overlayRoom(payload.overlayId))
       .emit(OVERLAY_SOCKET.STATE, payload.state);
+  }
+
+  /**
+   * Broadcast real-time live events (comments, gifts, likes, joins)
+   * directly to all overlay instances belonging to the streamer.
+   */
+  @OnEvent('live.any')
+  async handleRawLiveEvent(event: LiveEvent) {
+    try {
+      if (!event?.channelId) return;
+
+      let userId = this.channelOwnerCache.get(event.channelId);
+      if (!userId && this.channelService) {
+        const ownerId = await this.channelService.getUserIdForChannel(event.channelId);
+        if (ownerId) {
+          userId = ownerId;
+          this.channelOwnerCache.set(event.channelId, userId);
+        }
+      }
+      if (!userId) return;
+
+      const action: OverlayAction = {
+        id: event.id || uuidv4(),
+        ruleId: 'live_stream',
+        ruleName: 'Live Stream',
+        type: RuleActionType.EFFECT,
+        createdAt: (event.occurredAt || new Date()).toISOString(),
+        payload: { kind: 'live_event' },
+        event: {
+          type: event.type,
+          senderUsername: event.senderUsername,
+          senderDisplayName: event.senderDisplayName,
+          senderAvatar: event.senderAvatar,
+          content: event.content,
+          giftName: event.giftName,
+          giftCoinValue: event.giftCoinValue,
+        },
+      };
+
+      this.logger.log(`[OverlayGateway] Broadcast live event to ${OverlayGateway.userRoom(userId)}: ${event.type} from ${event.senderDisplayName} ("${event.content || ''}")`);
+      this.server.to(OverlayGateway.userRoom(userId)).emit(OVERLAY_SOCKET.ACTION, action);
+    } catch (err) {
+      this.logger.error(`Error forwarding live event to overlays: ${err}`);
+    }
   }
 
   /** Test/diagnostic helper — how many browser sources a user has connected. */

@@ -521,9 +521,9 @@ export default function DiscoCanvas({ engine }: DiscoCanvasProps) {
 
       ctx.restore(); // End Camera Transform
 
-      // DJ Promotion Big Banner Toast
-      if (engine.djPromotionToast && now - engine.djPromotionToast.time < 5000) {
-        const toast = engine.djPromotionToast;
+      // Băng rôn chúc mừng TOP 1 (ghế DJ luôn là DJ LiveNova, không ai thay thế)
+      if (engine.top1PromotionToast && now - engine.top1PromotionToast.time < 5000) {
+        const toast = engine.top1PromotionToast;
         const alpha = Math.min(1.0, (5000 - (now - toast.time)) / 600);
         ctx.save();
         ctx.globalAlpha = alpha;
@@ -548,10 +548,17 @@ export default function DiscoCanvas({ engine }: DiscoCanvasProps) {
         ctx.textAlign = 'center';
         ctx.font = '900 13px sans-serif';
         ctx.fillStyle = '#ffd700';
-        ctx.fillText('👑 CHÚC MỪNG TÂN TOP 1 DJ SÂN KHẤU! 👑', W / 2, by + 22);
+        ctx.fillText('👑 CHÚC MỪNG TÂN TOP 1 SÂN KHẤU! 👑', W / 2, by + 22);
         ctx.font = 'bold 11px sans-serif';
         ctx.fillStyle = '#ffffff';
-        ctx.fillText(`🎉 ${toast.newDjName} đạt ${toast.points} điểm (Thay thế ${toast.oldDjName})`, W / 2, by + 42);
+        // Lượt đăng quang đầu tiên chưa có ai để "thay thế", nên câu chữ đổi theo.
+        ctx.fillText(
+          toast.oldTopName
+            ? `🎉 ${toast.newTopName} đạt ${toast.points} điểm (vượt ${toast.oldTopName})`
+            : `🎉 ${toast.newTopName} đạt ${toast.points} điểm`,
+          W / 2,
+          by + 42,
+        );
         ctx.restore();
       }
 

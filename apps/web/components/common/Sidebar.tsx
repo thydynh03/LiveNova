@@ -4,7 +4,7 @@ import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Icon } from '../ui/Icon';
-import { getPrimaryNavItems, getBottomNavItems, type NavItem } from '../../config/nav';
+import { getNavGroups, getBottomNavItems, type NavItem } from '../../config/nav';
 import { useAuth } from '../../context/AuthContext';
 
 /**
@@ -45,7 +45,7 @@ function NavLink({ item, active }: { item: NavItem; active: boolean }) {
   );
 }
 
-export function Sidebar() {
+export function Sidebar({ open = false }: { open?: boolean }) {
   const pathname = usePathname();
   const { user } = useAuth();
   const isActive = (href: string) =>
@@ -53,9 +53,9 @@ export function Sidebar() {
 
   return (
     <aside
+      className="ln-sidebar"
+      data-open={open}
       style={{
-        width: '236px',
-        flex: 'none',
         borderRight: '1px solid hsl(var(--border))',
         background: 'hsl(var(--card))',
         display: 'flex',
@@ -91,10 +91,27 @@ export function Sidebar() {
         </span>
       </Link>
 
-      <nav aria-label="Điều hướng chính" style={{ flex: 1 }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-          {getPrimaryNavItems().map((item) => (
-            <NavLink key={item.id} item={item} active={isActive(item.href)} />
+      <nav aria-label="Điều hướng chính" style={{ flex: 1, overflowY: 'auto' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.125rem' }}>
+          {getNavGroups().map((group) => (
+            <div key={group.id} style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+              <h2
+                style={{
+                  margin: '0 0 0.125rem',
+                  padding: '0 0.875rem',
+                  fontSize: '0.6875rem',
+                  fontWeight: 700,
+                  letterSpacing: '0.06em',
+                  textTransform: 'uppercase',
+                  color: 'hsl(var(--muted-foreground))',
+                }}
+              >
+                {group.label}
+              </h2>
+              {group.items.map((item) => (
+                <NavLink key={item.id} item={item} active={isActive(item.href)} />
+              ))}
+            </div>
           ))}
         </div>
       </nav>

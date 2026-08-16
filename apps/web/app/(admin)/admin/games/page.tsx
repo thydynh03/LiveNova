@@ -4,8 +4,12 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { AdminPageHeader, Panel, StatTile } from '../../../../components/admin/AdminShell';
 import { api } from '../../../../lib/api-client';
 import { BattleState } from '@livenova/shared';
+import { useToast } from '../../../../components/ui/Toast';
+import { describeError } from '../../../../lib/describe-error';
+import { copyText } from '../../../../lib/copy-text';
 
 export default function AdminGamesPage() {
+  const toast = useToast();
   const [battleState, setBattleState] = useState<BattleState | null>(null);
   const [loading, setLoading] = useState(true);
   const [sender, setSender] = useState('@admin_tester');
@@ -17,8 +21,8 @@ export default function AdminGamesPage() {
     try {
       const data = await api.get<BattleState>('/battle/state');
       setBattleState(data);
-    } catch (_err) {
-      console.error('Failed to fetch battle state:', _err);
+    } catch (err) {
+      toast.error('Không tải được trạng thái trận đấu', describeError(err));
     } finally {
       setLoading(false);
     }
@@ -38,9 +42,8 @@ export default function AdminGamesPage() {
         amount: type === 'GIFT' ? 10 : 1,
       });
       await fetchState();
-    } catch (_err) {
-      console.error('Simulation failed:', _err);
-      alert('Gọi lính thất bại');
+    } catch (err) {
+      toast.error('Gọi lính thất bại', describeError(err));
     } finally {
       setSimulating(false);
     }
@@ -196,7 +199,14 @@ export default function AdminGamesPage() {
                     origin = process.env.NEXT_PUBLIC_OVERLAY_URL.replace(/\/$/, '');
                   }
                   const url = `${origin}/overlays/battle?token=${battleState?.battleId || 'admin'}`;
-                  navigator.clipboard.writeText(url).then(() => alert('Đã chép link OBS: ' + url));
+                  void copyText(url).then((result) =>
+                    result === 'copied'
+                      ? toast.success('Đã chép link OBS')
+                      : toast.error(
+                          'Không chép được link',
+                          'Bôi đen link rồi nhấn Ctrl+C.',
+                        ),
+                  );
                 }}
                 style={{
                   display: 'flex',

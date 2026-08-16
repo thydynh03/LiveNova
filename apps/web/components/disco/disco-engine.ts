@@ -1,3 +1,13 @@
+/**
+ * Id của DJ LiveNova — chủ nhân cố định của ghế DJ.
+ *
+ * Không người xem nào được gán id này, nên không ai chiếm được chỗ.
+ */
+export const DJ_LIVENOVA_ID = 'bot_dj_livenova';
+
+/** Số chỗ đứng trên bục vinh danh phía trước sân khấu DJ. */
+export const TOP_PODIUM_SLOTS = 3;
+
 export interface Dancer {
   id: string; // usually the username
   name: string;
@@ -39,6 +49,15 @@ export interface Camera {
   lastUserInteraction: number;
   lockedOnId: string | null;
   lockTimeout: number;
+}
+
+export interface GiftEvent {
+  id: string;
+  senderId: string;
+  senderName: string;
+  giftPoints: number;
+  avatarUrl?: string;
+  timestamp: number;
 }
 
 export const SPRITES = [
@@ -94,56 +113,92 @@ export class DiscoEngine {
   };
   flashIntensity: number = 0;
   lastTick: number = 0;
+
+  public giftQueue: GiftEvent[] = [];
+  public isProcessingGift: boolean = false;
+  public currentGiftEvent: GiftEvent | null = null;
+  private giftProcessEndTime: number = 0;
+
+  public smokeEffectActive: boolean = false;
+  public smokeEffectStartTime: number = 0;
+  public smokeEffectDuration: number = 3000;
+
+  public activeEffects: { type: string; startTime: number; duration: number }[] = [];
+
+  public isDjPovFirstPerson: boolean = false;
   
   private colors = ['#ff4b4b', '#ff7a4b', '#ffb54b', '#e2ff4b', '#62ff4b', '#4bff9a', '#4be2ff', '#4b7aff', '#9a4bff', '#ff4be2'];
 
   constructor() {
-    this.addDemoDancers(8);
+    this.addDemoDancers();
   }
 
-  addDemoDancers(count = 8) {
-    const demoNames = [
-      { id: 'bot_dj_pro', name: '🎧 DJ Pro LiveNova', sprite: 'char_dj_pro', isDj: true, z: 0.05, points: 15 },
-      { id: 'bot_sexy_dancer_1', name: '💃 Hot Girl Bella', sprite: 'hanhan_video_dance', isDj: false, z: 0.45, points: 8 },
-      { id: 'bot_sexy_dancer_2', name: '💃 Mỹ Nhân Kimmy', sprite: 'hanhan_video_dance', isDj: false, z: 0.45, points: 5 },
-      { id: 'bot_anya_heh', name: '😏 Anya Waku Waku', sprite: 'char_anya_heh', isDj: false, z: 0.85, points: 0 },
-      { id: 'bot_gojo', name: '🤞 Thầy Gojo Vô Cực', sprite: 'char_gojo_sensei', isDj: false, z: 0.35, points: 0 },
-      { id: 'bot_bocchi', name: '🎸 Bocchi Hoảng Loạn', sprite: 'char_bocchi_panic', isDj: false, z: 0.65, points: 0 },
-      { id: 'bot_umaru', name: '🐹 Umaru Trùm Mũ', sprite: 'char_umaru_chan', isDj: false, z: 0.95, points: 0 },
-      { id: 'bot_zoro', name: '⚔️ Zoro Lạc Đường', sprite: 'char_zoro_lost', isDj: false, z: 0.25, points: 0 },
-      { id: 'bot_yaoming', name: '😂 Thánh Cười YaoMing', sprite: 'char_yaoming_laugh', isDj: false, z: 0.75, points: 0 },
-    ];
+  addDemoDancers() {
+    this.dancers.clear();
+    this.currentTop1Id = null;
 
-    const toAdd = demoNames.slice(0, count);
-    for (let i = 0; i < toAdd.length; i++) {
-      const item = toAdd[i];
-      if (!this.dancers.has(item.id)) {
-        const randomColor = this.colors[Math.floor(Math.random() * this.colors.length)];
-        const spreadX = item.isDj ? 0.5 : 0.15 + (i / (toAdd.length - 1 || 1)) * 0.7;
-        this.dancers.set(item.id, {
-          id: item.id,
-          name: item.name,
-          avatarUrl: `/assets/disco/Characters/${item.sprite}/000.png`,
-          x: spreadX,
-          y: item.isDj ? 0.435 : 0.95,
-          z: item.z || 0.5,
-          vy: 0,
-          vx: (Math.random() - 0.5) * 0.04,
-          color: randomColor,
-          spriteId: item.sprite,
-          scale: 1,
-          targetScale: 1,
-          state: 'dancing',
-          danceOffset: Math.random() * Math.PI * 2,
-          isDj: item.isDj,
-          points: item.points || 0,
-        });
-      }
-    }
+    // 1 DJ LiveNova trên bục trung tâm
+    this.dancers.set(DJ_LIVENOVA_ID, {
+      id: DJ_LIVENOVA_ID,
+      name: '🎧 DJ LiveNova',
+      avatarUrl: '/assets/disco/Characters/char_dj_pro/000.png',
+      x: 0.5,
+      y: 0.435,
+      z: 0.05,
+      vy: 0,
+      vx: 0,
+      color: '#ffd700',
+      spriteId: 'char_dj_pro',
+      scale: 1.6,
+      targetScale: 1.6,
+      state: 'dancing',
+      danceOffset: 0,
+      isDj: true,
+      points: 0,
+    });
+
+    // 2 Nhân vật Dancer trên sàn nhảy
+    this.dancers.set('bot_sexy_dancer_1', {
+      id: 'bot_sexy_dancer_1',
+      name: '💃 Hot Girl Bella',
+      avatarUrl: '/assets/disco/Characters/hanhan_video_dance/000.png',
+      x: 0.28,
+      y: 0.95,
+      z: 0.45,
+      vy: 0,
+      vx: 0.02,
+      color: '#00f0ff',
+      spriteId: 'hanhan_video_dance',
+      scale: 1,
+      targetScale: 1,
+      state: 'dancing',
+      danceOffset: 1.2,
+      isDj: false,
+      points: 0,
+    });
+
+    this.dancers.set('bot_sexy_dancer_2', {
+      id: 'bot_sexy_dancer_2',
+      name: '💃 Mỹ Nhân Kimmy',
+      avatarUrl: '/assets/disco/Characters/hanhan_video_dance/000.png',
+      x: 0.72,
+      y: 0.95,
+      z: 0.45,
+      vy: 0,
+      vx: -0.02,
+      color: '#ff007f',
+      spriteId: 'hanhan_video_dance',
+      scale: 1,
+      targetScale: 1,
+      state: 'dancing',
+      danceOffset: 2.8,
+      isDj: false,
+      points: 0,
+    });
   }
 
   clear() {
-    this.dancers.clear();
+    this.addDemoDancers();
     this.fireworks = [];
     this.camera.lockedOnId = null;
     this.camera.targetScale = 1.15;
@@ -152,9 +207,25 @@ export class DiscoEngine {
     this.flashIntensity = 0;
   }
 
-  public currentDjId: string | null = 'bot_dj_pro';
-  public djPromotionToast: { oldDjName: string; newDjName: string; points: number; time: number } | null = null;
+  /**
+   * Ghế DJ là của LiveNova và không ai thay thế được.
+   *
+   * Trước đây trường này đổi theo người tặng quà lớn nhất, nên khách chiếm mất
+   * chỗ DJ. Giờ nó là hằng số; thứ hạng của khán giả thể hiện qua bục Top 3.
+   */
+  public readonly currentDjId: string = DJ_LIVENOVA_ID;
+
+  /** Người đang dẫn đầu bảng quà — đứng ô giữa bục Top 3, không phải ghế DJ. */
+  public currentTop1Id: string | null = null;
+  public top1PromotionToast: {
+    oldTopName: string | null;
+    newTopName: string;
+    points: number;
+    time: number;
+  } | null = null;
   public lastGiftInfo: { senderName: string; giftPoints: number; time: number } | null = null;
+  public cameraPriority: number = 0; // 0 = Auto/Random, 1 = Join (3.5s), 2 = Gift / Rose (7s), 3 = Top DJ (10s)
+  public cameraLockUntil: number = 0;
 
   triggerFlash(amount = 0.7) {
     this.flashIntensity = Math.min(1.0, this.flashIntensity + amount);
@@ -163,7 +234,7 @@ export class DiscoEngine {
   join(id: string, name: string, avatarUrl?: string) {
     if (this.dancers.has(id)) {
       this.jump(id);
-      this.zoomOn(id, 2500);
+      this.triggerSpotlightZoom(3500, id, 1);
       return;
     }
 
@@ -175,23 +246,50 @@ export class DiscoEngine {
       name,
       avatarUrl,
       x: Math.random() * 0.76 + 0.12, // Random x across arena
-      y: -0.1, // Start slightly above screen to fall in
+      y: 0.35, // Drop from above the dance floor
       z: Math.random() * 0.78 + 0.20, // Random depth row in arena
-      vy: 0,
-      vx: (Math.random() - 0.5) * 0.06, // Slight horizontal drift
+      vy: -2.2, // Drop velocity with bouncy landing
+      vx: (Math.random() - 0.5) * 0.04, // Slight horizontal drift
       color: randomColor,
       spriteId: randomSprite,
-      scale: 1,
+      scale: 1.25,
       targetScale: 1,
-      state: 'dancing',
+      state: 'jumping',
       danceOffset: Math.random() * Math.PI * 2,
       isDj: false,
       points: 0,
     });
 
-    // Camera zooms/pans to welcome new dancer for 3.5 seconds
-    this.zoomOn(id, 3500);
-    this.triggerFlash(0.3);
+    // Camera zooms on new dancer with priority = 1 (cannot override gift priority = 2)
+    this.triggerSpotlightZoom(3500, id, 1);
+    this.triggerFlash(0.4);
+    this.triggerFirework();
+  }
+
+  enqueueGift(senderId: string, senderName: string, giftPoints: number, avatarUrl?: string) {
+    this.giftQueue.push({
+      id: Math.random().toString(36).substring(2, 11),
+      senderId,
+      senderName,
+      giftPoints,
+      avatarUrl,
+      timestamp: Date.now()
+    });
+    this.processNextGift();
+  }
+
+  processNextGift() {
+    if (this.isProcessingGift || this.giftQueue.length === 0) return;
+    
+    const event = this.giftQueue.shift();
+    if (!event) return;
+    
+    this.isProcessingGift = true;
+    this.currentGiftEvent = event;
+    
+    this.addGiftPoints(event.senderId, event.senderName, event.giftPoints, event.avatarUrl);
+    
+    this.giftProcessEndTime = Date.now() + 4000;
   }
 
   addGiftPoints(id: string, name: string, points: number, avatarUrl?: string) {
@@ -208,7 +306,8 @@ export class DiscoEngine {
 
     this.lastGiftInfo = { senderName: name, giftPoints: points, time: Date.now() };
 
-    // Check for DJ Promotion: Highest points AND at least 10 points becomes TOP DJ
+    // Ai đang dẫn đầu bảng quà (tối thiểu 10 điểm mới được tính là TOP 1).
+    // Người này lên đứng giữa bục Top 3 — KHÔNG chiếm chỗ DJ.
     let topScorer: Dancer | null = null;
     for (const d of Array.from(this.dancers.values())) {
       if ((d.points || 0) >= 10) {
@@ -218,31 +317,68 @@ export class DiscoEngine {
       }
     }
 
-    if (topScorer && topScorer.id !== this.currentDjId) {
-      // PROMOTION: New TOP DJ replaces the previous DJ
-      const oldDj = this.getCurrentDj();
-      const oldDjName = oldDj ? oldDj.name : 'DJ Pro';
-      this.setDj(topScorer.id);
-      this.currentDjId = topScorer.id;
-      this.djPromotionToast = {
-        oldDjName,
-        newDjName: topScorer.name,
+    if (topScorer && topScorer.id !== this.currentTop1Id) {
+      const previous = this.getCurrentTop1();
+      this.setTop1(topScorer.id);
+      this.top1PromotionToast = {
+        oldTopName: previous ? previous.name : null,
+        newTopName: topScorer.name,
         points: topScorer.points,
         time: Date.now(),
       };
-      // Celebration fireworks & light show
       for (let i = 0; i < 6; i++) {
         setTimeout(() => this.triggerFirework(), i * 200);
       }
+      this.triggerDjPov(10000, 3);
     } else {
-      // Normal gift fireworks
+      // Quà thường / hoa hồng: bám người tặng đủ 7 giây, ưu tiên 2
       this.triggerFirework();
       setTimeout(() => this.triggerFirework(), 250);
+      this.triggerSpotlightZoom(7000, id, 2);
     }
 
-    // TẶNG QUÀ -> KÍCH HOẠT GÓC NHÌN DJ POV NHÌN XUỐNG TOÀN CẢNH SÀN NHẢY
-    this.triggerDjPov(10000);
     this.triggerFlash(0.75);
+  }
+
+  /**
+   * Đưa một người xem lên hạng TOP 1.
+   *
+   * Trước đây hàm này tên `promoteToDj` và thực sự đẩy người xem vào ghế DJ.
+   * Giờ ghế DJ luôn thuộc về DJ LiveNova (`DJ_LIVENOVA_ID`); người dẫn đầu bảng
+   * quà đứng ở ô giữa bục Top 3 phía trước sân khấu.
+   */
+  promoteToTop1(id: string, name?: string, avatarUrl?: string) {
+    if (!this.dancers.has(id)) {
+      this.join(id, name || id, avatarUrl);
+    }
+    const currentTop = this.getTopDancers(1)[0];
+    const topPoints = currentTop ? (currentTop.points || 0) : 10;
+    const newPoints = Math.max(topPoints + 50, 100);
+
+    const dancer = this.dancers.get(id);
+    if (dancer) {
+      dancer.points = newPoints;
+      dancer.targetScale = Math.min(2.8, dancer.targetScale + 0.6);
+      dancer.vy = -1.8;
+      dancer.state = 'jumping';
+    }
+
+    const previous = this.getCurrentTop1();
+    this.setTop1(id);
+    this.top1PromotionToast = {
+      oldTopName: previous ? previous.name : null,
+      newTopName: dancer ? dancer.name : (name || id),
+      points: newPoints,
+      time: Date.now(),
+    };
+
+    // Lễ đăng quang TOP 1
+    this.triggerEffect('confetti');
+    this.triggerDjPov(10000);
+    this.triggerFlash(0.9);
+    for (let i = 0; i < 8; i++) {
+      setTimeout(() => this.triggerFirework(), i * 180);
+    }
   }
 
   getTopDancers(limit = 5): Dancer[] {
@@ -251,14 +387,30 @@ export class DiscoEngine {
       .slice(0, limit);
   }
 
+  /** DJ LiveNova, nếu đã có mặt trong scene. */
   getCurrentDj(): Dancer | null {
-    if (this.currentDjId && this.dancers.has(this.currentDjId)) {
-      return this.dancers.get(this.currentDjId) || null;
-    }
-    for (const d of Array.from(this.dancers.values())) {
-      if (d.isDj) return d;
+    return this.dancers.get(this.currentDjId) ?? null;
+  }
+
+  /** Người đang dẫn đầu bảng quà. */
+  getCurrentTop1(): Dancer | null {
+    if (this.currentTop1Id && this.dancers.has(this.currentTop1Id)) {
+      return this.dancers.get(this.currentTop1Id) ?? null;
     }
     return null;
+  }
+
+  /**
+   * Ba người đứng trên bục vinh danh, theo thứ tự hạng 1 → 3.
+   *
+   * DJ LiveNova bị loại khỏi bảng: DJ không tham gia đua quà, và nếu để lẫn thì
+   * ô giữa bục sẽ bị chính DJ chiếm.
+   */
+  getPodiumDancers(): Dancer[] {
+    return Array.from(this.dancers.values())
+      .filter((d) => d.id !== this.currentDjId && (d.points || 0) > 0)
+      .sort((a, b) => (b.points || 0) - (a.points || 0))
+      .slice(0, TOP_PODIUM_SLOTS);
   }
 
   jump(id: string) {
@@ -304,31 +456,23 @@ export class DiscoEngine {
     this.triggerFlash(0.6);
   }
 
-  setDj(id: string) {
-    // Revoke old DJ
-    const dancersArray = Array.from(this.dancers.values());
-    for (const dancer of dancersArray) {
-      if (dancer.id !== id) {
-        if (dancer.isDj) {
-          dancer.isDj = false;
-          // Fall back to ground
-          dancer.vy = 0;
-        }
-      }
-    }
+  /**
+   * Đánh dấu người dẫn đầu bảng quà.
+   *
+   * Không đụng tới `isDj`: ghế DJ thuộc về DJ LiveNova vĩnh viễn. Người này chỉ
+   * được đưa lên ô giữa bục Top 3 và phóng to một chút cho dễ thấy.
+   */
+  setTop1(id: string) {
+    const dancer = this.dancers.get(id);
+    if (!dancer) return;
 
-    const newDj = this.dancers.get(id);
-    if (newDj) {
-      newDj.isDj = true;
-      this.currentDjId = newDj.id;
-      newDj.targetScale = 1.6;
-      // Spawn fireworks for the new DJ
-      this.triggerFirework(0.3, 0.3);
-      this.triggerFirework(0.5, 0.2);
-      this.triggerFirework(0.7, 0.3);
-      this.zoomOn(id, 5000);
-      this.triggerFlash(1.0);
-    }
+    this.currentTop1Id = id;
+    dancer.targetScale = 1.6;
+    this.triggerFirework(0.3, 0.3);
+    this.triggerFirework(0.5, 0.2);
+    this.triggerFirework(0.7, 0.3);
+    this.zoomOn(id, 5000);
+    this.triggerFlash(1.0);
   }
 
   zoomOn(id: string, durationMs = 3500) {
@@ -362,7 +506,7 @@ export class DiscoEngine {
 
   triggerFirework(x?: number, y?: number) {
     this.fireworks.push({
-      id: Math.random().toString(36).substr(2, 9),
+      id: Math.random().toString(36).substring(2, 11),
       x: x !== undefined ? x : Math.random() * 0.8 + 0.1,
       y: y !== undefined ? y : Math.random() * 0.5 + 0.1, // upper half
       createdAt: Date.now()
@@ -372,33 +516,84 @@ export class DiscoEngine {
   public currentShotType: 'WIDE_ORBIT' | 'SPOTLIGHT_ZOOM' | 'CRANE_SWOOP' | 'DJ_POV' = 'WIDE_ORBIT';
   public isAutoDirectorEnabled: boolean = true;
   private nextCinematicShotTime: number = 0;
-  private spotlightTargetId: string | null = null;
+  public spotlightTargetId: string | null = null;
   private shotEndTime: number = 0;
 
-  triggerDjPov(durationMs = 9000) {
+  triggerDjPov(durationMs = 9000, priority = 2) {
+    const now = Date.now();
+    if (now < this.cameraLockUntil && priority < this.cameraPriority) {
+      return;
+    }
     this.currentShotType = 'DJ_POV';
-    this.shotEndTime = Date.now() + durationMs;
-    this.nextCinematicShotTime = Date.now() + durationMs + 6000;
+    this.isDjPovFirstPerson = true;
+    this.cameraPriority = priority;
+    this.cameraLockUntil = now + durationMs;
+    this.shotEndTime = now + durationMs;
+    this.nextCinematicShotTime = now + durationMs + 6000;
   }
 
-  triggerSpotlightZoom(durationMs = 5000, targetId?: string) {
+  triggerSpotlightZoom(durationMs = 7000, targetId?: string, priority = 1) {
+    const now = Date.now();
+    // If a higher priority lock is currently active (e.g. Gift priority 2 vs Join priority 1), ignore lower priority request
+    if (now < this.cameraLockUntil && priority < this.cameraPriority) {
+      return;
+    }
+
     this.currentShotType = 'SPOTLIGHT_ZOOM';
+    this.isDjPovFirstPerson = false;
+    this.cameraPriority = priority;
+    this.cameraLockUntil = now + durationMs;
+
     const dancersArray = Array.from(this.dancers.values());
     this.spotlightTargetId = targetId || (dancersArray.length > 0 ? dancersArray[Math.floor(Math.random() * dancersArray.length)].id : null);
-    this.shotEndTime = Date.now() + durationMs;
-    this.nextCinematicShotTime = Date.now() + durationMs + 6000;
+    if (this.spotlightTargetId) {
+      this.camera.lockedOnId = this.spotlightTargetId;
+      this.camera.lockTimeout = now + durationMs;
+    }
+    this.shotEndTime = now + durationMs;
+    this.nextCinematicShotTime = now + durationMs + 30000; // 30 seconds interval per random focus
   }
 
-  triggerCraneSwoop(durationMs = 6000) {
+  triggerCraneSwoop(durationMs = 6000, priority = 0) {
+    const now = Date.now();
+    if (now < this.cameraLockUntil && priority < this.cameraPriority) return;
     this.currentShotType = 'CRANE_SWOOP';
-    this.shotEndTime = Date.now() + durationMs;
-    this.nextCinematicShotTime = Date.now() + durationMs + 6000;
+    this.isDjPovFirstPerson = false;
+    this.cameraPriority = priority;
+    this.cameraLockUntil = now + durationMs;
+    this.shotEndTime = now + durationMs;
+    this.nextCinematicShotTime = now + durationMs + 6000;
   }
 
-  triggerWideOrbit(durationMs = 8000) {
+  triggerWideOrbit(durationMs = 8000, priority = 0) {
+    const now = Date.now();
+    if (now < this.cameraLockUntil && priority < this.cameraPriority) return;
     this.currentShotType = 'WIDE_ORBIT';
-    this.shotEndTime = Date.now() + durationMs;
-    this.nextCinematicShotTime = Date.now() + durationMs + 6000;
+    this.isDjPovFirstPerson = false;
+    this.cameraPriority = priority;
+    this.cameraLockUntil = now + durationMs;
+    this.shotEndTime = now + durationMs;
+    this.nextCinematicShotTime = now + durationMs + 6000;
+  }
+
+  triggerSmokeEffect() {
+    this.smokeEffectActive = true;
+    this.smokeEffectStartTime = Date.now();
+  }
+
+  triggerEffect(type: 'confetti' | 'strobe' | 'firework_burst' | 'smoke_blast' | 'laser_show') {
+    let duration = 3000;
+    if (type === 'confetti') duration = 12000; // 12 seconds long confetti rainfall
+    else if (type === 'smoke_blast') duration = 5000;
+    else if (type === 'firework_burst') duration = 3500;
+    else if (type === 'strobe') duration = 6000;
+    else if (type === 'laser_show') duration = 8000;
+    
+    this.activeEffects.push({
+      type,
+      startTime: Date.now(),
+      duration
+    });
   }
 
   toggleAutoDirector(enabled?: boolean) {
@@ -413,6 +608,21 @@ export class DiscoEngine {
     const GRAVITY = 2.5;
     const FLOOR = 1.0;
     const BOUNCE = -0.4;
+
+    // Process gifts
+    if (this.isProcessingGift && now > this.giftProcessEndTime) {
+      this.isProcessingGift = false;
+      this.currentGiftEvent = null;
+      this.processNextGift();
+    }
+
+    // Process smoke effect
+    if (this.smokeEffectActive && now > this.smokeEffectStartTime + this.smokeEffectDuration) {
+      this.smokeEffectActive = false;
+    }
+
+    // Process active effects
+    this.activeEffects = this.activeEffects.filter(e => now < e.startTime + e.duration);
 
     // Decay flash intensity
     if (this.flashIntensity > 0) {
@@ -466,16 +676,17 @@ export class DiscoEngine {
       // Lerp scale
       dancer.scale += (dancer.targetScale - dancer.scale) * 8 * dt;
 
-      // Dance bobbing
+      // Dance bobbing & smooth movement
       if (dancer.state === 'dancing' && dancer.vy === 0) {
-        dancer.danceOffset += dt * Math.PI * 5; 
-        // Random autonomous hops for energetic club atmosphere
-        if (Math.random() < 0.005) {
-          dancer.vy = -(0.5 + Math.random() * 0.5);
+        dancer.vx *= 0.97; // Smooth friction
+
+        // Occasional energetic hop
+        if (Math.random() < 0.001) {
+          dancer.vy = -(0.4 + Math.random() * 0.3);
           dancer.state = 'jumping';
         }
-        if (Math.random() < 0.01) {
-          dancer.vx = (Math.random() - 0.5) * 0.12;
+        if (Math.random() < 0.002) {
+          dancer.vx = (Math.random() - 0.5) * 0.05;
         }
       }
     }
@@ -496,18 +707,12 @@ export class DiscoEngine {
     } else {
       this.camera.lockedOnId = null;
 
-      // Cycle cinematic shots automatically like real concert broadcast
+      // Cycle cinematic shots automatically: Focus random dancer once every 30 seconds
       if (this.isAutoDirectorEnabled && now > this.nextCinematicShotTime) {
-        const shotRoll = Math.random();
-        if (shotRoll < 0.28 && dancersArray.length > 0) {
-          this.triggerSpotlightZoom(4500);
-        } else if (shotRoll < 0.52) {
-          // View góc nhìn của DJ nhìn xuống khán giả
-          this.triggerDjPov(7000);
-        } else if (shotRoll < 0.76) {
-          this.triggerCraneSwoop(5000);
+        if (dancersArray.length > 0) {
+          this.triggerSpotlightZoom(7000);
         } else {
-          this.triggerWideOrbit(8000);
+          this.nextCinematicShotTime = now + 30000;
         }
       }
 
@@ -537,6 +742,9 @@ export class DiscoEngine {
         this.camera.targetY = 0.48 + Math.sin(cranePhase * Math.PI) * 0.08;
         this.camera.targetScale = 1.25 + Math.sin(cranePhase * Math.PI) * 0.15;
       } else {
+        if (this.currentShotType === 'DJ_POV') {
+          this.isDjPovFirstPerson = false;
+        }
         // Continuous smooth 3D slow orbital sweep (like a real concert broadcast)
         this.currentShotType = 'WIDE_ORBIT';
         this.camera.targetYaw += dt * 0.12; // slow, gentle continuous orbit
@@ -557,5 +765,24 @@ export class DiscoEngine {
 
     // Clean up old fireworks
     this.fireworks = this.fireworks.filter(f => now - f.createdAt < 2000);
+  }
+}
+
+export function speakMessage(text: string) {
+  if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+    try {
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.rate = 1.05;
+      utterance.pitch = 1.0;
+      const voices = window.speechSynthesis.getVoices();
+      const viVoice = voices.find((v) => v.lang.includes('vi') || v.lang.includes('VI'));
+      if (viVoice) {
+        utterance.voice = viVoice;
+      }
+      window.speechSynthesis.speak(utterance);
+    } catch (e) {
+      console.warn('Speech synthesis error:', e);
+    }
   }
 }

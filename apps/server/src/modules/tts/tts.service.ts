@@ -292,6 +292,31 @@ export class TtsService {
     };
   }
 
+  /**
+   * Cài đặt giọng đọc, tạo mặc định nếu chưa có.
+   *
+   * Bản ghi được tạo lúc đăng ký, nhưng tài khoản có từ trước khi có bước đó
+   * thì không có — `upsert` để giao diện không phải xử lý trường hợp thiếu.
+   */
+  async getSettings(userId: string) {
+    return this.prisma.ttsSettings.upsert({
+      where: { userId },
+      create: { userId },
+      update: {},
+    });
+  }
+
+  async updateSettings(
+    userId: string,
+    patch: { voiceId?: string; rate?: number; pitch?: number; volume?: number },
+  ) {
+    return this.prisma.ttsSettings.upsert({
+      where: { userId },
+      create: { userId, ...patch },
+      update: patch,
+    });
+  }
+
   /** DR-03 housekeeping. */
   async pruneExpiredCache(): Promise<number> {
     const result = await this.prisma.ttsCache.deleteMany({
