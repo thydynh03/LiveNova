@@ -18,7 +18,7 @@ const MAX_VISIBLE_BRICKS = 10;
 
 interface BrickItem {
   id: string;
-  stackIndex: number;
+  globalIndex: number;
   falling: boolean;
   donorName: string;
   donorAvatar?: string;
@@ -105,10 +105,10 @@ const BLUE_PALETTE = [
 ];
 
 // Hàm sóng Ping-Pong: Đậm -> Nhạt -> Đậm -> Nhạt theo độ cao từng tầng gạch
-function getPaletteColor(palette: typeof RED_PALETTE | typeof BLUE_PALETTE, index: number) {
+function getPaletteColor(palette: typeof RED_PALETTE | typeof BLUE_PALETTE, globalIndex: number) {
   const n = palette.length;
   const period = 2 * (n - 1);
-  const mod = index % period;
+  const mod = globalIndex % period;
   const idx = mod < n ? mod : period - mod;
   return palette[idx];
 }
@@ -117,20 +117,19 @@ function IsometricTower({ character, bricks }: IsometricTowerProps) {
   const isRonaldo = character === 'ronaldo';
   const palette = isRonaldo ? RED_PALETTE : BLUE_PALETTE;
   
-  // Tọa độ hình học Trụ Vuông 3D chuẩn theo ảnh mẫu
+  // Tọa độ hình học TRỤ VUÔNG 100% CHUẨN (4 cạnh nóc bằng nhau = 47.93px)
   const SLAB_H = 17; // Chiều cao mỗi phiến gạch
-  const BASE_Y = 245; // Đáy tháp
-  const LX = 10; // Góc trái
-  const TX = 44; // Đỉnh nóc
-  const CX = 64; // Gờ giữa
-  const RX = 98; // Góc phải
-  const DY_L = 12; // Độ dốc mặt trước trái (10 -> 64: dX=54, dY=12, góc ~12.5°)
-  const DY_R = 16; // Độ dốc mặt hông phải (64 -> 98: dX=34, dY=-16)
+  const BASE_Y = 240; // Đáy tháp
+  const LX = 12; // Góc trái
+  const TX = 56; // Đỉnh nóc
+  const CX = 56; // Gờ giữa
+  const RX = 100; // Góc phải
+  const DY = 19; // Độ dốc isometric 23.35° (dX = 44, dY = 19)
   
   return (
     <div className="iso-tower-wrap">
       <svg 
-        viewBox="0 0 108 280" 
+        viewBox="0 0 112 280" 
         className="iso-tower-svg"
       >
         <defs>
@@ -144,19 +143,19 @@ function IsometricTower({ character, bricks }: IsometricTowerProps) {
           {bricks.length === 0 && (
             <g opacity="0.35">
               <polygon 
-                points={`${TX},${BASE_Y + 4} ${RX},${BASE_Y + 16} ${CX},${BASE_Y + 32} ${LX},${BASE_Y + 20}`}
+                points={`${TX},${BASE_Y} ${RX},${BASE_Y + DY} ${CX},${BASE_Y + 2 * DY} ${LX},${BASE_Y + DY}`}
                 fill={palette[0].top}
                 stroke={palette[0].stroke}
                 strokeWidth="1.2"
               />
               <polygon 
-                points={`${LX},${BASE_Y + 20} ${CX},${BASE_Y + 32} ${CX},${BASE_Y + 32 + SLAB_H} ${LX},${BASE_Y + 20 + SLAB_H}`}
+                points={`${LX},${BASE_Y + DY} ${CX},${BASE_Y + 2 * DY} ${CX},${BASE_Y + 2 * DY + SLAB_H} ${LX},${BASE_Y + DY + SLAB_H}`}
                 fill={palette[0].base}
                 stroke="#000"
                 strokeWidth="1"
               />
               <polygon 
-                points={`${CX},${BASE_Y + 32} ${RX},${BASE_Y + 16} ${RX},${BASE_Y + 16 + SLAB_H} ${CX},${BASE_Y + 32 + SLAB_H}`}
+                points={`${CX},${BASE_Y + 2 * DY} ${RX},${BASE_Y + DY} ${RX},${BASE_Y + DY + SLAB_H} ${CX},${BASE_Y + 2 * DY + SLAB_H}`}
                 fill={palette[0].shadow}
                 stroke="#000"
                 strokeWidth="1"
@@ -169,27 +168,27 @@ function IsometricTower({ character, bricks }: IsometricTowerProps) {
             const y = BASE_Y - index * SLAB_H;
             const isTop = index === bricks.length - 1;
             
-            // Lấy màu sắc từ bảng màu theo quy luật Ping-Pong (Đậm -> Nhạt -> Đậm -> Nhạt)
-            const item = getPaletteColor(palette, index);
+            // Lấy màu sắc dựa trên globalIndex của viên gạch để màu biến thiên sóng liên tục
+            const item = getPaletteColor(palette, br.globalIndex);
             const seamColor = isRonaldo ? 'rgba(30,0,5,0.85)' : 'rgba(0,14,30,0.85)';
 
             return (
               <g 
                 key={br.id} 
                 className={br.falling ? "iso-slab-falling" : ""}
-                style={{ transformOrigin: `${CX}px ${y + 32}px` }}
+                style={{ transformOrigin: `${CX}px ${y + 2 * DY}px` }}
               >
-                {/* 1. Mặt Trước - Trái (Hình bình hành nghiêng dốc xuống gờ giữa) */}
+                {/* 1. Mặt Trước - Trái (Hình bình hành vuông dốc xuống gờ giữa) */}
                 <polygon
-                  points={`${LX},${y + 20} ${CX},${y + 32} ${CX},${y + 32 + SLAB_H} ${LX},${y + 20 + SLAB_H}`}
+                  points={`${LX},${y + DY} ${CX},${y + 2 * DY} ${CX},${y + 2 * DY + SLAB_H} ${LX},${y + DY + SLAB_H}`}
                   fill={item.base}
                   stroke={seamColor}
                   strokeWidth="1"
                 />
 
-                {/* 2. Mặt Hông - Phải (Hình bình hành nghiêng dốc lên sau, bóng tối) */}
+                {/* 2. Mặt Hông - Phải (Hình bình hành vuông dốc lên sau, bóng tối) */}
                 <polygon
-                  points={`${CX},${y + 32} ${RX},${y + 16} ${RX},${y + 16 + SLAB_H} ${CX},${y + 32 + SLAB_H}`}
+                  points={`${CX},${y + 2 * DY} ${RX},${y + DY} ${RX},${y + DY + SLAB_H} ${CX},${y + 2 * DY + SLAB_H}`}
                   fill={item.shadow}
                   stroke={seamColor}
                   strokeWidth="1"
@@ -197,46 +196,46 @@ function IsometricTower({ character, bricks }: IsometricTowerProps) {
 
                 {/* 3. Đường gờ giữa (Center Ridge Line) */}
                 <line
-                  x1={CX} y1={y + 32}
-                  x2={CX} y2={y + 32 + SLAB_H}
+                  x1={CX} y1={y + 2 * DY}
+                  x2={CX} y2={y + 2 * DY + SLAB_H}
                   stroke={item.stroke}
                   strokeWidth="1"
                 />
 
                 {/* 4. Mép trái (Left Edge Highlight) */}
                 <line
-                  x1={LX} y1={y + 20}
-                  x2={LX} y2={y + 20 + SLAB_H}
+                  x1={LX} y1={y + DY}
+                  x2={LX} y2={y + DY + SLAB_H}
                   stroke={item.stroke}
                   strokeWidth="1"
                 />
 
-                {/* 5. Nóc Kim Cương Isometric (Hiển thị cho tầng trên cùng, màu khớp với tầng trên cùng) */}
+                {/* 5. Nóc Kim Cương Isometric (Hiển thị cho tầng trên cùng, 4 cạnh vuông đều) */}
                 {isTop && (
                   <polygon
-                    points={`${TX},${y + 4} ${RX},${y + 16} ${CX},${y + 32} ${LX},${y + 20}`}
+                    points={`${TX},${y} ${RX},${y + DY} ${CX},${y + 2 * DY} ${LX},${y + DY}`}
                     fill={item.top}
                     stroke={item.stroke}
                     strokeWidth="1.6"
                   />
                 )}
 
-                {/* Tên người tặng đặt căn giữa chuẩn xác trên mặt trước gạch */}
+                {/* Tên người tặng đặt căn giữa chuẩn xác bên trong mặt trước gạch */}
                 {br.donorName && (
-                  <g transform={`translate(37, ${y + 26 + SLAB_H / 2 + 2}) rotate(12.53)`}>
+                  <g transform={`translate(34, ${y + DY + DY / 2 + SLAB_H / 2 + 1}) rotate(23.35)`}>
                     <text
                       x="0"
                       y="0"
                       textAnchor="middle"
                       fill="#ffffff"
-                      fontSize="7.8"
+                      fontSize="7.2"
                       fontWeight="900"
                       fontFamily="'Montserrat', 'Segoe UI', sans-serif"
                       style={{
                         filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.95))',
                       }}
                     >
-                      {br.donorName.length > 9 ? br.donorName.slice(0, 8) + '…' : br.donorName}
+                      {br.donorName.length > 8 ? br.donorName.slice(0, 7) + '…' : br.donorName}
                     </text>
                   </g>
                 )}
@@ -352,19 +351,16 @@ function BattleOverlayContent() {
         const id = `b${brickIdRef.current++}`;
         playBrickThud(color);
 
-        setBricks(prev => {
-          const trimmed = prev.length >= MAX_VISIBLE_BRICKS ? prev.slice(1) : prev;
-          return [...trimmed, { id, stackIndex: prev.length, falling: true, donorName, donorAvatar }];
-        });
-
-        setTimeout(() => {
-          setBricks(prev => prev.map(br => br.id === id ? { ...br, falling: false } : br));
-          setShake(true);
-          setTimeout(() => setShake(false), 250);
-        }, BRICK_FALL_MS);
-
         setCount(prev => {
           const next = prev + 1;
+          const globalIndex = next - 1; // 0, 1, 2, ... thứ tự số gạch tích lũy để đổi màu sóng liên tục
+
+          setBricks(prevBricks => {
+            // Khi đủ 10 viên gạch, gạch cũ nhất ở đáy (index 0) bị đẩy/đè xuống, gạch mới luôn ở trên đỉnh
+            const trimmed = prevBricks.length >= MAX_VISIBLE_BRICKS ? prevBricks.slice(1) : prevBricks;
+            return [...trimmed, { id, globalIndex, falling: true, donorName, donorAvatar }];
+          });
+
           if (next >= goal) {
             setTimeout(() => {
               setPhase(character === 'ronaldo' ? 'ronaldo_wins' : 'messi_wins');
@@ -373,6 +369,12 @@ function BattleOverlayContent() {
           }
           return next;
         });
+
+        setTimeout(() => {
+          setBricks(prev => prev.map(br => br.id === id ? { ...br, falling: false } : br));
+          setShake(true);
+          setTimeout(() => setShake(false), 250);
+        }, BRICK_FALL_MS);
       }, delay);
     }
     setTimeout(() => { pendingRef.current = Math.max(0, pendingRef.current - count); },
