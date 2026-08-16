@@ -1,4 +1,4 @@
-﻿'use client';
+﻿﻿'use client';
 
 import React, {
   useCallback,
@@ -117,19 +117,19 @@ function IsometricTower({ character, bricks }: IsometricTowerProps) {
   const isRonaldo = character === 'ronaldo';
   const palette = isRonaldo ? RED_PALETTE : BLUE_PALETTE;
   
-  // Tọa độ hình học TRỤ VUÔNG 100% CHUẨN (4 cạnh nóc bằng nhau = 47.93px)
-  const SLAB_H = 17; // Chiều cao mỗi phiến gạch
-  const BASE_Y = 240; // Đáy tháp
-  const LX = 12; // Góc trái
-  const TX = 56; // Đỉnh nóc
-  const CX = 56; // Gờ giữa
-  const RX = 100; // Góc phải
-  const DY = 19; // Độ dốc isometric 23.35° (dX = 44, dY = 19)
+  // Right-tilted isometric prism: left face wide, right face narrow, slabs flattened
+  const SLAB_H = 12; // Xẹp gạch mỏng lại
+  const BASE_Y = 230; // Đáy tháp
+  const LX = 8;  // Góc trái
+  const TX = 35; // Đỉnh nóc (lệch phải)
+  const CX = 76; // Gờ giữa - lệch phải: mặt trái chiếm ~65%, mặt phải ~35%
+  const RX = 108; // Góc phải
+  const DY = 14; // Độ dốc isometric (~11.6° bên trái, ~23.6° bên phải)
   
   return (
     <div className="iso-tower-wrap">
       <svg 
-        viewBox="0 0 112 280" 
+        viewBox="0 0 116 280" 
         className="iso-tower-svg"
       >
         <defs>
@@ -222,7 +222,7 @@ function IsometricTower({ character, bricks }: IsometricTowerProps) {
 
                 {/* Tên người tặng đặt căn giữa chuẩn xác bên trong mặt trước gạch */}
                 {br.donorName && (
-                  <g transform={`translate(34, ${y + DY + DY / 2 + SLAB_H / 2 + 1}) rotate(23.35)`}>
+                  <g transform={`translate(42, ${y + DY + DY / 2 + SLAB_H / 2}) rotate(11.6)`}>
                     <text
                       x="0"
                       y="0"
@@ -844,7 +844,7 @@ function BattleOverlayContent() {
         {/* Layer 4: Interactive Click Zones & Bricks with Avatars */}
         <div className="interactive-arena">
           {/* Left Zone (Ronaldo) */}
-          <div className="panel-zone r" onClick={() => addBricks('ronaldo', 1, '@Fan_CR7')} title={`Bấm để test +1 gạch ${leftName}`}>
+          <div className="panel-zone r" title="Phe Ronaldo - nhấn Q để test">
             <div className={`iso-tower-wrap${shakeLeft ? ' col-shake' : ''}`} style={{ bottom: `${100 - brickY}%` }}>
               <IsometricTower character="ronaldo" bricks={ronaldoBricks} score={ronaldoCount} goal={goal} />
             </div>
@@ -857,7 +857,7 @@ function BattleOverlayContent() {
           <div className="divider-line"/>
 
           {/* Right Zone (Messi) */}
-          <div className="panel-zone m" onClick={() => addBricks('messi', 1, '@Fan_M10')} title={`Bấm để test +1 gạch ${rightName}`}>
+          <div className="panel-zone m" title="Phe Messi - nhấn W để test">
             <div className={`iso-tower-wrap${shakeRight ? ' col-shake' : ''}`} style={{ bottom: `${100 - brickY}%` }}>
               <IsometricTower character="messi" bricks={messiBricks} score={messiCount} goal={goal} />
             </div>
