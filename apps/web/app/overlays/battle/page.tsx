@@ -77,35 +77,35 @@ interface IsometricTowerProps {
   goal: number;
 }
 
-// Bảng màu REDS chính xác từ hình mẫu (DarkRed -> LightSalmon)
+// Bảng màu REDS chuẩn từ hình mẫu (DarkRed -> LightSalmon)
 const RED_PALETTE = [
-  { base: '#8B0000', shadow: '#540000', highlight: '#b81414', stroke: '#ff6666' }, // DarkRed (139,0,0)
-  { base: '#B22222', shadow: '#701111', highlight: '#d93636', stroke: '#ff7a7a' }, // FireBrick (178,34,34)
-  { base: '#DC143C', shadow: '#8c0a22', highlight: '#f03a5e', stroke: '#ff8da2' }, // Crimson (220,20,60)
-  { base: '#FF0000', shadow: '#a60000', highlight: '#ff4d4d', stroke: '#ffa6a6' }, // Red (255,0,0)
-  { base: '#CD5C5C', shadow: '#823434', highlight: '#df7e7e', stroke: '#ffc2c2' }, // IndianRed (205,92,92)
-  { base: '#FA8072', shadow: '#a64a3f', highlight: '#fca297', stroke: '#ffe0db' }, // Salmon (250,128,114)
-  { base: '#E9967A', shadow: '#96523d', highlight: '#f1b4a0', stroke: '#ffded4' }, // DarkSalmon (233,150,122)
-  { base: '#F08080', shadow: '#9c4545', highlight: '#f7abab', stroke: '#ffe6e6' }, // LightCoral (240,128,128)
-  { base: '#FFA07A', shadow: '#ab5737', highlight: '#ffbea6', stroke: '#ffffff' }, // LightSalmon (255,160,122)
+  { base: '#8B0000', shadow: '#4d0000', top: '#b81414', stroke: '#ff6666' }, // 0 DarkRed (139,0,0)
+  { base: '#B22222', shadow: '#661111', top: '#d93636', stroke: '#ff7a7a' }, // 1 FireBrick (178,34,34)
+  { base: '#DC143C', shadow: '#800820', top: '#f03a5e', stroke: '#ff8da2' }, // 2 Crimson (220,20,60)
+  { base: '#FF0000', shadow: '#990000', top: '#ff4d4d', stroke: '#ffa6a6' }, // 3 Red (255,0,0)
+  { base: '#CD5C5C', shadow: '#782d2d', top: '#df7e7e', stroke: '#ffc2c2' }, // 4 IndianRed (205,92,92)
+  { base: '#FA8072', shadow: '#944136', top: '#fca297', stroke: '#ffe0db' }, // 5 Salmon (250,128,114)
+  { base: '#E9967A', shadow: '#8a4733', top: '#f1b4a0', stroke: '#ffded4' }, // 6 DarkSalmon (233,150,122)
+  { base: '#F08080', shadow: '#913b3b', top: '#f7abab', stroke: '#ffe6e6' }, // 7 LightCoral (240,128,128)
+  { base: '#FFA07A', shadow: '#9e4c2e', top: '#ffbea6', stroke: '#ffffff' }, // 8 LightSalmon (255,160,122)
 ];
 
-// Bảng màu BLUES chính xác từ hình mẫu (Navy -> IceBlue)
+// Bảng màu BLUES chuẩn từ hình mẫu (Navy -> IceBlue)
 const BLUE_PALETTE = [
-  { base: '#023468', shadow: '#011c38', highlight: '#0455a8', stroke: '#4da6ff' }, // #023468
-  { base: '#005B9A', shadow: '#003357', highlight: '#007ece', stroke: '#66c2ff' }, // #005B9A
-  { base: '#006699', shadow: '#003957', highlight: '#008ecc', stroke: '#66ccff' }, // #006699
-  { base: '#006994', shadow: '#003b54', highlight: '#0094cf', stroke: '#80d4ff' }, // #006994
-  { base: '#008080', shadow: '#004747', highlight: '#00b3b3', stroke: '#80ffff' }, // #008080
-  { base: '#08BBB6', shadow: '#056b68', highlight: '#24e3de', stroke: '#a6ffff' }, // #08BBB6
-  { base: '#40E0D0', shadow: '#1f8278', highlight: '#73ede1', stroke: '#c2fff7' }, // #40E0D0
-  { base: '#82CAFA', shadow: '#437699', highlight: '#b0dffc', stroke: '#e0f3ff' }, // #82CAFA
-  { base: '#89D0F0', shadow: '#467d96', highlight: '#b5e3f7', stroke: '#e8f7ff' }, // #89D0F0
-  { base: '#AED8E6', shadow: '#5c808c', highlight: '#d0ecf5', stroke: '#ffffff' }, // #AED8E6
+  { base: '#023468', shadow: '#011933', top: '#0455a8', stroke: '#4da6ff' }, // 0 Navy Deep
+  { base: '#005B9A', shadow: '#002b4a', top: '#007ece', stroke: '#66c2ff' }, // 1 Ocean Blue
+  { base: '#006699', shadow: '#00304a', top: '#008ecc', stroke: '#66ccff' }, // 2 Sapphire
+  { base: '#006994', shadow: '#003347', top: '#0094cf', stroke: '#80d4ff' }, // 3 Classic Blue
+  { base: '#008080', shadow: '#003d3d', top: '#00b3b3', stroke: '#80ffff' }, // 4 Dark Teal
+  { base: '#08BBB6', shadow: '#045754', top: '#24e3de', stroke: '#a6ffff' }, // 5 Turquoise
+  { base: '#40E0D0', shadow: '#1a6e65', top: '#73ede1', stroke: '#c2fff7' }, // 6 Aqua
+  { base: '#82CAFA', shadow: '#3b6887', top: '#b0dffc', stroke: '#e0f3ff' }, // 7 Sky Blue
+  { base: '#89D0F0', shadow: '#3b6f87', top: '#b5e3f7', stroke: '#e8f7ff' }, // 8 Baby Blue
+  { base: '#AED8E6', shadow: '#4d6c78', top: '#d0ecf5', stroke: '#ffffff' }, // 9 Soft Ice Blue
 ];
 
-// Hàm sóng Ping-Pong (Đậm -> Nhạt -> Đậm -> Nhạt theo độ cao)
-function getPaletteColor(palette: typeof RED_PALETTE, index: number) {
+// Hàm sóng Ping-Pong: Đậm -> Nhạt -> Đậm -> Nhạt theo độ cao từng tầng gạch
+function getPaletteColor(palette: typeof RED_PALETTE | typeof BLUE_PALETTE, index: number) {
   const n = palette.length;
   const period = 2 * (n - 1);
   const mod = index % period;
@@ -117,24 +117,25 @@ function IsometricTower({ character, bricks }: IsometricTowerProps) {
   const isRonaldo = character === 'ronaldo';
   const palette = isRonaldo ? RED_PALETTE : BLUE_PALETTE;
   
-  // Góc nghiêng bẻ sang phải nhiều hơn (68% mặt trước trái, 32% mặt hông phải)
-  const SLAB_H = 19; // Chiều cao mỗi phiến gạch
-  const BASE_Y = 265; // Đáy tháp
-  const LX = 8; // Góc trái (8)
-  const CX = 86; // Gờ giữa lệch sang phải (dX = +78)
-  const RX = 122; // Góc phải (dX = +36)
-  const TX = 44; // Đỉnh nóc (44)
-  const DY = 19; // Độ dốc isometric
+  // Tọa độ hình học Trụ Vuông 3D chuẩn theo ảnh mẫu
+  const SLAB_H = 17; // Chiều cao mỗi phiến gạch
+  const BASE_Y = 245; // Đáy tháp
+  const LX = 10; // Góc trái
+  const TX = 44; // Đỉnh nóc
+  const CX = 64; // Gờ giữa
+  const RX = 98; // Góc phải
+  const DY_L = 12; // Độ dốc mặt trước trái (10 -> 64: dX=54, dY=12, góc ~12.5°)
+  const DY_R = 16; // Độ dốc mặt hông phải (64 -> 98: dX=34, dY=-16)
   
   return (
     <div className="iso-tower-wrap">
       <svg 
-        viewBox="0 0 130 300" 
+        viewBox="0 0 108 280" 
         className="iso-tower-svg"
       >
         <defs>
-          <filter id="isoTowerShadow" x="-25%" y="-25%" width="150%" height="150%">
-            <feDropShadow dx="2" dy="8" stdDeviation="6" floodColor="#000000" floodOpacity="0.85" />
+          <filter id="isoTowerShadow" x="-20%" y="-20%" width="140%" height="140%">
+            <feDropShadow dx="2" dy="6" stdDeviation="5" floodColor="#000000" floodOpacity="0.85" />
           </filter>
         </defs>
 
@@ -143,19 +144,19 @@ function IsometricTower({ character, bricks }: IsometricTowerProps) {
           {bricks.length === 0 && (
             <g opacity="0.35">
               <polygon 
-                points={`${TX},${BASE_Y - DY} ${RX},${BASE_Y} ${CX},${BASE_Y + DY} ${LX},${BASE_Y}`}
-                fill={palette[0].highlight}
+                points={`${TX},${BASE_Y + 4} ${RX},${BASE_Y + 16} ${CX},${BASE_Y + 32} ${LX},${BASE_Y + 20}`}
+                fill={palette[0].top}
                 stroke={palette[0].stroke}
-                strokeWidth="1.5"
+                strokeWidth="1.2"
               />
               <polygon 
-                points={`${LX},${BASE_Y} ${CX},${BASE_Y + DY} ${CX},${BASE_Y + DY + SLAB_H} ${LX},${BASE_Y + SLAB_H}`}
+                points={`${LX},${BASE_Y + 20} ${CX},${BASE_Y + 32} ${CX},${BASE_Y + 32 + SLAB_H} ${LX},${BASE_Y + 20 + SLAB_H}`}
                 fill={palette[0].base}
                 stroke="#000"
                 strokeWidth="1"
               />
               <polygon 
-                points={`${CX},${BASE_Y + DY} ${RX},${BASE_Y} ${RX},${BASE_Y + SLAB_H} ${CX},${BASE_Y + DY + SLAB_H}`}
+                points={`${CX},${BASE_Y + 32} ${RX},${BASE_Y + 16} ${RX},${BASE_Y + 16 + SLAB_H} ${CX},${BASE_Y + 32 + SLAB_H}`}
                 fill={palette[0].shadow}
                 stroke="#000"
                 strokeWidth="1"
@@ -163,78 +164,79 @@ function IsometricTower({ character, bricks }: IsometricTowerProps) {
             </g>
           )}
 
-          {/* Các tầng gạch xếp chồng theo độ cao với biến thiên màu sắc lặp lại */}
+          {/* Các tầng gạch xếp chồng theo độ cao với sóng màu Đậm -> Nhạt -> Đậm -> Nhạt */}
           {bricks.map((br, index) => {
             const y = BASE_Y - index * SLAB_H;
             const isTop = index === bricks.length - 1;
             
             // Lấy màu sắc từ bảng màu theo quy luật Ping-Pong (Đậm -> Nhạt -> Đậm -> Nhạt)
             const item = getPaletteColor(palette, index);
-            const seamColor = isRonaldo ? 'rgba(40,0,5,0.75)' : 'rgba(0,18,36,0.75)';
+            const seamColor = isRonaldo ? 'rgba(30,0,5,0.85)' : 'rgba(0,14,30,0.85)';
 
             return (
               <g 
                 key={br.id} 
                 className={br.falling ? "iso-slab-falling" : ""}
-                style={{ transformOrigin: `${CX}px ${y + DY}px` }}
+                style={{ transformOrigin: `${CX}px ${y + 32}px` }}
               >
-                {/* 1. Mặt Trước - Trái (Rộng ~68%, nghiêng dốc xuống gờ giữa) */}
+                {/* 1. Mặt Trước - Trái (Hình bình hành nghiêng dốc xuống gờ giữa) */}
                 <polygon
-                  points={`${LX},${y} ${CX},${y + DY} ${CX},${y + DY + SLAB_H} ${LX},${y + SLAB_H}`}
+                  points={`${LX},${y + 20} ${CX},${y + 32} ${CX},${y + 32 + SLAB_H} ${LX},${y + 20 + SLAB_H}`}
                   fill={item.base}
                   stroke={seamColor}
-                  strokeWidth="1.2"
+                  strokeWidth="1"
                 />
 
-                {/* 2. Mặt Hông - Phải (Hẹp ~32%, nghiêng dốc lên sau, bóng tối) */}
+                {/* 2. Mặt Hông - Phải (Hình bình hành nghiêng dốc lên sau, bóng tối) */}
                 <polygon
-                  points={`${CX},${y + DY} ${RX},${y} ${RX},${y + SLAB_H} ${CX},${y + DY + SLAB_H}`}
+                  points={`${CX},${y + 32} ${RX},${y + 16} ${RX},${y + 16 + SLAB_H} ${CX},${y + 32 + SLAB_H}`}
                   fill={item.shadow}
                   stroke={seamColor}
-                  strokeWidth="1.2"
+                  strokeWidth="1"
                 />
 
-                {/* 3. Đường viền gờ giữa (Center Ridge Line) */}
+                {/* 3. Đường gờ giữa (Center Ridge Line) */}
                 <line
-                  x1={CX} y1={y + DY}
-                  x2={CX} y2={y + DY + SLAB_H}
+                  x1={CX} y1={y + 32}
+                  x2={CX} y2={y + 32 + SLAB_H}
                   stroke={item.stroke}
-                  strokeWidth="1.2"
+                  strokeWidth="1"
                 />
 
-                {/* 4. Đường viền mép trái (Left Highlight Edge) */}
+                {/* 4. Mép trái (Left Edge Highlight) */}
                 <line
-                  x1={LX} y1={y}
-                  x2={LX} y2={y + SLAB_H}
+                  x1={LX} y1={y + 20}
+                  x2={LX} y2={y + 20 + SLAB_H}
                   stroke={item.stroke}
-                  strokeWidth="1.2"
+                  strokeWidth="1"
                 />
 
-                {/* 5. Nóc Kim Cương Isometric (Hiển thị cho tầng trên cùng) */}
+                {/* 5. Nóc Kim Cương Isometric (Hiển thị cho tầng trên cùng, màu khớp với tầng trên cùng) */}
                 {isTop && (
                   <polygon
-                    points={`${TX},${y - DY} ${RX},${y} ${CX},${y + DY} ${LX},${y}`}
-                    fill={item.highlight}
+                    points={`${TX},${y + 4} ${RX},${y + 16} ${CX},${y + 32} ${LX},${y + 20}`}
+                    fill={item.top}
                     stroke={item.stroke}
-                    strokeWidth="1.8"
+                    strokeWidth="1.6"
                   />
                 )}
 
-                {/* Tên người tặng gọn gàng nghiêng theo mặt trước bên trái */}
+                {/* Tên người tặng đặt căn giữa chuẩn xác trên mặt trước gạch */}
                 {br.donorName && (
-                  <g transform={`translate(${LX + 6}, ${y + 6}) rotate(13.7)`}>
+                  <g transform={`translate(37, ${y + 26 + SLAB_H / 2 + 2}) rotate(12.53)`}>
                     <text
                       x="0"
                       y="0"
+                      textAnchor="middle"
                       fill="#ffffff"
-                      fontSize="8.5"
+                      fontSize="7.8"
                       fontWeight="900"
-                      fontFamily="'Segoe UI', sans-serif"
+                      fontFamily="'Montserrat', 'Segoe UI', sans-serif"
                       style={{
-                        filter: 'drop-shadow(0 1px 2px #000)',
+                        filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.95))',
                       }}
                     >
-                      {br.donorName.length > 10 ? br.donorName.slice(0, 9) + '…' : br.donorName}
+                      {br.donorName.length > 9 ? br.donorName.slice(0, 8) + '…' : br.donorName}
                     </text>
                   </g>
                 )}
